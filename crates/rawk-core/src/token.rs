@@ -3,9 +3,30 @@ pub enum TokenKind {
     Illegal,
     Eof,
 
-    // Delimiters
+    // One-character tokens.
     LeftCurlyBrace,
     RightCurlyBrace,
+    LeftParen,
+    RightParen,
+    LeftSquareBracket,
+    RightSquareBracket,
+    Comma,
+    Semicolon,
+    NewLine,
+    Plus,
+    Minus,
+    Asterisk,
+    Percent,
+    Caret,
+    ExclamationMark,
+    GreaterThan,
+    LessThan,
+    Pipe,
+    QuestionMark,
+    Colon,
+    Tilde,
+    DollarSign,
+    Equal,
 }
 
 #[derive(Debug, Clone, PartialEq)]
