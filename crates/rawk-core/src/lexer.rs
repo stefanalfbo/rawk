@@ -23,11 +23,11 @@ impl<'a> Lexer<'a> {
     pub fn next_token(&mut self) -> Token {
         let token = match self.ch {
             Some(b'{') => Token {
-                kind: TokenKind::LBRACE,
+                kind: TokenKind::LeftCurlyBrace,
                 literal: "{",
             },
             Some(b'}') => Token {
-                kind: TokenKind::RBRACE,
+                kind: TokenKind::RightCurlyBrace,
                 literal: "}",
             },
             None => Token {
@@ -62,7 +62,7 @@ mod tests {
     #[test]
     fn next_lbrace_token() {
         let expected = Token {
-            kind: TokenKind::LBRACE,
+            kind: TokenKind::LeftCurlyBrace,
             literal: "{",
         };
         let input = "{";
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn next_rbrace_token() {
         let expected = Token {
-            kind: TokenKind::RBRACE,
+            kind: TokenKind::RightCurlyBrace,
             literal: "}",
         };
         let input = "}";
@@ -94,11 +94,11 @@ mod tests {
 
         let expected_tokens = vec![
             Token {
-                kind: TokenKind::LBRACE,
+                kind: TokenKind::LeftCurlyBrace,
                 literal: "{",
             },
             Token {
-                kind: TokenKind::RBRACE,
+                kind: TokenKind::RightCurlyBrace,
                 literal: "}",
             },
             Token {

@@ -4,8 +4,8 @@ pub enum TokenKind {
     Eof,
 
     // Delimiters
-    LBRACE,
-    RBRACE,
+    LeftCurlyBrace,
+    RightCurlyBrace,
 }
 
 #[derive(Debug, Clone, PartialEq)]
