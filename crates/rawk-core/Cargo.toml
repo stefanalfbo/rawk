@@ -9,7 +9,7 @@ repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 readme = "README.md"
-keywords = ["awk", "interpreter", "scripting", "text processing"]
+keywords = ["awk", "interpreter", "scripting", "text-processing"]
 categories = ["command-line-utilities", "text-processing"]
 
 [dependencies]
