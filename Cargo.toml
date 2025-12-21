@@ -1,3 +1,11 @@
 [workspace]
 members = ["crates/rawk-core", "crates/rawk"]
 resolver = "2"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.92"
+homepage = "https://github.com/stefanalfbo/rawk"
+repository = "https://github.com/stefanalfbo/rawk"
+authors = ["Stefan Alfbo <stefan.alfbo@gmail.com>"]
+license = "MIT"

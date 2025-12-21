@@ -1,7 +1,15 @@
 [package]
+publish = false
 name = "rawk"
 version = "0.1.0"
-edition = "2024"
+description = "The rawk cli, which is a AWK interpreter"
+edition = { workspace = true }
+rust-version = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
 
 [dependencies]
-rawk-core = { version = "0.1.0", path = "../rawk-core" }
+rawk-core = { version = "0.0.1", path = "../rawk-core" }
