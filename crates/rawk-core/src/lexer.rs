@@ -20,7 +20,7 @@ impl<'a> Lexer<'a> {
         lexer
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
 
         let token = match self.ch {
@@ -121,6 +121,7 @@ impl<'a> Lexer<'a> {
                 literal: "",
             },
             ch if is_ascii_alphabetic(ch) => self.read_identifier(),
+            ch if is_digit(ch) => self.read_number(),
             _ => Token {
                 kind: TokenKind::Illegal,
                 literal: "<illegal>",
@@ -141,7 +142,7 @@ impl<'a> Lexer<'a> {
         self.read_position += 1;
     }
 
-    fn read_identifier(&mut self) -> Token {
+    fn read_identifier(&mut self) -> Token<'a> {
         let position = self.position;
         while is_ascii_alphabetic(self.ch) {
             self.read_char();
@@ -149,6 +150,19 @@ impl<'a> Lexer<'a> {
         let literal = &self.input[position..self.position];
 
         return lookup_keyword(literal);
+    }
+
+    fn read_number(&mut self) -> Token<'a> {
+        let position = self.position;
+        while is_digit(self.ch) {
+            self.read_char();
+        }
+        let literal = &self.input[position..self.position];
+
+        Token {
+            kind: TokenKind::Number,
+            literal: literal,
+        }
     }
 
     fn skip_whitespace(&mut self) {
@@ -407,6 +421,36 @@ mod tests {
             Token {
                 kind: TokenKind::While,
                 literal: "while",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
+
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
+    }
+
+    #[test]
+    fn next_number_token() {
+        let input = "123 4567 890";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::Number,
+                literal: "123",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "4567",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "890",
             },
             Token {
                 kind: TokenKind::Eof,

@@ -2,6 +2,7 @@
 pub enum TokenKind {
     Illegal,
     Eof,
+    Number,
 
     // Keywords.
     Begin,
@@ -49,12 +50,12 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Token {
+pub struct Token<'a> {
     pub kind: TokenKind,
-    pub literal: &'static str,
+    pub literal: &'a str,
 }
 
-pub fn lookup_keyword(ident: &str) -> Token {
+pub fn lookup_keyword<'a>(ident: &'a str) -> Token<'a> {
     match ident {
         "BEGIN" => Token {
             kind: TokenKind::Begin,
