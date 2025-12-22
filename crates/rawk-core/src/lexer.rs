@@ -416,4 +416,55 @@ mod tests {
             assert_eq!(expected, token);
         }
     }
+
+    #[test]
+    fn is_ascii_alphabetic_lowercase() {
+        assert!(is_ascii_alphabetic(Some(b'a')));
+        assert!(is_ascii_alphabetic(Some(b'z')));
+        assert!(is_ascii_alphabetic(Some(b'm')));
+    }
+
+    #[test]
+    fn is_ascii_alphabetic_uppercase() {
+        assert!(is_ascii_alphabetic(Some(b'A')));
+        assert!(is_ascii_alphabetic(Some(b'Z')));
+        assert!(is_ascii_alphabetic(Some(b'M')));
+    }
+
+    #[test]
+    fn is_ascii_alphabetic_digits() {
+        assert!(!is_ascii_alphabetic(Some(b'0')));
+        assert!(!is_ascii_alphabetic(Some(b'5')));
+        assert!(!is_ascii_alphabetic(Some(b'9')));
+    }
+
+    #[test]
+    fn is_ascii_alphabetic_special_chars() {
+        assert!(!is_ascii_alphabetic(Some(b'!')));
+        assert!(!is_ascii_alphabetic(Some(b' ')));
+        assert!(!is_ascii_alphabetic(Some(b'{')));
+        assert!(!is_ascii_alphabetic(Some(b'=')));
+    }
+
+    #[test]
+    fn is_ascii_alphabetic_none() {
+        assert!(!is_ascii_alphabetic(None));
+    }
+
+    #[test]
+    fn is_whitespace_space() {
+        assert!(is_whitespace(Some(b' ')));
+    }
+
+    #[test]
+    fn is_whitespace_special_chars() {
+        assert!(!is_whitespace(Some(b'!')));
+        assert!(!is_whitespace(Some(b'{')));
+        assert!(!is_whitespace(Some(b'=')));
+    }
+
+    #[test]
+    fn is_whitespace_none() {
+        assert!(!is_whitespace(None));
+    }
 }
