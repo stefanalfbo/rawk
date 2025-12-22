@@ -60,42 +60,156 @@ impl<'a> Lexer<'a> {
                 kind: TokenKind::NewLine,
                 literal: "<newline>",
             },
-            Some(b'+') => Token {
-                kind: TokenKind::Plus,
-                literal: "+",
-            },
-            Some(b'-') => Token {
-                kind: TokenKind::Minus,
-                literal: "-",
-            },
-            Some(b'*') => Token {
-                kind: TokenKind::Asterisk,
-                literal: "*",
-            },
-            Some(b'%') => Token {
-                kind: TokenKind::Percent,
-                literal: "%",
-            },
-            Some(b'^') => Token {
-                kind: TokenKind::Caret,
-                literal: "^",
-            },
-            Some(b'!') => Token {
-                kind: TokenKind::ExclamationMark,
-                literal: "!",
-            },
-            Some(b'>') => Token {
-                kind: TokenKind::GreaterThan,
-                literal: ">",
-            },
-            Some(b'<') => Token {
-                kind: TokenKind::LessThan,
-                literal: "<",
-            },
-            Some(b'|') => Token {
-                kind: TokenKind::Pipe,
-                literal: "|",
-            },
+            Some(b'+') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::AddAssign,
+                        literal: "+=",
+                    }
+                } else if self.peek_char() == Some(b'+') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::Increment,
+                        literal: "++",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Plus,
+                        literal: "+",
+                    }
+                }
+            }
+            Some(b'-') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::SubtractAssign,
+                        literal: "-=",
+                    }
+                } else if self.peek_char() == Some(b'-') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::Decrement,
+                        literal: "--",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Minus,
+                        literal: "-",
+                    }
+                }
+            }
+            Some(b'*') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::MultiplyAssign,
+                        literal: "*=",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Asterisk,
+                        literal: "*",
+                    }
+                }
+            }
+            Some(b'%') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::ModuloAssign,
+                        literal: "%=",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Percent,
+                        literal: "%",
+                    }
+                }
+            }
+            Some(b'^') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::PowerAssign,
+                        literal: "^=",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Caret,
+                        literal: "^",
+                    }
+                }
+            }
+            Some(b'!') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::NotEqual,
+                        literal: "!=",
+                    }
+                } else if self.peek_char() == Some(b'~') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::NoMatch,
+                        literal: "!~",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::ExclamationMark,
+                        literal: "!",
+                    }
+                }
+            }
+            Some(b'>') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::GreaterThanOrEqual,
+                        literal: ">=",
+                    }
+                } else if self.peek_char() == Some(b'>') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::Append,
+                        literal: ">>",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::GreaterThan,
+                        literal: ">",
+                    }
+                }
+            }
+            Some(b'<') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::LessThanOrEqual,
+                        literal: "<=",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::LessThan,
+                        literal: "<",
+                    }
+                }
+            }
+            Some(b'|') => {
+                if self.peek_char() == Some(b'|') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::Or,
+                        literal: "||",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Pipe,
+                        literal: "|",
+                    }
+                }
+            }
             Some(b'?') => Token {
                 kind: TokenKind::QuestionMark,
                 literal: "?",
@@ -112,16 +226,54 @@ impl<'a> Lexer<'a> {
                 kind: TokenKind::DollarSign,
                 literal: "$",
             },
-            Some(b'=') => Token {
-                kind: TokenKind::Equal,
-                literal: "=",
-            },
+            Some(b'=') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::Equal,
+                        literal: "==",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Assign,
+                        literal: "=",
+                    }
+                }
+            }
+            Some(b'/') => {
+                if self.peek_char() == Some(b'=') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::DivideAssign,
+                        literal: "/=",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Division,
+                        literal: "/",
+                    }
+                }
+            }
+            Some(b'&') => {
+                if self.peek_char() == Some(b'&') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::And,
+                        literal: "&&",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Illegal,
+                        literal: "<illegal>",
+                    }
+                }
+            }
+            ch if is_ascii_alphabetic(ch) => self.read_identifier(),
+            ch if is_digit(ch) => self.read_number(),
             None => Token {
                 kind: TokenKind::Eof,
                 literal: "",
             },
-            ch if is_ascii_alphabetic(ch) => self.read_identifier(),
-            ch if is_digit(ch) => self.read_number(),
             _ => Token {
                 kind: TokenKind::Illegal,
                 literal: "<illegal>",
@@ -168,6 +320,14 @@ impl<'a> Lexer<'a> {
     fn skip_whitespace(&mut self) {
         while is_whitespace(self.ch) {
             self.read_char();
+        }
+    }
+
+    fn peek_char(&self) -> Option<u8> {
+        if self.read_position >= self.input.len() {
+            None
+        } else {
+            Some(self.input.as_bytes()[self.read_position])
         }
     }
 }
@@ -226,8 +386,22 @@ mod tests {
     }
 
     #[test]
+    fn next_pipe_token() {
+        let expected = Token {
+            kind: TokenKind::Pipe,
+            literal: "|",
+        };
+        let input = "|";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_eq!(expected, token);
+    }
+
+    #[test]
     fn next_one_character_token() {
-        let input = "{}()[],;\n+-*%^!><|?:~$=";
+        let input = "{}()[],;\n+-*/%^!><|?:~$=";
         let mut lexer = Lexer::new(input);
         let expected_tokens = vec![
             Token {
@@ -279,6 +453,10 @@ mod tests {
                 literal: "*",
             },
             Token {
+                kind: TokenKind::Division,
+                literal: "/",
+            },
+            Token {
                 kind: TokenKind::Percent,
                 literal: "%",
             },
@@ -319,7 +497,7 @@ mod tests {
                 literal: "$",
             },
             Token {
-                kind: TokenKind::Equal,
+                kind: TokenKind::Assign,
                 literal: "=",
             },
             Token {
@@ -451,6 +629,102 @@ mod tests {
             Token {
                 kind: TokenKind::Number,
                 literal: "890",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
+
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
+    }
+
+    #[test]
+    fn next_or_token() {
+        let expected = Token {
+            kind: TokenKind::Or,
+            literal: "||",
+        };
+        let input = "||";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_eq!(expected, token);
+    }
+
+    #[test]
+    fn next_two_character_token() {
+        let input = "+= -= *= /= %= ^= || && !~ == <= >= != ++ -- >>";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::AddAssign,
+                literal: "+=",
+            },
+            Token {
+                kind: TokenKind::SubtractAssign,
+                literal: "-=",
+            },
+            Token {
+                kind: TokenKind::MultiplyAssign,
+                literal: "*=",
+            },
+            Token {
+                kind: TokenKind::DivideAssign,
+                literal: "/=",
+            },
+            Token {
+                kind: TokenKind::ModuloAssign,
+                literal: "%=",
+            },
+            Token {
+                kind: TokenKind::PowerAssign,
+                literal: "^=",
+            },
+            Token {
+                kind: TokenKind::Or,
+                literal: "||",
+            },
+            Token {
+                kind: TokenKind::And,
+                literal: "&&",
+            },
+            Token {
+                kind: TokenKind::NoMatch,
+                literal: "!~",
+            },
+            Token {
+                kind: TokenKind::Equal,
+                literal: "==",
+            },
+            Token {
+                kind: TokenKind::LessThanOrEqual,
+                literal: "<=",
+            },
+            Token {
+                kind: TokenKind::GreaterThanOrEqual,
+                literal: ">=",
+            },
+            Token {
+                kind: TokenKind::NotEqual,
+                literal: "!=",
+            },
+            Token {
+                kind: TokenKind::Increment,
+                literal: "++",
+            },
+            Token {
+                kind: TokenKind::Decrement,
+                literal: "--",
+            },
+            Token {
+                kind: TokenKind::Append,
+                literal: ">>",
             },
             Token {
                 kind: TokenKind::Eof,

@@ -36,6 +36,7 @@ pub enum TokenKind {
     Plus,
     Minus,
     Asterisk,
+    Division,
     Percent,
     Caret,
     ExclamationMark,
@@ -46,7 +47,25 @@ pub enum TokenKind {
     Colon,
     Tilde,
     DollarSign,
+    Assign,
+
+    // Two-character tokens.
+    AddAssign,
+    SubtractAssign,
+    MultiplyAssign,
+    DivideAssign,
+    ModuloAssign,
+    PowerAssign,
+    Or,
+    And,
+    NoMatch,
     Equal,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
+    NotEqual,
+    Increment,
+    Decrement,
+    Append,
 }
 
 #[derive(Debug, Clone, PartialEq)]
