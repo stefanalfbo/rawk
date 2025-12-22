@@ -120,15 +120,11 @@ impl<'a> Lexer<'a> {
                 kind: TokenKind::Eof,
                 literal: "",
             },
-            _ => {
-                if is_ascii_alphabetic(self.ch) {
-                    return self.read_identifier();
-                }
-                Token {
-                    kind: TokenKind::Illegal,
-                    literal: "<illegal>",
-                }
-            }
+            ch if is_ascii_alphabetic(ch) => self.read_identifier(),
+            _ => Token {
+                kind: TokenKind::Illegal,
+                literal: "<illegal>",
+            },
         };
 
         self.read_char();
