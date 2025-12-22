@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenKind};
+use crate::token::{Token, TokenKind, lookup_keyword};
 
 pub struct Lexer<'a> {
     input: &'a str,
@@ -118,10 +118,15 @@ impl<'a> Lexer<'a> {
                 kind: TokenKind::Eof,
                 literal: "",
             },
-            _ => Token {
-                kind: TokenKind::Illegal,
-                literal: "<illegal>",
-            },
+            _ => {
+                if is_ascii_alphabetic(self.ch) {
+                    return self.read_identifier();
+                }
+                Token {
+                    kind: TokenKind::Illegal,
+                    literal: "<illegal>",
+                }
+            }
         };
 
         self.read_char();
@@ -136,6 +141,23 @@ impl<'a> Lexer<'a> {
         }
         self.position = self.read_position;
         self.read_position += 1;
+    }
+
+    fn read_identifier(&mut self) -> Token {
+        let position = self.position;
+        while is_ascii_alphabetic(self.ch) {
+            self.read_char();
+        }
+        let literal = &self.input[position..self.position];
+
+        return lookup_keyword(literal);
+    }
+}
+
+fn is_ascii_alphabetic(ch: Option<u8>) -> bool {
+    match ch {
+        Some(byte) => (byte >= b'a' && byte <= b'z') || (byte >= b'A' && byte <= b'Z'),
+        None => false,
     }
 }
 
@@ -175,7 +197,6 @@ mod tests {
     fn next_one_character_token() {
         let input = "{}()[],;\n+-*%^!><|?:~$=";
         let mut lexer = Lexer::new(input);
-
         let expected_tokens = vec![
             Token {
                 kind: TokenKind::LeftCurlyBrace,
@@ -279,5 +300,19 @@ mod tests {
             let token = lexer.next_token();
             assert_eq!(expected, token);
         }
+    }
+
+    #[test]
+    fn next_while_token() {
+        let expected = Token {
+            kind: TokenKind::While,
+            literal: "while",
+        };
+        let input = "while";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_eq!(expected, token);
     }
 }
