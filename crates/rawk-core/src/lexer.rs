@@ -21,6 +21,8 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
+
         let token = match self.ch {
             Some(b'{') => Token {
                 kind: TokenKind::LeftCurlyBrace,
@@ -152,11 +154,24 @@ impl<'a> Lexer<'a> {
 
         return lookup_keyword(literal);
     }
+
+    fn skip_whitespace(&mut self) {
+        while is_whitespace(self.ch) {
+            self.read_char();
+        }
+    }
 }
 
 fn is_ascii_alphabetic(ch: Option<u8>) -> bool {
     match ch {
         Some(byte) => (byte >= b'a' && byte <= b'z') || (byte >= b'A' && byte <= b'Z'),
+        None => false,
+    }
+}
+
+fn is_whitespace(ch: Option<u8>) -> bool {
+    match ch {
+        Some(byte) => byte == b' ',
         None => false,
     }
 }
@@ -314,5 +329,91 @@ mod tests {
         let token = lexer.next_token();
 
         assert_eq!(expected, token);
+    }
+
+    #[test]
+    fn next_identifier_token() {
+        let input = "BEGIN END break continue delete do else exit for function if in next print printf return while";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::Begin,
+                literal: "BEGIN",
+            },
+            Token {
+                kind: TokenKind::End,
+                literal: "END",
+            },
+            Token {
+                kind: TokenKind::Break,
+                literal: "break",
+            },
+            Token {
+                kind: TokenKind::Continue,
+                literal: "continue",
+            },
+            Token {
+                kind: TokenKind::Delete,
+                literal: "delete",
+            },
+            Token {
+                kind: TokenKind::Do,
+                literal: "do",
+            },
+            Token {
+                kind: TokenKind::Else,
+                literal: "else",
+            },
+            Token {
+                kind: TokenKind::Exit,
+                literal: "exit",
+            },
+            Token {
+                kind: TokenKind::For,
+                literal: "for",
+            },
+            Token {
+                kind: TokenKind::Function,
+                literal: "function",
+            },
+            Token {
+                kind: TokenKind::If,
+                literal: "if",
+            },
+            Token {
+                kind: TokenKind::In,
+                literal: "in",
+            },
+            Token {
+                kind: TokenKind::Next,
+                literal: "next",
+            },
+            Token {
+                kind: TokenKind::Print,
+                literal: "print",
+            },
+            Token {
+                kind: TokenKind::Printf,
+                literal: "printf",
+            },
+            Token {
+                kind: TokenKind::Return,
+                literal: "return",
+            },
+            Token {
+                kind: TokenKind::While,
+                literal: "while",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
+
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
     }
 }
