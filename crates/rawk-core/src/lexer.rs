@@ -176,6 +176,13 @@ fn is_whitespace(ch: Option<u8>) -> bool {
     }
 }
 
+fn is_digit(ch: Option<u8>) -> bool {
+    match ch {
+        Some(byte) => byte >= b'0' && byte <= b'9',
+        None => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,5 +473,29 @@ mod tests {
     #[test]
     fn is_whitespace_none() {
         assert!(!is_whitespace(None));
+    }
+
+    #[test]
+    fn is_digit_valid() {
+        assert!(is_digit(Some(b'0')));
+        assert!(is_digit(Some(b'5')));
+        assert!(is_digit(Some(b'9')));
+    }
+
+    #[test]
+    fn is_digit_invalid() {
+        assert!(!is_digit(Some(b'a')));
+        assert!(!is_digit(Some(b'z')));
+        assert!(!is_digit(Some(b'A')));
+        assert!(!is_digit(Some(b'Z')));
+        assert!(!is_digit(Some(b'!')));
+        assert!(!is_digit(Some(b' ')));
+        assert!(!is_digit(Some(b'{')));
+        assert!(!is_digit(Some(b'=')));
+    }
+
+    #[test]
+    fn is_digit_none() {
+        assert!(!is_digit(None));
     }
 }
