@@ -270,6 +270,13 @@ impl<'a> Lexer<'a> {
             }
             ch if is_ascii_alphabetic(ch) => self.read_identifier(),
             ch if is_digit(ch) => self.read_number(),
+            Some(b'.')
+                if self
+                    .peek_char()
+                    .map_or(false, |arg0: u8| is_digit(Some(arg0))) =>
+            {
+                self.read_number()
+            }
             None => Token {
                 kind: TokenKind::Eof,
                 literal: "",
@@ -306,9 +313,35 @@ impl<'a> Lexer<'a> {
 
     fn read_number(&mut self) -> Token<'a> {
         let position = self.position;
-        while is_digit(self.ch) {
+        let mut got_digit = false;
+
+        // consume leading digits
+        if self.ch != Some(b'.') {
+            got_digit = true;
+            while is_digit(self.ch) {
+                self.read_char();
+            }
+            if self.ch == Some(b'.') {
+                self.read_char();
+            }
+        } else {
+            // consume the dot.
             self.read_char();
         }
+
+        // consume trailing digits
+        while is_digit(self.ch) {
+            got_digit = true;
+            self.read_char();
+        }
+
+        if !got_digit {
+            return Token {
+                kind: TokenKind::Illegal,
+                literal: "<illegal>",
+            };
+        }
+
         let literal = &self.input[position..self.position];
 
         Token {
@@ -614,7 +647,7 @@ mod tests {
 
     #[test]
     fn next_number_token() {
-        let input = "123 4567 890";
+        let input = "123 4567 890 42.0 .75 0.001";
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
@@ -629,6 +662,18 @@ mod tests {
             Token {
                 kind: TokenKind::Number,
                 literal: "890",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "42.0",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: ".75",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "0.001",
             },
             Token {
                 kind: TokenKind::Eof,
