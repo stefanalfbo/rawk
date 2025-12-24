@@ -23,6 +23,12 @@ impl<'a> Lexer<'a> {
     pub fn next_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
 
+        if Some(b'#') == self.ch {
+            while self.ch != Some(b'\n') && self.ch.is_some() {
+                self.read_char();
+            }
+        }
+
         let token = match self.ch {
             Some(b'{') => Token {
                 kind: TokenKind::LeftCurlyBrace,
@@ -770,6 +776,32 @@ mod tests {
             Token {
                 kind: TokenKind::Append,
                 literal: ">>",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
+
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
+    }
+
+    #[test]
+    fn consume_comment() {
+        let input = "# This is a comment\n123";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::NewLine,
+                literal: "<newline>",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "123",
             },
             Token {
                 kind: TokenKind::Eof,
