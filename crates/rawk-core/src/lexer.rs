@@ -274,6 +274,20 @@ impl<'a> Lexer<'a> {
                     }
                 }
             }
+            Some(b'\\') => {
+                if self.peek_char() == Some(b'\n') {
+                    self.read_char();
+                    Token {
+                        kind: TokenKind::NewLine,
+                        literal: "<newline>",
+                    }
+                } else {
+                    Token {
+                        kind: TokenKind::Illegal,
+                        literal: "<illegal>",
+                    }
+                }
+            }
             ch if is_ascii_alphabetic(ch) => self.read_identifier(),
             ch if is_digit(ch) => self.read_number(),
             Some(b'.')
@@ -809,6 +823,64 @@ mod tests {
             },
         ];
 
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
+    }
+
+    #[test]
+    fn expect_newline_after_backslash() {
+        let input = "123 \\\n456";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::Number,
+                literal: "123",
+            },
+            Token {
+                kind: TokenKind::NewLine,
+                literal: "<newline>",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "456",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
+    }
+
+    #[test]
+    fn backslash_without_newline_is_illegal() {
+        let input = "123 \\ 456";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::Number,
+                literal: "123",
+            },
+            Token {
+                kind: TokenKind::Illegal,
+                literal: "<illegal>",
+            },
+            Token {
+                kind: TokenKind::Number,
+                literal: "456",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
         for expected in expected_tokens {
             let token = lexer.next_token();
             assert_eq!(expected, token);
