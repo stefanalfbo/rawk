@@ -380,7 +380,7 @@ fn is_ascii_alphabetic(ch: Option<u8>) -> bool {
 
 fn is_whitespace(ch: Option<u8>) -> bool {
     match ch {
-        Some(byte) => byte == b' ',
+        Some(byte) => byte == b' ' || byte == b'\t' || byte == b'\r',
         None => false,
     }
 }
@@ -851,7 +851,12 @@ mod tests {
 
     #[test]
     fn is_whitespace_space() {
-        assert!(is_whitespace(Some(b' ')));
+        assert!(is_whitespace(Some(b' ')), "space is considered whitespace");
+        assert!(is_whitespace(Some(b'\t')), "tab is considered whitespace");
+        assert!(
+            is_whitespace(Some(b'\r')),
+            "carriage return is considered whitespace"
+        );
     }
 
     #[test]
