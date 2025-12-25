@@ -3,6 +3,7 @@ pub enum TokenKind {
     Illegal,
     Eof,
     Number,
+    String,
 
     // Keywords.
     Begin,

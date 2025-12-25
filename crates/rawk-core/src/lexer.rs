@@ -288,6 +288,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
             }
+            Some(b'"') => self.read_string(),
             ch if is_ascii_alphabetic(ch) => self.read_identifier(),
             ch if is_digit(ch) => self.read_number(),
             Some(b'.')
@@ -370,6 +371,23 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn read_string(&mut self) -> Token<'a> {
+        // skip opening quote
+        self.read_char();
+        let position = self.position;
+
+        while self.ch != Some(b'"') && self.ch.is_some() {
+            self.read_char();
+        }
+
+        let literal = &self.input[position..self.position];
+
+        Token {
+            kind: TokenKind::String,
+            literal: literal,
+        }
+    }
+
     fn skip_whitespace(&mut self) {
         while is_whitespace(self.ch) {
             self.read_char();
@@ -409,6 +427,20 @@ fn is_digit(ch: Option<u8>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn empty_input_returns_eof_token() {
+        let expected = Token {
+            kind: TokenKind::Eof,
+            literal: "",
+        };
+        let input = "";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_eq!(expected, token);
+    }
 
     #[test]
     fn next_left_curly_brace_token() {
@@ -885,6 +917,19 @@ mod tests {
             let token = lexer.next_token();
             assert_eq!(expected, token);
         }
+    }
+
+    #[test]
+    fn read_string_token() {
+        let input = r#""Hello, World!""#;
+        let mut lexer = Lexer::new(input);
+        let expected = Token {
+            kind: TokenKind::String,
+            literal: "Hello, World!",
+        };
+
+        let token = lexer.next_token();
+        assert_eq!(expected, token);
     }
 
     #[test]
