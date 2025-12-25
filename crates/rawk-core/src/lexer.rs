@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenKind, lookup_keyword};
+use crate::token::{Token, TokenKind, lookup_functions, lookup_keyword};
 
 pub struct Lexer<'a> {
     input: &'a str,
@@ -324,12 +324,21 @@ impl<'a> Lexer<'a> {
 
     fn read_identifier(&mut self) -> Token<'a> {
         let position = self.position;
-        while is_ascii_alphabetic(self.ch) {
+        while is_ascii_alphabetic(self.ch) || is_digit(self.ch) {
             self.read_char();
         }
         let literal = &self.input[position..self.position];
 
-        return lookup_keyword(literal);
+        if let Some(token) = lookup_keyword(literal) {
+            token
+        } else if let Some(token) = lookup_functions(literal) {
+            token
+        } else {
+            Token {
+                kind: TokenKind::Illegal,
+                literal: literal,
+            }
+        }
     }
 
     fn read_number(&mut self) -> Token<'a> {
@@ -930,6 +939,107 @@ mod tests {
 
         let token = lexer.next_token();
         assert_eq!(expected, token);
+    }
+
+    #[test]
+    fn built_in_functions() {
+        let input = "atan2 close cos exp gsub index int length log match rand sin split sprintf sqrt srand sub substr system tolower toupper";
+        let mut lexer = Lexer::new(input);
+        let expected_tokens = vec![
+            Token {
+                kind: TokenKind::Atan2,
+                literal: "atan2",
+            },
+            Token {
+                kind: TokenKind::Close,
+                literal: "close",
+            },
+            Token {
+                kind: TokenKind::Cos,
+                literal: "cos",
+            },
+            Token {
+                kind: TokenKind::Exp,
+                literal: "exp",
+            },
+            Token {
+                kind: TokenKind::Gsub,
+                literal: "gsub",
+            },
+            Token {
+                kind: TokenKind::Index,
+                literal: "index",
+            },
+            Token {
+                kind: TokenKind::Int,
+                literal: "int",
+            },
+            Token {
+                kind: TokenKind::Length,
+                literal: "length",
+            },
+            Token {
+                kind: TokenKind::Log,
+                literal: "log",
+            },
+            Token {
+                kind: TokenKind::Match,
+                literal: "match",
+            },
+            Token {
+                kind: TokenKind::Rand,
+                literal: "rand",
+            },
+            Token {
+                kind: TokenKind::Sin,
+                literal: "sin",
+            },
+            Token {
+                kind: TokenKind::Split,
+                literal: "split",
+            },
+            Token {
+                kind: TokenKind::Sprintf,
+                literal: "sprintf",
+            },
+            Token {
+                kind: TokenKind::Sqrt,
+                literal: "sqrt",
+            },
+            Token {
+                kind: TokenKind::Srand,
+                literal: "srand",
+            },
+            Token {
+                kind: TokenKind::Sub,
+                literal: "sub",
+            },
+            Token {
+                kind: TokenKind::Substr,
+                literal: "substr",
+            },
+            Token {
+                kind: TokenKind::System,
+                literal: "system",
+            },
+            Token {
+                kind: TokenKind::ToLower,
+                literal: "tolower",
+            },
+            Token {
+                kind: TokenKind::ToUpper,
+                literal: "toupper",
+            },
+            Token {
+                kind: TokenKind::Eof,
+                literal: "",
+            },
+        ];
+
+        for expected in expected_tokens {
+            let token = lexer.next_token();
+            assert_eq!(expected, token);
+        }
     }
 
     #[test]
