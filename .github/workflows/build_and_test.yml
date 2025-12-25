@@ -13,8 +13,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Build
       run: cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: RUSTFLAGS="-C instrument-coverage" LLVM_PROFILE_FILE="coverage.profraw" cargo test --verbose
+    - name: Generate coverage report
+      run: |
+        llvm-profdata merge -sparse ./crates/rawk-core/coverage.profraw -o ./rawk-core-coverage.profdata
+        llvm-cov export \
+          --instr-profile ./rawk-core.coverage.profdata \
+          --ignore-filename-regex=/.cargo/registry \
+          --format=lcov \
+          --sources ./crates/rawk-core/src/ \
+          --object ./target/debug/deps/rawk_core-*.exe > ./coverage.lcov
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
+        files: ./coverage.lcov
