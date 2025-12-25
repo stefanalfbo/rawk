@@ -1,6 +1,7 @@
 # rawk
 
 ![CI](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/github/stefanalfbo/rawk/graph/badge.svg?token=SN66UKWM0A)](https://codecov.io/github/stefanalfbo/rawk)
 
 A **R**ust implementation of **AWK** with the goal of achieving POSIX compatibility. 
 
