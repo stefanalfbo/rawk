@@ -2,6 +2,7 @@
 
 ![CI](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/github/stefanalfbo/rawk/graph/badge.svg?token=SN66UKWM0A)](https://codecov.io/github/stefanalfbo/rawk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A **R**ust implementation of **AWK** with the goal of achieving POSIX compatibility. 
 
