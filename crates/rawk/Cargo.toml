@@ -12,4 +12,4 @@ license = { workspace = true }
 
 
 [dependencies]
-rawk-core = { version = "0.0.2", path = "../rawk-core" }
+rawk-core = { version = "0.0.3", path = "../rawk-core" }
