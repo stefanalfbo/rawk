@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3](https://github.com/stefanalfbo/rawk/compare/v0.0.2...v0.0.3) - 2025-12-26
+
+### Other
+
+- Fix the improvements that clippy suggests for the lexer.rs
+- Enable parsing of built-in functions in the lexer module
+- Add support for strings in the lexer
+
 ## [0.0.2](https://github.com/stefanalfbo/rawk/compare/v0.0.1...v0.0.2) - 2025-12-25
 
 ### Other
