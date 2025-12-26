@@ -294,7 +294,7 @@ impl<'a> Lexer<'a> {
             Some(b'.')
                 if self
                     .peek_char()
-                    .map_or(false, |arg0: u8| is_digit(Some(arg0))) =>
+                    .is_some_and(|arg0: u8| is_digit(Some(arg0))) =>
             {
                 self.read_number()
             }
@@ -336,7 +336,7 @@ impl<'a> Lexer<'a> {
         } else {
             Token {
                 kind: TokenKind::Illegal,
-                literal: literal,
+                literal,
             }
         }
     }
@@ -376,7 +376,7 @@ impl<'a> Lexer<'a> {
 
         Token {
             kind: TokenKind::Number,
-            literal: literal,
+            literal,
         }
     }
 
@@ -393,7 +393,7 @@ impl<'a> Lexer<'a> {
 
         Token {
             kind: TokenKind::String,
-            literal: literal,
+            literal,
         }
     }
 
@@ -414,7 +414,7 @@ impl<'a> Lexer<'a> {
 
 fn is_ascii_alphabetic(ch: Option<u8>) -> bool {
     match ch {
-        Some(byte) => (byte >= b'a' && byte <= b'z') || (byte >= b'A' && byte <= b'Z'),
+        Some(byte) => byte.is_ascii_alphabetic(),
         None => false,
     }
 }
@@ -428,7 +428,7 @@ fn is_whitespace(ch: Option<u8>) -> bool {
 
 fn is_digit(ch: Option<u8>) -> bool {
     match ch {
-        Some(byte) => byte >= b'0' && byte <= b'9',
+        Some(byte) => byte.is_ascii_digit(),
         None => false,
     }
 }
