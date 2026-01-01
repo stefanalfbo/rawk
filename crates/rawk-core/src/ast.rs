@@ -4,7 +4,17 @@ use crate::token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program<'a> {
-    pub items: Vec<Item<'a>>,
+    items: Vec<Item<'a>>,
+}
+
+impl<'a> Program<'a> {
+    pub fn new() -> Self {
+        Program { items: vec![] }
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
 }
 
 impl<'a> fmt::Display for Program<'a> {

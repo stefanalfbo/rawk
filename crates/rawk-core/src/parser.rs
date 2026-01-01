@@ -11,24 +11,15 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Self {
-        let mut parser = Parser {
+    pub fn new(mut lexer: Lexer<'a>) -> Self {
+        let current_token = lexer.next_token();
+        let peek_token = lexer.next_token();
+
+        Parser {
             lexer,
-            current_token: Token {
-                kind: TokenKind::Illegal,
-                literal: "<illegal>",
-            },
-            peek_token: Token {
-                kind: TokenKind::Illegal,
-                literal: "",
-            },
-        };
-
-        // Read two tokens, so currentToken and peekToken are both set
-        parser.next_token();
-        parser.next_token();
-
-        parser
+            current_token,
+            peek_token,
+        }
     }
 
     fn next_token(&mut self) {
@@ -36,8 +27,18 @@ impl<'a> Parser<'a> {
         self.peek_token = self.lexer.next_token();
     }
 
+    fn is_eof(&self) -> bool {
+        self.current_token.kind == TokenKind::Eof
+    }
+
     pub fn parse_program(&mut self) -> Program<'_> {
-        Program { items: vec![] }
+        let program = Program::new();
+
+        while !self.is_eof() {
+            self.next_token();
+        }
+
+        program
     }
 }
 
@@ -51,5 +52,14 @@ mod tests {
 
         assert_eq!(parser.current_token.literal, "42");
         assert_eq!(parser.peek_token.literal, "==");
+    }
+
+    #[test]
+    fn parse_empty_program() {
+        let mut parser = Parser::new(Lexer::new(""));
+
+        let program = parser.parse_program();
+
+        assert_eq!(program.len(), 0);
     }
 }
