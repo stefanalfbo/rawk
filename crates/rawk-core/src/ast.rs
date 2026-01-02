@@ -16,8 +16,18 @@ impl<'a> Program<'a> {
         self.items.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     pub fn add_item(&mut self, item: Item<'a>) {
         self.items.push(item);
+    }
+}
+
+impl<'a> Default for Program<'a> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -143,9 +153,9 @@ mod tests {
 
     #[test]
     fn test_empty_program_creation() {
-        let program = Program::new();
+        let program = Program::default();
 
-        assert_eq!(program.len(), 0);
+        assert!(program.is_empty());
     }
 
     #[test]
