@@ -1,6 +1,6 @@
 use crate::{
     Lexer, Program,
-    ast::Item,
+    ast::{Action, Item, Statement},
     token::{Token, TokenKind},
 };
 
@@ -35,10 +35,31 @@ impl<'a> Parser<'a> {
     fn parse_next_item(&mut self) -> Option<Item<'a>> {
         match &self.current_token.kind {
             TokenKind::Eof => None,
+            TokenKind::LeftCurlyBrace => Some(self.parse_action()),
             _ => panic!(
                 "parse_next_item not yet implemented, found token: {:?}",
                 self.current_token
             ),
+        }
+    }
+
+    fn parse_action(&mut self) -> Item<'a> {
+        self.next_token(); // consume '{'
+
+        let mut statements = Vec::new();
+        if self.current_token.kind == TokenKind::Print {
+            statements.push(Statement::Print(vec![]));
+        }
+
+        while self.current_token.kind != TokenKind::RightCurlyBrace
+            && self.current_token.kind != TokenKind::Eof
+        {
+            self.next_token();
+        }
+
+        Item::PatternAction {
+            pattern: None,
+            action: Some(Action { statements }),
         }
     }
 
@@ -79,10 +100,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "parse_next_item not yet implemented")]
-    fn panic_on_unimplemented_parse_next_item() {
-        let mut parser = Parser::new(Lexer::new("42"));
+    fn parse_action_without_pattern() {
+        let mut parser = Parser::new(Lexer::new("{ print }"));
 
-        let _ = parser.parse_next_item();
+        let program = parser.parse_program();
+
+        assert_eq!(program.len(), 1);
+        assert_eq!("{ print }", program.to_string());
     }
 }
