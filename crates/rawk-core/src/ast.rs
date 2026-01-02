@@ -15,6 +15,10 @@ impl<'a> Program<'a> {
     pub fn len(&self) -> usize {
         self.items.len()
     }
+
+    pub fn add_item(&mut self, item: Item<'a>) {
+        self.items.push(item);
+    }
 }
 
 impl<'a> fmt::Display for Program<'a> {
@@ -95,6 +99,23 @@ impl<'a> fmt::Display for Expression<'a> {
 mod tests {
     use super::*;
     use crate::token::TokenKind;
+
+    #[test]
+    fn test_empty_program_creation() {
+        let program: Program = Program::new();
+
+        assert_eq!(program.len(), 0);
+    }
+
+    #[test]
+    fn test_add_item_to_program() {
+        let mut program: Program = Program::new();
+
+        let item = Item::Action;
+        program.add_item(item);
+
+        assert_eq!(program.len(), 1);
+    }
 
     #[test]
     fn test_program_creation() {
