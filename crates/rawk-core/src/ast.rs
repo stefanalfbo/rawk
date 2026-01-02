@@ -36,31 +36,72 @@ impl<'a> fmt::Display for Program<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Statement;
+pub enum Statement<'a> {
+    Print(Vec<Expression<'a>>),
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Action {
-    pub statements: Vec<Statement>,
+pub struct Action<'a> {
+    pub statements: Vec<Statement<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item<'a> {
-    Action,
+    Action(Action<'a>),
     PatternAction {
         pattern: Option<Expression<'a>>,
-        action: Option<Action>,
+        action: Option<Action<'a>>,
     },
 }
 
 impl<'a> fmt::Display for Item<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Item::Action => write!(f, "<action>"),
-            Item::PatternAction { pattern, action: _ } => {
-                if let Some(expr) = pattern {
-                    write!(f, "{}", expr)
+            Item::Action(action) => write!(f, "{}", action),
+            Item::PatternAction { pattern, action } => match (pattern, action) {
+                (Some(expr), Some(action)) => write!(f, "{} {}", expr, action),
+                (Some(expr), None) => write!(f, "{}", expr),
+                (None, Some(action)) => write!(f, "{}", action),
+                (None, None) => write!(f, ""),
+            },
+        }
+    }
+}
+
+impl<'a> fmt::Display for Action<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.statements.is_empty() {
+            write!(f, "{{}}")
+        } else {
+            write!(
+                f,
+                "{{ {} }}",
+                self.statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ")
+            )
+        }
+    }
+}
+
+impl<'a> fmt::Display for Statement<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Statement::Print(expressions) => {
+                if expressions.is_empty() {
+                    write!(f, "print")
                 } else {
-                    write!(f, "<no pattern>")
+                    write!(
+                        f,
+                        "print {}",
+                        expressions
+                            .iter()
+                            .map(|expr| expr.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
                 }
             }
         }
@@ -102,16 +143,18 @@ mod tests {
 
     #[test]
     fn test_empty_program_creation() {
-        let program: Program = Program::new();
+        let program = Program::new();
 
         assert_eq!(program.len(), 0);
     }
 
     #[test]
     fn test_add_item_to_program() {
-        let mut program: Program = Program::new();
+        let mut program = Program::new();
 
-        let item = Item::Action;
+        let item = Item::Action(Action {
+            statements: vec![Statement::Print(vec![])],
+        });
         program.add_item(item);
 
         assert_eq!(program.len(), 1);
@@ -120,7 +163,7 @@ mod tests {
     #[test]
     fn test_program_creation() {
         let expected_string = "$3 > 5";
-        let program: Program<'static> = Program {
+        let program = Program {
             items: vec![Item::PatternAction {
                 pattern: Some(Expression::Infix {
                     left: Box::new(Expression::Field(Box::new(Expression::Number(3.0)))),
@@ -131,6 +174,21 @@ mod tests {
                     right: Box::new(Expression::Number(5.0)),
                 }),
                 action: None,
+            }],
+        };
+
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_action_without_pattern_program_creation() {
+        let expected_string = "{ print }";
+        let program = Program {
+            items: vec![Item::PatternAction {
+                pattern: None,
+                action: Some(Action {
+                    statements: vec![Statement::Print(vec![])],
+                }),
             }],
         };
 
