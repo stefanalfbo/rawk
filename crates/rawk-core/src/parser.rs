@@ -1,5 +1,6 @@
 use crate::{
     Lexer, Program,
+    ast::Item,
     token::{Token, TokenKind},
 };
 
@@ -31,10 +32,24 @@ impl<'a> Parser<'a> {
         self.current_token.kind == TokenKind::Eof
     }
 
+    fn parse_next_item(&mut self) -> Option<Item<'a>> {
+        match &self.current_token.kind {
+            TokenKind::Eof => None,
+            _ => panic!(
+                "parse_next_item not yet implemented, found token: {:?}",
+                self.current_token
+            ),
+        }
+    }
+
     pub fn parse_program(&mut self) -> Program<'_> {
-        let program = Program::new();
+        let mut program = Program::new();
 
         while !self.is_eof() {
+            match self.parse_next_item() {
+                Some(item) => program.add_item(item),
+                None => {}
+            }
             self.next_token();
         }
 
@@ -61,5 +76,13 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(program.len(), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "parse_next_item not yet implemented")]
+    fn panic_on_unimplemented_parse_next_item() {
+        let mut parser = Parser::new(Lexer::new("42"));
+
+        let _ = parser.parse_next_item();
     }
 }
