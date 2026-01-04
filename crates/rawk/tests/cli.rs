@@ -1,11 +1,11 @@
 use std::process::Command;
 
-fn run_rawk(awk_script: &str) -> std::process::Output {
+fn run_rawk(script: &str) -> std::process::Output {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emp.data");
     let rawk = env!("CARGO_BIN_EXE_rawk");
 
     Command::new(rawk)
-        .arg(awk_script)
+        .arg(script)
         .arg(&path)
         .output()
         .expect("failed to run rawk")
@@ -13,9 +13,9 @@ fn run_rawk(awk_script: &str) -> std::process::Output {
 
 #[test]
 fn print_identity_outputs_input_lines() {
-    let awk_script = "{ print }";
+    let script = "{ print }";
 
-    let output = run_rawk(awk_script);
+    let output = run_rawk(script);
 
     assert!(
         output.status.success(),

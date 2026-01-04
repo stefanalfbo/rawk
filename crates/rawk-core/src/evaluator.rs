@@ -52,14 +52,14 @@ fn eval_pattern_action(
         match statement {
             Statement::Print(expressions) => {
                 if expressions.is_empty() {
-                    return format!("{}\n", input_line);
+                    return format!("{}", input_line);
                 }
 
-                return format!("not implemented\n");
+                return format!("not implemented");
             }
         }
     } else {
-        return format!("not implemented\n");
+        return format!("not implemented");
     }
 }
 
@@ -79,6 +79,6 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output.len(), 1);
-        assert_eq!(output[0], "hello, world!\n");
+        assert_eq!(output[0], "hello, world!");
     }
 }
