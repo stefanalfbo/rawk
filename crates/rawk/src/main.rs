@@ -7,8 +7,8 @@ fn main() {
         .expect("Please provide an AWK script");
     let path = std::env::args().nth(2).expect("Please provide a file path");
 
-    println!("AWK Script: {}", awk_script);
-    println!("File Path: {}", path);
+    // println!("AWK Script: {}", awk_script);
+    // println!("File Path: {}", path);
 
     execute(&awk_script, &path)
 }
