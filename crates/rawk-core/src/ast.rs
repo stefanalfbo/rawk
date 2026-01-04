@@ -23,6 +23,10 @@ impl<'a> Program<'a> {
     pub fn add_item(&mut self, item: Item<'a>) {
         self.items.push(item);
     }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Item<'a>> {
+        self.items.iter()
+    }
 }
 
 impl<'a> Default for Program<'a> {

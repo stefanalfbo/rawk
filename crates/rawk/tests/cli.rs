@@ -22,9 +22,6 @@ fn print_identity_outputs_input_lines() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout),
-        "Parsed Program: { print }\n"
-    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Beth    4.00    0\n"));
     assert!(output.stderr.is_empty());
 }
