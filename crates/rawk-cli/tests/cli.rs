@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn run_rawk(script: &str) -> std::process::Output {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emp.data");
-    let rawk = env!("CARGO_BIN_EXE_rawk");
+    let rawk = env!("CARGO_BIN_EXE_rawk-cli");
 
     Command::new(rawk)
         .arg(script)

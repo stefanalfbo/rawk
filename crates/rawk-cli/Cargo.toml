@@ -1,6 +1,6 @@
 [package]
 publish = false
-name = "rawk"
+name = "rawk-cli"
 version = "0.1.0"
 description = "The rawk cli, which is a AWK interpreter"
 edition = { workspace = true }

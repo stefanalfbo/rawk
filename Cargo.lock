@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "rawk"
+name = "rawk-cli"
 version = "0.1.0"
 dependencies = [
  "rawk-core",

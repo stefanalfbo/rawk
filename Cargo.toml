@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/rawk-core", "crates/rawk"]
+members = ["crates/rawk-core", "crates/rawk-cli"]
 resolver = "2"
 
 [workspace.package]

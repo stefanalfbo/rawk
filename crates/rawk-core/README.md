@@ -14,7 +14,7 @@
 
 Core implementation of an AWK interpreter, providing token definitions, lexical analysis, parsing, and evaluation. **rawk-core** is a Rust implementation of AWK with the goal of POSIX compatibility. Pronounced rök (Swedish for “smoke”).
 
-**rawk-core** is a low-level interpreter crate. Higher-level CLI handling, file I/O, and argument parsing are expected to live in a separate crate or binary, see [rawk](https://github.com/stefanalfbo/rawk/tree/main/crates/rawk).
+**rawk-core** is a low-level interpreter crate. Higher-level CLI handling, file I/O, and argument parsing are expected to live in a separate crate or binary, see [rawk](https://github.com/stefanalfbo/rawk/tree/main/crates/rawk-cli).
 
 ## Example
 
