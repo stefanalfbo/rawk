@@ -181,10 +181,7 @@ mod tests {
             items: vec![Item::PatternAction {
                 pattern: Some(Expression::Infix {
                     left: Box::new(Expression::Field(Box::new(Expression::Number(3.0)))),
-                    operator: Token {
-                        kind: TokenKind::GreaterThan,
-                        literal: ">",
-                    },
+                    operator: Token::new(TokenKind::GreaterThan, ">", 3),
                     right: Box::new(Expression::Number(5.0)),
                 }),
                 action: None,

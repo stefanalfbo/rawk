@@ -92,172 +92,74 @@ pub enum TokenKind {
     Append,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Location {
+    pub start: usize,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token<'a> {
     pub kind: TokenKind,
     pub literal: &'a str,
+    pub span: Location,
 }
 
-pub fn lookup_keyword<'a>(ident: &'a str) -> Option<Token<'a>> {
+impl Token<'_> {
+    pub fn new<'a>(kind: TokenKind, literal: &'a str, start: usize) -> Token<'a> {
+        Token {
+            kind,
+            literal,
+            span: Location { start },
+        }
+    }
+}
+
+pub fn lookup_keyword<'a>(ident: &'a str) -> Option<TokenKind> {
     match ident {
-        "BEGIN" => Some(Token {
-            kind: TokenKind::Begin,
-            literal: "BEGIN",
-        }),
-        "END" => Some(Token {
-            kind: TokenKind::End,
-            literal: "END",
-        }),
-        "break" => Some(Token {
-            kind: TokenKind::Break,
-            literal: "break",
-        }),
-        "continue" => Some(Token {
-            kind: TokenKind::Continue,
-            literal: "continue",
-        }),
-        "delete" => Some(Token {
-            kind: TokenKind::Delete,
-            literal: "delete",
-        }),
-        "do" => Some(Token {
-            kind: TokenKind::Do,
-            literal: "do",
-        }),
-        "else" => Some(Token {
-            kind: TokenKind::Else,
-            literal: "else",
-        }),
-        "exit" => Some(Token {
-            kind: TokenKind::Exit,
-            literal: "exit",
-        }),
-        "for" => Some(Token {
-            kind: TokenKind::For,
-            literal: "for",
-        }),
-        "function" => Some(Token {
-            kind: TokenKind::Function,
-            literal: "function",
-        }),
-        "if" => Some(Token {
-            kind: TokenKind::If,
-            literal: "if",
-        }),
-        "in" => Some(Token {
-            kind: TokenKind::In,
-            literal: "in",
-        }),
-        "next" => Some(Token {
-            kind: TokenKind::Next,
-            literal: "next",
-        }),
-        "print" => Some(Token {
-            kind: TokenKind::Print,
-            literal: "print",
-        }),
-        "printf" => Some(Token {
-            kind: TokenKind::Printf,
-            literal: "printf",
-        }),
-        "return" => Some(Token {
-            kind: TokenKind::Return,
-            literal: "return",
-        }),
-        "while" => Some(Token {
-            kind: TokenKind::While,
-            literal: "while",
-        }),
+        "BEGIN" => Some(TokenKind::Begin),
+        "END" => Some(TokenKind::End),
+        "break" => Some(TokenKind::Break),
+        "continue" => Some(TokenKind::Continue),
+        "delete" => Some(TokenKind::Delete),
+        "do" => Some(TokenKind::Do),
+        "else" => Some(TokenKind::Else),
+        "exit" => Some(TokenKind::Exit),
+        "for" => Some(TokenKind::For),
+        "function" => Some(TokenKind::Function),
+        "if" => Some(TokenKind::If),
+        "in" => Some(TokenKind::In),
+        "next" => Some(TokenKind::Next),
+        "print" => Some(TokenKind::Print),
+        "printf" => Some(TokenKind::Printf),
+        "return" => Some(TokenKind::Return),
+        "while" => Some(TokenKind::While),
         _ => None,
     }
 }
 
-pub fn lookup_functions<'a>(ident: &'a str) -> Option<Token<'a>> {
+pub fn lookup_functions<'a>(ident: &'a str) -> Option<TokenKind> {
     match ident {
-        "atan2" => Some(Token {
-            kind: TokenKind::Atan2,
-            literal: "atan2",
-        }),
-        "close" => Some(Token {
-            kind: TokenKind::Close,
-            literal: "close",
-        }),
-        "cos" => Some(Token {
-            kind: TokenKind::Cos,
-            literal: "cos",
-        }),
-        "exp" => Some(Token {
-            kind: TokenKind::Exp,
-            literal: "exp",
-        }),
-        "gsub" => Some(Token {
-            kind: TokenKind::Gsub,
-            literal: "gsub",
-        }),
-        "index" => Some(Token {
-            kind: TokenKind::Index,
-            literal: "index",
-        }),
-        "int" => Some(Token {
-            kind: TokenKind::Int,
-            literal: "int",
-        }),
-        "length" => Some(Token {
-            kind: TokenKind::Length,
-            literal: "length",
-        }),
-        "log" => Some(Token {
-            kind: TokenKind::Log,
-            literal: "log",
-        }),
-        "match" => Some(Token {
-            kind: TokenKind::Match,
-            literal: "match",
-        }),
-        "rand" => Some(Token {
-            kind: TokenKind::Rand,
-            literal: "rand",
-        }),
-        "sin" => Some(Token {
-            kind: TokenKind::Sin,
-            literal: "sin",
-        }),
-        "split" => Some(Token {
-            kind: TokenKind::Split,
-            literal: "split",
-        }),
-        "sprintf" => Some(Token {
-            kind: TokenKind::Sprintf,
-            literal: "sprintf",
-        }),
-        "sqrt" => Some(Token {
-            kind: TokenKind::Sqrt,
-            literal: "sqrt",
-        }),
-        "srand" => Some(Token {
-            kind: TokenKind::Srand,
-            literal: "srand",
-        }),
-        "sub" => Some(Token {
-            kind: TokenKind::Sub,
-            literal: "sub",
-        }),
-        "substr" => Some(Token {
-            kind: TokenKind::Substr,
-            literal: "substr",
-        }),
-        "system" => Some(Token {
-            kind: TokenKind::System,
-            literal: "system",
-        }),
-        "tolower" => Some(Token {
-            kind: TokenKind::ToLower,
-            literal: "tolower",
-        }),
-        "toupper" => Some(Token {
-            kind: TokenKind::ToUpper,
-            literal: "toupper",
-        }),
+        "atan2" => Some(TokenKind::Atan2),
+        "close" => Some(TokenKind::Close),
+        "cos" => Some(TokenKind::Cos),
+        "exp" => Some(TokenKind::Exp),
+        "gsub" => Some(TokenKind::Gsub),
+        "index" => Some(TokenKind::Index),
+        "int" => Some(TokenKind::Int),
+        "length" => Some(TokenKind::Length),
+        "log" => Some(TokenKind::Log),
+        "match" => Some(TokenKind::Match),
+        "rand" => Some(TokenKind::Rand),
+        "sin" => Some(TokenKind::Sin),
+        "split" => Some(TokenKind::Split),
+        "sprintf" => Some(TokenKind::Sprintf),
+        "sqrt" => Some(TokenKind::Sqrt),
+        "srand" => Some(TokenKind::Srand),
+        "sub" => Some(TokenKind::Sub),
+        "substr" => Some(TokenKind::Substr),
+        "system" => Some(TokenKind::System),
+        "tolower" => Some(TokenKind::ToLower),
+        "toupper" => Some(TokenKind::ToUpper),
         _ => None,
     }
 }

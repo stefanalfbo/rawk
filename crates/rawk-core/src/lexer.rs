@@ -23,270 +23,137 @@ impl<'a> Lexer<'a> {
 
     pub fn next_token(&mut self) -> Token<'a> {
         self.skip_whitespace();
+        self.skip_comment();
 
-        if Some(b'#') == self.ch {
-            while self.ch != Some(b'\n') && self.ch.is_some() {
-                self.read_char();
-            }
-        }
-
+        let start = self.position;
         let token = match self.ch {
-            Some(b'{') => Token {
-                kind: TokenKind::LeftCurlyBrace,
-                literal: "{",
-            },
-            Some(b'}') => Token {
-                kind: TokenKind::RightCurlyBrace,
-                literal: "}",
-            },
-            Some(b'(') => Token {
-                kind: TokenKind::LeftParen,
-                literal: "(",
-            },
-            Some(b')') => Token {
-                kind: TokenKind::RightParen,
-                literal: ")",
-            },
-            Some(b'[') => Token {
-                kind: TokenKind::LeftSquareBracket,
-                literal: "[",
-            },
-            Some(b']') => Token {
-                kind: TokenKind::RightSquareBracket,
-                literal: "]",
-            },
-            Some(b',') => Token {
-                kind: TokenKind::Comma,
-                literal: ",",
-            },
-            Some(b';') => Token {
-                kind: TokenKind::Semicolon,
-                literal: ";",
-            },
-            Some(b'\n') => Token {
-                kind: TokenKind::NewLine,
-                literal: "<newline>",
-            },
+            Some(b'{') => Token::new(TokenKind::LeftCurlyBrace, "{", start),
+            Some(b'}') => Token::new(TokenKind::RightCurlyBrace, "}", start),
+            Some(b'(') => Token::new(TokenKind::LeftParen, "(", start),
+            Some(b')') => Token::new(TokenKind::RightParen, ")", start),
+            Some(b'[') => Token::new(TokenKind::LeftSquareBracket, "[", start),
+            Some(b']') => Token::new(TokenKind::RightSquareBracket, "]", start),
+            Some(b',') => Token::new(TokenKind::Comma, ",", start),
+            Some(b';') => Token::new(TokenKind::Semicolon, ";", start),
+            Some(b'\n') => Token::new(TokenKind::NewLine, "<newline>", start),
             Some(b'+') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::AddAssign,
-                        literal: "+=",
-                    }
+                    Token::new(TokenKind::AddAssign, "+=", start)
                 } else if self.peek_char() == Some(b'+') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::Increment,
-                        literal: "++",
-                    }
+                    Token::new(TokenKind::Increment, "++", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Plus,
-                        literal: "+",
-                    }
+                    Token::new(TokenKind::Plus, "+", start)
                 }
             }
             Some(b'-') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::SubtractAssign,
-                        literal: "-=",
-                    }
+                    Token::new(TokenKind::SubtractAssign, "-=", start)
                 } else if self.peek_char() == Some(b'-') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::Decrement,
-                        literal: "--",
-                    }
+                    Token::new(TokenKind::Decrement, "--", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Minus,
-                        literal: "-",
-                    }
+                    Token::new(TokenKind::Minus, "-", start)
                 }
             }
             Some(b'*') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::MultiplyAssign,
-                        literal: "*=",
-                    }
+                    Token::new(TokenKind::MultiplyAssign, "*=", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Asterisk,
-                        literal: "*",
-                    }
+                    Token::new(TokenKind::Asterisk, "*", start)
                 }
             }
             Some(b'%') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::ModuloAssign,
-                        literal: "%=",
-                    }
+                    Token::new(TokenKind::ModuloAssign, "%=", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Percent,
-                        literal: "%",
-                    }
+                    Token::new(TokenKind::Percent, "%", start)
                 }
             }
             Some(b'^') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::PowerAssign,
-                        literal: "^=",
-                    }
+                    Token::new(TokenKind::PowerAssign, "^=", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Caret,
-                        literal: "^",
-                    }
+                    Token::new(TokenKind::Caret, "^", start)
                 }
             }
             Some(b'!') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::NotEqual,
-                        literal: "!=",
-                    }
+                    Token::new(TokenKind::NotEqual, "!=", start)
                 } else if self.peek_char() == Some(b'~') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::NoMatch,
-                        literal: "!~",
-                    }
+                    Token::new(TokenKind::NoMatch, "!~", start)
                 } else {
-                    Token {
-                        kind: TokenKind::ExclamationMark,
-                        literal: "!",
-                    }
+                    Token::new(TokenKind::ExclamationMark, "!", start)
                 }
             }
             Some(b'>') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::GreaterThanOrEqual,
-                        literal: ">=",
-                    }
+                    Token::new(TokenKind::GreaterThanOrEqual, ">=", start)
                 } else if self.peek_char() == Some(b'>') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::Append,
-                        literal: ">>",
-                    }
+                    Token::new(TokenKind::Append, ">>", start)
                 } else {
-                    Token {
-                        kind: TokenKind::GreaterThan,
-                        literal: ">",
-                    }
+                    Token::new(TokenKind::GreaterThan, ">", start)
                 }
             }
             Some(b'<') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::LessThanOrEqual,
-                        literal: "<=",
-                    }
+                    Token::new(TokenKind::LessThanOrEqual, "<=", start)
                 } else {
-                    Token {
-                        kind: TokenKind::LessThan,
-                        literal: "<",
-                    }
+                    Token::new(TokenKind::LessThan, "<", start)
                 }
             }
             Some(b'|') => {
                 if self.peek_char() == Some(b'|') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::Or,
-                        literal: "||",
-                    }
+                    Token::new(TokenKind::Or, "||", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Pipe,
-                        literal: "|",
-                    }
+                    Token::new(TokenKind::Pipe, "|", start)
                 }
             }
-            Some(b'?') => Token {
-                kind: TokenKind::QuestionMark,
-                literal: "?",
-            },
-            Some(b':') => Token {
-                kind: TokenKind::Colon,
-                literal: ":",
-            },
-            Some(b'~') => Token {
-                kind: TokenKind::Tilde,
-                literal: "~",
-            },
-            Some(b'$') => Token {
-                kind: TokenKind::DollarSign,
-                literal: "$",
-            },
+            Some(b'?') => Token::new(TokenKind::QuestionMark, "?", start),
+            Some(b':') => Token::new(TokenKind::Colon, ":", start),
+            Some(b'~') => Token::new(TokenKind::Tilde, "~", start),
+            Some(b'$') => Token::new(TokenKind::DollarSign, "$", start),
             Some(b'=') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::Equal,
-                        literal: "==",
-                    }
+                    Token::new(TokenKind::Equal, "==", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Assign,
-                        literal: "=",
-                    }
+                    Token::new(TokenKind::Assign, "=", start)
                 }
             }
             Some(b'/') => {
                 if self.peek_char() == Some(b'=') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::DivideAssign,
-                        literal: "/=",
-                    }
+                    Token::new(TokenKind::DivideAssign, "/=", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Division,
-                        literal: "/",
-                    }
+                    Token::new(TokenKind::Division, "/", start)
                 }
             }
             Some(b'&') => {
                 if self.peek_char() == Some(b'&') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::And,
-                        literal: "&&",
-                    }
+                    Token::new(TokenKind::And, "&&", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Illegal,
-                        literal: "<illegal>",
-                    }
+                    Token::new(TokenKind::Illegal, "<illegal>", start)
                 }
             }
             Some(b'\\') => {
                 if self.peek_char() == Some(b'\n') {
                     self.read_char();
-                    Token {
-                        kind: TokenKind::NewLine,
-                        literal: "<newline>",
-                    }
+                    Token::new(TokenKind::NewLine, "<newline>", start)
                 } else {
-                    Token {
-                        kind: TokenKind::Illegal,
-                        literal: "<illegal>",
-                    }
+                    Token::new(TokenKind::Illegal, "<illegal>", start)
                 }
             }
             Some(b'"') => self.read_string(),
@@ -299,17 +166,12 @@ impl<'a> Lexer<'a> {
             {
                 self.read_number()
             }
-            None => Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
-            _ => Token {
-                kind: TokenKind::Illegal,
-                literal: "<illegal>",
-            },
+            None => return Token::new(TokenKind::Eof, "", start),
+            _ => Token::new(TokenKind::Illegal, "<illegal>", start),
         };
 
         self.read_char();
+
         token
     }
 
@@ -330,15 +192,12 @@ impl<'a> Lexer<'a> {
         }
         let literal = &self.input[position..self.position];
 
-        if let Some(token) = lookup_keyword(literal) {
-            token
-        } else if let Some(token) = lookup_functions(literal) {
-            token
+        if let Some(token_kind) = lookup_keyword(literal) {
+            Token::new(token_kind, literal, position)
+        } else if let Some(token_kind) = lookup_functions(literal) {
+            Token::new(token_kind, literal, position)
         } else {
-            Token {
-                kind: TokenKind::Illegal,
-                literal,
-            }
+            Token::new(TokenKind::Illegal, literal, position)
         }
     }
 
@@ -363,22 +222,17 @@ impl<'a> Lexer<'a> {
         // consume trailing digits
         while is_digit(self.ch) {
             got_digit = true;
+
             self.read_char();
         }
 
         if !got_digit {
-            return Token {
-                kind: TokenKind::Illegal,
-                literal: "<illegal>",
-            };
+            return Token::new(TokenKind::Illegal, "<illegal>", position);
         }
 
         let literal = &self.input[position..self.position];
 
-        Token {
-            kind: TokenKind::Number,
-            literal,
-        }
+        Token::new(TokenKind::Number, literal, position)
     }
 
     fn read_string(&mut self) -> Token<'a> {
@@ -392,15 +246,20 @@ impl<'a> Lexer<'a> {
 
         let literal = &self.input[position..self.position];
 
-        Token {
-            kind: TokenKind::String,
-            literal,
-        }
+        Token::new(TokenKind::String, literal, position)
     }
 
     fn skip_whitespace(&mut self) {
         while is_whitespace(self.ch) {
             self.read_char();
+        }
+    }
+
+    fn skip_comment(&mut self) {
+        if Some(b'#') == self.ch {
+            while self.ch != Some(b'\n') && self.ch.is_some() {
+                self.read_char();
+            }
         }
     }
 
@@ -438,60 +297,50 @@ fn is_digit(ch: Option<u8>) -> bool {
 mod tests {
     use super::*;
 
+    fn assert_token(token: Token<'_>, kind: TokenKind, literal: &str) {
+        assert_eq!(kind, token.kind);
+        assert_eq!(literal, token.literal);
+    }
+
     #[test]
     fn empty_input_returns_eof_token() {
-        let expected = Token {
-            kind: TokenKind::Eof,
-            literal: "",
-        };
         let input = "";
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
 
-        assert_eq!(expected, token);
+        assert_token(token, TokenKind::Eof, "");
     }
 
     #[test]
     fn next_left_curly_brace_token() {
-        let expected = Token {
-            kind: TokenKind::LeftCurlyBrace,
-            literal: "{",
-        };
+        let expected_token = Token::new(TokenKind::LeftCurlyBrace, "{", 0);
         let input = "{";
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
 
-        assert_eq!(expected, token);
+        assert_eq!(expected_token, token);
     }
 
     #[test]
     fn next_right_curly_brace_token() {
-        let expected = Token {
-            kind: TokenKind::RightCurlyBrace,
-            literal: "}",
-        };
         let input = "}";
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
 
-        assert_eq!(expected, token);
+        assert_token(token, TokenKind::RightCurlyBrace, "}");
     }
 
     #[test]
     fn next_pipe_token() {
-        let expected = Token {
-            kind: TokenKind::Pipe,
-            literal: "|",
-        };
         let input = "|";
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
 
-        assert_eq!(expected, token);
+        assert_token(token, TokenKind::Pipe, "|");
     }
 
     #[test]
@@ -499,126 +348,48 @@ mod tests {
         let input = "{}()[],;\n+-*/%^!><|?:~$=";
         let mut lexer = Lexer::new(input);
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::LeftCurlyBrace,
-                literal: "{",
-            },
-            Token {
-                kind: TokenKind::RightCurlyBrace,
-                literal: "}",
-            },
-            Token {
-                kind: TokenKind::LeftParen,
-                literal: "(",
-            },
-            Token {
-                kind: TokenKind::RightParen,
-                literal: ")",
-            },
-            Token {
-                kind: TokenKind::LeftSquareBracket,
-                literal: "[",
-            },
-            Token {
-                kind: TokenKind::RightSquareBracket,
-                literal: "]",
-            },
-            Token {
-                kind: TokenKind::Comma,
-                literal: ",",
-            },
-            Token {
-                kind: TokenKind::Semicolon,
-                literal: ";",
-            },
-            Token {
-                kind: TokenKind::NewLine,
-                literal: "<newline>",
-            },
-            Token {
-                kind: TokenKind::Plus,
-                literal: "+",
-            },
-            Token {
-                kind: TokenKind::Minus,
-                literal: "-",
-            },
-            Token {
-                kind: TokenKind::Asterisk,
-                literal: "*",
-            },
-            Token {
-                kind: TokenKind::Division,
-                literal: "/",
-            },
-            Token {
-                kind: TokenKind::Percent,
-                literal: "%",
-            },
-            Token {
-                kind: TokenKind::Caret,
-                literal: "^",
-            },
-            Token {
-                kind: TokenKind::ExclamationMark,
-                literal: "!",
-            },
-            Token {
-                kind: TokenKind::GreaterThan,
-                literal: ">",
-            },
-            Token {
-                kind: TokenKind::LessThan,
-                literal: "<",
-            },
-            Token {
-                kind: TokenKind::Pipe,
-                literal: "|",
-            },
-            Token {
-                kind: TokenKind::QuestionMark,
-                literal: "?",
-            },
-            Token {
-                kind: TokenKind::Colon,
-                literal: ":",
-            },
-            Token {
-                kind: TokenKind::Tilde,
-                literal: "~",
-            },
-            Token {
-                kind: TokenKind::DollarSign,
-                literal: "$",
-            },
-            Token {
-                kind: TokenKind::Assign,
-                literal: "=",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::LeftCurlyBrace, "{"),
+            (TokenKind::RightCurlyBrace, "}"),
+            (TokenKind::LeftParen, "("),
+            (TokenKind::RightParen, ")"),
+            (TokenKind::LeftSquareBracket, "["),
+            (TokenKind::RightSquareBracket, "]"),
+            (TokenKind::Comma, ","),
+            (TokenKind::Semicolon, ";"),
+            (TokenKind::NewLine, "<newline>"),
+            (TokenKind::Plus, "+"),
+            (TokenKind::Minus, "-"),
+            (TokenKind::Asterisk, "*"),
+            (TokenKind::Division, "/"),
+            (TokenKind::Percent, "%"),
+            (TokenKind::Caret, "^"),
+            (TokenKind::ExclamationMark, "!"),
+            (TokenKind::GreaterThan, ">"),
+            (TokenKind::LessThan, "<"),
+            (TokenKind::Pipe, "|"),
+            (TokenKind::QuestionMark, "?"),
+            (TokenKind::Colon, ":"),
+            (TokenKind::Tilde, "~"),
+            (TokenKind::DollarSign, "$"),
+            (TokenKind::Assign, "="),
+            (TokenKind::Eof, ""),
         ];
 
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
     #[test]
     fn next_while_token() {
-        let expected = Token {
-            kind: TokenKind::While,
-            literal: "while",
-        };
-        let input = "while";
+        let expected_token = Token::new(TokenKind::While, "while", 1);
+        let input = " while";
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
 
-        assert_eq!(expected, token);
+        assert_eq!(expected_token, token);
     }
 
     #[test]
@@ -627,83 +398,29 @@ mod tests {
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::Begin,
-                literal: "BEGIN",
-            },
-            Token {
-                kind: TokenKind::End,
-                literal: "END",
-            },
-            Token {
-                kind: TokenKind::Break,
-                literal: "break",
-            },
-            Token {
-                kind: TokenKind::Continue,
-                literal: "continue",
-            },
-            Token {
-                kind: TokenKind::Delete,
-                literal: "delete",
-            },
-            Token {
-                kind: TokenKind::Do,
-                literal: "do",
-            },
-            Token {
-                kind: TokenKind::Else,
-                literal: "else",
-            },
-            Token {
-                kind: TokenKind::Exit,
-                literal: "exit",
-            },
-            Token {
-                kind: TokenKind::For,
-                literal: "for",
-            },
-            Token {
-                kind: TokenKind::Function,
-                literal: "function",
-            },
-            Token {
-                kind: TokenKind::If,
-                literal: "if",
-            },
-            Token {
-                kind: TokenKind::In,
-                literal: "in",
-            },
-            Token {
-                kind: TokenKind::Next,
-                literal: "next",
-            },
-            Token {
-                kind: TokenKind::Print,
-                literal: "print",
-            },
-            Token {
-                kind: TokenKind::Printf,
-                literal: "printf",
-            },
-            Token {
-                kind: TokenKind::Return,
-                literal: "return",
-            },
-            Token {
-                kind: TokenKind::While,
-                literal: "while",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::Begin, "BEGIN"),
+            (TokenKind::End, "END"),
+            (TokenKind::Break, "break"),
+            (TokenKind::Continue, "continue"),
+            (TokenKind::Delete, "delete"),
+            (TokenKind::Do, "do"),
+            (TokenKind::Else, "else"),
+            (TokenKind::Exit, "exit"),
+            (TokenKind::For, "for"),
+            (TokenKind::Function, "function"),
+            (TokenKind::If, "if"),
+            (TokenKind::In, "in"),
+            (TokenKind::Next, "next"),
+            (TokenKind::Print, "print"),
+            (TokenKind::Printf, "printf"),
+            (TokenKind::Return, "return"),
+            (TokenKind::While, "while"),
+            (TokenKind::Eof, ""),
         ];
 
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
@@ -713,54 +430,30 @@ mod tests {
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::Number,
-                literal: "123",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "4567",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "890",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "42.0",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: ".75",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "0.001",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::Number, "123"),
+            (TokenKind::Number, "4567"),
+            (TokenKind::Number, "890"),
+            (TokenKind::Number, "42.0"),
+            (TokenKind::Number, ".75"),
+            (TokenKind::Number, "0.001"),
+            (TokenKind::Eof, ""),
         ];
 
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
     #[test]
     fn next_or_token() {
-        let expected = Token {
-            kind: TokenKind::Or,
-            literal: "||",
-        };
+        let expected_token = Token::new(TokenKind::Or, "||", 0);
         let input = "||";
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
 
-        assert_eq!(expected, token);
+        assert_eq!(expected_token, token);
     }
 
     #[test]
@@ -769,79 +462,28 @@ mod tests {
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::AddAssign,
-                literal: "+=",
-            },
-            Token {
-                kind: TokenKind::SubtractAssign,
-                literal: "-=",
-            },
-            Token {
-                kind: TokenKind::MultiplyAssign,
-                literal: "*=",
-            },
-            Token {
-                kind: TokenKind::DivideAssign,
-                literal: "/=",
-            },
-            Token {
-                kind: TokenKind::ModuloAssign,
-                literal: "%=",
-            },
-            Token {
-                kind: TokenKind::PowerAssign,
-                literal: "^=",
-            },
-            Token {
-                kind: TokenKind::Or,
-                literal: "||",
-            },
-            Token {
-                kind: TokenKind::And,
-                literal: "&&",
-            },
-            Token {
-                kind: TokenKind::NoMatch,
-                literal: "!~",
-            },
-            Token {
-                kind: TokenKind::Equal,
-                literal: "==",
-            },
-            Token {
-                kind: TokenKind::LessThanOrEqual,
-                literal: "<=",
-            },
-            Token {
-                kind: TokenKind::GreaterThanOrEqual,
-                literal: ">=",
-            },
-            Token {
-                kind: TokenKind::NotEqual,
-                literal: "!=",
-            },
-            Token {
-                kind: TokenKind::Increment,
-                literal: "++",
-            },
-            Token {
-                kind: TokenKind::Decrement,
-                literal: "--",
-            },
-            Token {
-                kind: TokenKind::Append,
-                literal: ">>",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::AddAssign, "+="),
+            (TokenKind::SubtractAssign, "-="),
+            (TokenKind::MultiplyAssign, "*="),
+            (TokenKind::DivideAssign, "/="),
+            (TokenKind::ModuloAssign, "%="),
+            (TokenKind::PowerAssign, "^="),
+            (TokenKind::Or, "||"),
+            (TokenKind::And, "&&"),
+            (TokenKind::NoMatch, "!~"),
+            (TokenKind::Equal, "=="),
+            (TokenKind::LessThanOrEqual, "<="),
+            (TokenKind::GreaterThanOrEqual, ">="),
+            (TokenKind::NotEqual, "!="),
+            (TokenKind::Increment, "++"),
+            (TokenKind::Decrement, "--"),
+            (TokenKind::Append, ">>"),
+            (TokenKind::Eof, ""),
         ];
 
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
@@ -851,23 +493,14 @@ mod tests {
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::NewLine,
-                literal: "<newline>",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "123",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::NewLine, "<newline>"),
+            (TokenKind::Number, "123"),
+            (TokenKind::Eof, ""),
         ];
 
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
@@ -877,26 +510,14 @@ mod tests {
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::Number,
-                literal: "123",
-            },
-            Token {
-                kind: TokenKind::NewLine,
-                literal: "<newline>",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "456",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::Number, "123"),
+            (TokenKind::NewLine, "<newline>"),
+            (TokenKind::Number, "456"),
+            (TokenKind::Eof, ""),
         ];
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
@@ -906,26 +527,14 @@ mod tests {
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::Number,
-                literal: "123",
-            },
-            Token {
-                kind: TokenKind::Illegal,
-                literal: "<illegal>",
-            },
-            Token {
-                kind: TokenKind::Number,
-                literal: "456",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::Number, "123"),
+            (TokenKind::Illegal, "<illegal>"),
+            (TokenKind::Number, "456"),
+            (TokenKind::Eof, ""),
         ];
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
@@ -933,13 +542,9 @@ mod tests {
     fn read_string_token() {
         let input = r#""Hello, World!""#;
         let mut lexer = Lexer::new(input);
-        let expected = Token {
-            kind: TokenKind::String,
-            literal: "Hello, World!",
-        };
 
         let token = lexer.next_token();
-        assert_eq!(expected, token);
+        assert_token(token, TokenKind::String, "Hello, World!");
     }
 
     #[test]
@@ -947,99 +552,33 @@ mod tests {
         let input = "atan2 close cos exp gsub index int length log match rand sin split sprintf sqrt srand sub substr system tolower toupper";
         let mut lexer = Lexer::new(input);
         let expected_tokens = vec![
-            Token {
-                kind: TokenKind::Atan2,
-                literal: "atan2",
-            },
-            Token {
-                kind: TokenKind::Close,
-                literal: "close",
-            },
-            Token {
-                kind: TokenKind::Cos,
-                literal: "cos",
-            },
-            Token {
-                kind: TokenKind::Exp,
-                literal: "exp",
-            },
-            Token {
-                kind: TokenKind::Gsub,
-                literal: "gsub",
-            },
-            Token {
-                kind: TokenKind::Index,
-                literal: "index",
-            },
-            Token {
-                kind: TokenKind::Int,
-                literal: "int",
-            },
-            Token {
-                kind: TokenKind::Length,
-                literal: "length",
-            },
-            Token {
-                kind: TokenKind::Log,
-                literal: "log",
-            },
-            Token {
-                kind: TokenKind::Match,
-                literal: "match",
-            },
-            Token {
-                kind: TokenKind::Rand,
-                literal: "rand",
-            },
-            Token {
-                kind: TokenKind::Sin,
-                literal: "sin",
-            },
-            Token {
-                kind: TokenKind::Split,
-                literal: "split",
-            },
-            Token {
-                kind: TokenKind::Sprintf,
-                literal: "sprintf",
-            },
-            Token {
-                kind: TokenKind::Sqrt,
-                literal: "sqrt",
-            },
-            Token {
-                kind: TokenKind::Srand,
-                literal: "srand",
-            },
-            Token {
-                kind: TokenKind::Sub,
-                literal: "sub",
-            },
-            Token {
-                kind: TokenKind::Substr,
-                literal: "substr",
-            },
-            Token {
-                kind: TokenKind::System,
-                literal: "system",
-            },
-            Token {
-                kind: TokenKind::ToLower,
-                literal: "tolower",
-            },
-            Token {
-                kind: TokenKind::ToUpper,
-                literal: "toupper",
-            },
-            Token {
-                kind: TokenKind::Eof,
-                literal: "",
-            },
+            (TokenKind::Atan2, "atan2"),
+            (TokenKind::Close, "close"),
+            (TokenKind::Cos, "cos"),
+            (TokenKind::Exp, "exp"),
+            (TokenKind::Gsub, "gsub"),
+            (TokenKind::Index, "index"),
+            (TokenKind::Int, "int"),
+            (TokenKind::Length, "length"),
+            (TokenKind::Log, "log"),
+            (TokenKind::Match, "match"),
+            (TokenKind::Rand, "rand"),
+            (TokenKind::Sin, "sin"),
+            (TokenKind::Split, "split"),
+            (TokenKind::Sprintf, "sprintf"),
+            (TokenKind::Sqrt, "sqrt"),
+            (TokenKind::Srand, "srand"),
+            (TokenKind::Sub, "sub"),
+            (TokenKind::Substr, "substr"),
+            (TokenKind::System, "system"),
+            (TokenKind::ToLower, "tolower"),
+            (TokenKind::ToUpper, "toupper"),
+            (TokenKind::Eof, ""),
         ];
 
-        for expected in expected_tokens {
+        for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
-            assert_eq!(expected, token);
+            assert_token(token, expected_kind, expected_literal);
         }
     }
 
