@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4](https://github.com/stefanalfbo/rawk/compare/v0.0.3...v0.0.4) - 2026-01-07
+
+### Other
+
+- Handle hex numbers in the lexer
+- Rename the crate rawk to rawk-cli
+- Add location support for tokens
+- Update the READMEs for the rawk project
+
 ## [0.0.3](https://github.com/stefanalfbo/rawk/compare/v0.0.2...v0.0.3) - 2026-01-04
 
 ### Other
