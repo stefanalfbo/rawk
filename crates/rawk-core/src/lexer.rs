@@ -208,9 +208,33 @@ impl<'a> Lexer<'a> {
         // consume leading digits
         if self.ch != Some(b'.') {
             got_digit = true;
+
+            if self.peek_char() == Some(b'x') || self.peek_char() == Some(b'X') {
+                // hex number
+                self.read_char(); // consume '0'
+                self.read_char(); // consume 'x' or 'X'
+
+                while matches!(
+                    self.ch,
+                    Some(b'0'..=b'9') | Some(b'a'..=b'f') | Some(b'A'..=b'F')
+                ) {
+                    self.read_char();
+                }
+
+                let literal = &self.input[position..self.position];
+                match u64::from_str_radix(&literal[2..], 16) {
+                    Ok(_) => {
+                        return Token::new(TokenKind::Number, literal, position);
+                    }
+                    Err(_) => {
+                        return Token::new(TokenKind::Illegal, "<illegal>", position);
+                    }
+                }
+            }
             while is_digit(self.ch) {
                 self.read_char();
             }
+
             if self.ch == Some(b'.') {
                 self.read_char();
             }
@@ -436,6 +460,23 @@ mod tests {
             (TokenKind::Number, "42.0"),
             (TokenKind::Number, ".75"),
             (TokenKind::Number, "0.001"),
+            (TokenKind::Eof, ""),
+        ];
+
+        for (expected_kind, expected_literal) in expected_tokens {
+            let token = lexer.next_token();
+            assert_token(token, expected_kind, expected_literal);
+        }
+    }
+
+    #[test]
+    fn hex_number_token() {
+        let input = "0xAA 0xaa";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            (TokenKind::Number, "0xAA"),
+            (TokenKind::Number, "0xaa"),
             (TokenKind::Eof, ""),
         ];
 
