@@ -272,10 +272,7 @@ impl<'a> Lexer<'a> {
 
         if self.ch != Some(b'"') {
             return Token::new(TokenKind::Illegal, literal, position);
-        }
-
-        // skip closing quote
-        self.read_char();
+        };
 
         Token::new(TokenKind::String, literal, position)
     }
@@ -588,12 +585,13 @@ mod tests {
 
     #[test]
     fn read_string_token() {
-        let input = r#""Hello, World!" 123 "Hello, again!""#;
+        let input = r#""Hello, World!" 123 "Hello, again!";"#;
         let mut lexer = Lexer::new(input);
         let expected_tokens = vec![
             (TokenKind::String, "Hello, World!"),
             (TokenKind::Number, "123"),
             (TokenKind::String, "Hello, again!"),
+            (TokenKind::Semicolon, ";"),
             (TokenKind::Eof, ""),
         ];
 
