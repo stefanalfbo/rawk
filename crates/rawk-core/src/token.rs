@@ -4,6 +4,7 @@ pub enum TokenKind {
     Eof,
     Number,
     String,
+    Identifier,
 
     // Keywords.
     Begin,

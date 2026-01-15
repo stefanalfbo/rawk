@@ -157,7 +157,7 @@ impl<'a> Lexer<'a> {
                 }
             }
             Some(b'"') => self.read_string(),
-            ch if is_ascii_alphabetic(ch) => self.read_identifier(),
+            ch if is_ascii_alphabetic(ch) || ch == Some(b'_') => self.read_identifier(),
             ch if is_digit(ch) => self.read_number(),
             Some(b'.')
                 if self
@@ -187,7 +187,7 @@ impl<'a> Lexer<'a> {
 
     fn read_identifier(&mut self) -> Token<'a> {
         let position = self.position;
-        while is_ascii_alphabetic(self.ch) || is_digit(self.ch) {
+        while is_ascii_alphabetic(self.ch) || is_digit(self.ch) || self.ch == Some(b'_') {
             self.read_char();
         }
         let literal = &self.input[position..self.position];
@@ -197,7 +197,7 @@ impl<'a> Lexer<'a> {
         } else if let Some(token_kind) = lookup_functions(literal) {
             Token::new(token_kind, literal, position)
         } else {
-            Token::new(TokenKind::Illegal, literal, position)
+            Token::new(TokenKind::Identifier, literal, position)
         }
     }
 
@@ -614,6 +614,25 @@ mod tests {
             (TokenKind::System, "system"),
             (TokenKind::ToLower, "tolower"),
             (TokenKind::ToUpper, "toupper"),
+            (TokenKind::Eof, ""),
+        ];
+
+        for (expected_kind, expected_literal) in expected_tokens {
+            let token = lexer.next_token();
+            assert_token(token, expected_kind, expected_literal);
+        }
+    }
+
+    #[test]
+    fn test_identifiers() {
+        let input = "my_variable anotherVar _privateVar var123";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            (TokenKind::Identifier, "my_variable"),
+            (TokenKind::Identifier, "anotherVar"),
+            (TokenKind::Identifier, "_privateVar"),
+            (TokenKind::Identifier, "var123"),
             (TokenKind::Eof, ""),
         ];
 
