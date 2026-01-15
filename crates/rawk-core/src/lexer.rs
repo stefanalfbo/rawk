@@ -270,6 +270,13 @@ impl<'a> Lexer<'a> {
 
         let literal = &self.input[position..self.position];
 
+        if self.ch != Some(b'"') {
+            return Token::new(TokenKind::Illegal, literal, position);
+        }
+
+        // skip closing quote
+        self.read_char();
+
         Token::new(TokenKind::String, literal, position)
     }
 
@@ -566,13 +573,13 @@ mod tests {
     fn backslash_without_newline_is_illegal() {
         let input = "123 \\ 456";
         let mut lexer = Lexer::new(input);
-
         let expected_tokens = vec![
             (TokenKind::Number, "123"),
             (TokenKind::Illegal, "<illegal>"),
             (TokenKind::Number, "456"),
             (TokenKind::Eof, ""),
         ];
+
         for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
             assert_token(token, expected_kind, expected_literal);
@@ -581,11 +588,28 @@ mod tests {
 
     #[test]
     fn read_string_token() {
-        let input = r#""Hello, World!""#;
+        let input = r#""Hello, World!" 123 "Hello, again!""#;
+        let mut lexer = Lexer::new(input);
+        let expected_tokens = vec![
+            (TokenKind::String, "Hello, World!"),
+            (TokenKind::Number, "123"),
+            (TokenKind::String, "Hello, again!"),
+            (TokenKind::Eof, ""),
+        ];
+
+        for (expected_kind, expected_literal) in expected_tokens {
+            let token = lexer.next_token();
+            assert_token(token, expected_kind, expected_literal);
+        }
+    }
+
+    #[test]
+    fn unterminated_string_token() {
+        let input = r#""This is an unterminated string"#;
         let mut lexer = Lexer::new(input);
 
         let token = lexer.next_token();
-        assert_token(token, TokenKind::String, "Hello, World!");
+        assert_token(token, TokenKind::Illegal, "This is an unterminated string");
     }
 
     #[test]
