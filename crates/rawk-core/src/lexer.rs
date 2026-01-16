@@ -205,11 +205,22 @@ impl<'a> Lexer<'a> {
         let position = self.position;
         let mut got_digit = false;
 
+        if self.ch == Some(b'0')
+            && matches!(self.peek_char(), Some(b'x') | Some(b'X'))
+            && !is_hex_digit(self.peek_next_char())
+        {
+            let literal = &self.input[position..position + 1];
+            return Token::new(TokenKind::Number, literal, position);
+        }
+
         // consume leading digits
         if self.ch != Some(b'.') {
             got_digit = true;
 
-            if self.peek_char() == Some(b'x') || self.peek_char() == Some(b'X') {
+            if self.ch == Some(b'0')
+                && matches!(self.peek_char(), Some(b'x') | Some(b'X'))
+                && is_hex_digit(self.peek_next_char())
+            {
                 // hex number
                 self.read_char(); // consume '0'
                 self.read_char(); // consume 'x' or 'X'
@@ -224,7 +235,9 @@ impl<'a> Lexer<'a> {
                 let literal = &self.input[position..self.position];
                 match u64::from_str_radix(&literal[2..], 16) {
                     Ok(_) => {
-                        return Token::new(TokenKind::Number, literal, position);
+                        let token = Token::new(TokenKind::Number, literal, position);
+                        self.rewind_one();
+                        return token;
                     }
                     Err(_) => {
                         return Token::new(TokenKind::Illegal, "<illegal>", position);
@@ -256,7 +269,9 @@ impl<'a> Lexer<'a> {
 
         let literal = &self.input[position..self.position];
 
-        Token::new(TokenKind::Number, literal, position)
+        let token = Token::new(TokenKind::Number, literal, position);
+        self.rewind_one();
+        token
     }
 
     fn read_string(&mut self) -> Token<'a> {
@@ -298,6 +313,24 @@ impl<'a> Lexer<'a> {
             Some(self.input.as_bytes()[self.read_position])
         }
     }
+
+    fn peek_next_char(&self) -> Option<u8> {
+        let next = self.read_position + 1;
+        if next >= self.input.len() {
+            None
+        } else {
+            Some(self.input.as_bytes()[next])
+        }
+    }
+
+    fn rewind_one(&mut self) {
+        if self.position == 0 {
+            return;
+        }
+        self.read_position = self.position;
+        self.position -= 1;
+        self.ch = Some(self.input.as_bytes()[self.position]);
+    }
 }
 
 fn is_ascii_alphabetic(ch: Option<u8>) -> bool {
@@ -317,6 +350,13 @@ fn is_whitespace(ch: Option<u8>) -> bool {
 fn is_digit(ch: Option<u8>) -> bool {
     match ch {
         Some(byte) => byte.is_ascii_digit(),
+        None => false,
+    }
+}
+
+fn is_hex_digit(ch: Option<u8>) -> bool {
+    match ch {
+        Some(byte) => byte.is_ascii_hexdigit(),
         None => false,
     }
 }
@@ -475,12 +515,33 @@ mod tests {
 
     #[test]
     fn hex_number_token() {
-        let input = "0xAA 0xaa";
+        let input = "0xAA 0xaa 0xFEED 0xBEAF";
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
             (TokenKind::Number, "0xAA"),
             (TokenKind::Number, "0xaa"),
+            (TokenKind::Number, "0xFEED"),
+            (TokenKind::Number, "0xBEAF"),
+            (TokenKind::Eof, ""),
+        ];
+
+        for (expected_kind, expected_literal) in expected_tokens {
+            let token = lexer.next_token();
+            assert_token(token, expected_kind, expected_literal);
+        }
+    }
+
+    #[test]
+    fn invalid_hex_number_token() {
+        let input = "0xG1 5x03";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            (TokenKind::Number, "0"),
+            (TokenKind::Identifier, "xG1"),
+            (TokenKind::Number, "5"),
+            (TokenKind::Identifier, "x03"),
             (TokenKind::Eof, ""),
         ];
 
