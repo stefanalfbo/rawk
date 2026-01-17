@@ -34,6 +34,10 @@ impl<'a> Parser<'a> {
 
     fn parse_next_item(&mut self) -> Option<Item<'a>> {
         match &self.current_token.kind {
+            TokenKind::NewLine => {
+                self.next_token();
+                self.parse_next_item()
+            }
             TokenKind::Eof => None,
             TokenKind::LeftCurlyBrace => Some(self.parse_action()),
             _ => panic!(
@@ -47,6 +51,9 @@ impl<'a> Parser<'a> {
         self.next_token(); // consume '{'
 
         let mut statements = Vec::new();
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
         if self.current_token.kind == TokenKind::Print {
             statements.push(Statement::Print(vec![]));
         }
@@ -102,6 +109,16 @@ mod tests {
     #[test]
     fn parse_action_without_pattern() {
         let mut parser = Parser::new(Lexer::new("{ print }"));
+
+        let program = parser.parse_program();
+
+        assert_eq!(program.len(), 1);
+        assert_eq!("{ print }", program.to_string());
+    }
+
+    #[test]
+    fn parse_action_with_leading_newlines() {
+        let mut parser = Parser::new(Lexer::new("\n\n{ print }"));
 
         let program = parser.parse_program();
 
