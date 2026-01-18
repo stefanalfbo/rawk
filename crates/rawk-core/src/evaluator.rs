@@ -1,5 +1,5 @@
 use crate::{
-    Action, Item, Program,
+    Action, Program, Rule,
     ast::{Expression, Statement},
 };
 
@@ -19,23 +19,23 @@ impl<'a> Evaluator<'a> {
     pub fn eval(&mut self) -> Vec<String> {
         let mut output_lines: Vec<String> = Vec::new();
 
-        for item in self.program.begin_blocks_iter() {
-            output_lines.extend(self.eval_begin_item(item));
+        for rule in self.program.begin_blocks_iter() {
+            output_lines.extend(self.eval_begin_rule(rule));
         }
 
-        for item in self.program.iter() {
-            output_lines.extend(self.eval_item(item));
+        for rule in self.program.iter() {
+            output_lines.extend(self.eval_rule(rule));
         }
 
         output_lines
     }
 
-    fn eval_item(&self, item: &Item) -> Vec<String> {
+    fn eval_rule(&self, rule: &Rule) -> Vec<String> {
         let mut output_lines = Vec::new();
 
         for input_line in &self.input_lines {
-            match item {
-                Item::Action(action) => {
+            match rule {
+                Rule::Action(action) => {
                     output_lines.push(eval_action(action, Some(input_line)));
                 }
                 _ => {}
@@ -45,9 +45,9 @@ impl<'a> Evaluator<'a> {
         output_lines
     }
 
-    fn eval_begin_item(&self, item: &Item) -> Vec<String> {
-        match item {
-            Item::Begin(action) => vec![eval_action(action, None)],
+    fn eval_begin_rule(&self, rule: &Rule) -> Vec<String> {
+        match rule {
+            Rule::Begin(action) => vec![eval_action(action, None)],
             _ => Vec::new(),
         }
     }

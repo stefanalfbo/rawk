@@ -1,4 +1,4 @@
-pub use ast::{Action, Expression, Item, Program};
+pub use ast::{Action, Expression, Program, Rule};
 pub use evaluator::Evaluator;
 pub use lexer::Lexer;
 pub use parser::Parser;

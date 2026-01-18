@@ -1,6 +1,6 @@
 use crate::{
     Lexer, Program,
-    ast::{Action, Expression, Item, Statement},
+    ast::{Action, Expression, Rule, Statement},
     token::{Token, TokenKind},
 };
 
@@ -32,36 +32,36 @@ impl<'a> Parser<'a> {
         self.current_token.kind == TokenKind::Eof
     }
 
-    fn parse_next_item(&mut self) -> Option<Item<'a>> {
+    fn parse_next_rule(&mut self) -> Option<Rule<'a>> {
         match &self.current_token.kind {
             TokenKind::Begin => {
                 self.next_token();
                 match self.parse_action() {
-                    Item::Action(action) => Some(Item::Begin(action)),
+                    Rule::Action(action) => Some(Rule::Begin(action)),
                     _ => panic!("Expected action after BEGIN"),
                 }
             }
             TokenKind::NewLine => {
                 self.next_token();
-                self.parse_next_item()
+                self.parse_next_rule()
             }
             TokenKind::Eof => None,
             TokenKind::LeftCurlyBrace => Some(self.parse_action()),
             TokenKind::End => {
                 self.next_token();
                 match self.parse_action() {
-                    Item::Action(action) => Some(Item::End(action)),
+                    Rule::Action(action) => Some(Rule::End(action)),
                     _ => panic!("Expected action after END"),
                 }
             }
             _ => panic!(
-                "parse_next_item not yet implemented, found token: {:?}",
+                "parse_next_rule not yet implemented, found token: {:?}",
                 self.current_token
             ),
         }
     }
 
-    fn parse_action(&mut self) -> Item<'a> {
+    fn parse_action(&mut self) -> Rule<'a> {
         self.next_token(); // consume '{'
 
         let pattern = None;
@@ -83,12 +83,12 @@ impl<'a> Parser<'a> {
         }
 
         if pattern.is_some() {
-            Item::PatternAction {
+            Rule::PatternAction {
                 pattern,
                 action: Some(Action { statements }),
             }
         } else {
-            Item::Action(Action { statements })
+            Rule::Action(Action { statements })
         }
     }
 
@@ -121,9 +121,9 @@ impl<'a> Parser<'a> {
         let mut program = Program::new();
 
         while !self.is_eof() {
-            match self.parse_next_item() {
-                Some(Item::Begin(action)) => program.add_begin_block(Item::Begin(action)),
-                Some(item) => program.add_item(item),
+            match self.parse_next_rule() {
+                Some(Rule::Begin(action)) => program.add_begin_block(Rule::Begin(action)),
+                Some(rule) => program.add_rule(rule),
                 None => {}
             }
             self.next_token();

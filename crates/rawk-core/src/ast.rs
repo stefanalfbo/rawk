@@ -4,42 +4,42 @@ use crate::token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program<'a> {
-    begin_blocks: Vec<Item<'a>>,
-    items: Vec<Item<'a>>,
-    end_blocks: Vec<Item<'a>>,
+    begin_blocks: Vec<Rule<'a>>,
+    rules: Vec<Rule<'a>>,
+    end_blocks: Vec<Rule<'a>>,
 }
 
 impl<'a> Program<'a> {
     pub fn new() -> Self {
         Program {
             begin_blocks: vec![],
-            items: vec![],
+            rules: vec![],
             end_blocks: vec![],
         }
     }
 
     pub fn len(&self) -> usize {
-        self.items.len() + self.begin_blocks.len() + self.end_blocks.len()
+        self.rules.len() + self.begin_blocks.len() + self.end_blocks.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.items.is_empty()
+        self.rules.is_empty()
     }
 
-    pub fn add_begin_block(&mut self, item: Item<'a>) {
-        self.begin_blocks.push(item);
+    pub fn add_begin_block(&mut self, rule: Rule<'a>) {
+        self.begin_blocks.push(rule);
     }
 
-    pub fn add_item(&mut self, item: Item<'a>) {
-        self.items.push(item);
+    pub fn add_rule(&mut self, rule: Rule<'a>) {
+        self.rules.push(rule);
     }
 
-    pub fn begin_blocks_iter(&self) -> std::slice::Iter<'_, Item<'a>> {
+    pub fn begin_blocks_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
         self.begin_blocks.iter()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Item<'a>> {
-        self.items.iter()
+    pub fn iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
+        self.rules.iter()
     }
 }
 
@@ -51,26 +51,26 @@ impl<'a> Default for Program<'a> {
 
 impl<'a> fmt::Display for Program<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for item in &self.begin_blocks {
-            write!(f, "{item}")?;
+        for rule in &self.begin_blocks {
+            write!(f, "{rule}")?;
         }
 
-        // Add space between begin blocks and main items if both exist
-        if !self.begin_blocks.is_empty() && !self.items.is_empty() {
+        // Add space between begin blocks and rules if both exist
+        if !self.begin_blocks.is_empty() && !self.rules.is_empty() {
             write!(f, " ")?;
         }
 
-        for item in &self.items {
-            write!(f, "{item}")?;
+        for rule in &self.rules {
+            write!(f, "{rule}")?;
         }
 
-        // Add space between main items and end blocks if both exist
-        if !self.items.is_empty() && !self.end_blocks.is_empty() {
+        // Add space between rules and end blocks if both exist
+        if !self.rules.is_empty() && !self.end_blocks.is_empty() {
             write!(f, " ")?;
         }
 
-        for item in &self.end_blocks {
-            write!(f, "{item}")?;
+        for rule in &self.end_blocks {
+            write!(f, "{rule}")?;
         }
 
         Ok(())
@@ -88,7 +88,7 @@ pub struct Action<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Item<'a> {
+pub enum Rule<'a> {
     Begin(Action<'a>),
     Action(Action<'a>),
     PatternAction {
@@ -98,18 +98,18 @@ pub enum Item<'a> {
     End(Action<'a>),
 }
 
-impl<'a> fmt::Display for Item<'a> {
+impl<'a> fmt::Display for Rule<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Item::Begin(action) => write!(f, "BEGIN {}", action),
-            Item::Action(action) => write!(f, "{}", action),
-            Item::PatternAction { pattern, action } => match (pattern, action) {
+            Rule::Begin(action) => write!(f, "BEGIN {}", action),
+            Rule::Action(action) => write!(f, "{}", action),
+            Rule::PatternAction { pattern, action } => match (pattern, action) {
                 (Some(expr), Some(action)) => write!(f, "{} {}", expr, action),
                 (Some(expr), None) => write!(f, "{}", expr),
                 (None, Some(action)) => write!(f, "{}", action),
                 (None, None) => write!(f, ""),
             },
-            Item::End(action) => write!(f, "END {}", action),
+            Rule::End(action) => write!(f, "END {}", action),
         }
     }
 }
@@ -200,22 +200,22 @@ mod tests {
     fn test_add_block_to_program() {
         let mut program = Program::new();
 
-        let item = Item::Action(Action {
+        let rule = Rule::Action(Action {
             statements: vec![Statement::Print(vec![])],
         });
-        program.add_begin_block(item);
+        program.add_begin_block(rule);
 
         assert_eq!(program.begin_blocks.len(), 1);
     }
 
     #[test]
-    fn test_add_item_to_program() {
+    fn test_add_rule_to_program() {
         let mut program = Program::new();
 
-        let item = Item::Action(Action {
+        let rule = Rule::Action(Action {
             statements: vec![Statement::Print(vec![])],
         });
-        program.add_item(item);
+        program.add_rule(rule);
 
         assert_eq!(program.len(), 1);
     }
@@ -225,7 +225,7 @@ mod tests {
         let expected_string = "$3 > 5";
         let program = Program {
             begin_blocks: vec![],
-            items: vec![Item::PatternAction {
+            rules: vec![Rule::PatternAction {
                 pattern: Some(Expression::Infix {
                     left: Box::new(Expression::Field(Box::new(Expression::Number(3.0)))),
                     operator: Token::new(TokenKind::GreaterThan, ">", 3),
@@ -243,10 +243,10 @@ mod tests {
     fn test_begin_block_program_creation() {
         let expected_string = "BEGIN { print }";
         let program = Program {
-            begin_blocks: vec![Item::Begin(Action {
+            begin_blocks: vec![Rule::Begin(Action {
                 statements: vec![Statement::Print(vec![])],
             })],
-            items: vec![],
+            rules: vec![],
             end_blocks: vec![],
         };
 
@@ -259,8 +259,8 @@ mod tests {
         let expected_string = "END { print }";
         let program = Program {
             begin_blocks: vec![],
-            items: vec![],
-            end_blocks: vec![Item::End(Action {
+            rules: vec![],
+            end_blocks: vec![Rule::End(Action {
                 statements: vec![Statement::Print(vec![])],
             })],
         };
@@ -274,7 +274,7 @@ mod tests {
         let expected_string = "{ print }";
         let program = Program {
             begin_blocks: vec![],
-            items: vec![Item::PatternAction {
+            rules: vec![Rule::PatternAction {
                 pattern: None,
                 action: Some(Action {
                     statements: vec![Statement::Print(vec![])],
@@ -291,10 +291,10 @@ mod tests {
     fn test_program_with_begin_body_and_end_blocks() {
         let expected_string = "BEGIN { print } $1 == 42 { print $2 } END { print \"hello\" }";
         let program = Program {
-            begin_blocks: vec![Item::Begin(Action {
+            begin_blocks: vec![Rule::Begin(Action {
                 statements: vec![Statement::Print(vec![])],
             })],
-            items: vec![Item::PatternAction {
+            rules: vec![Rule::PatternAction {
                 pattern: Some(Expression::Infix {
                     left: Box::new(Expression::Field(Box::new(Expression::Number(1.0)))),
                     operator: Token::new(TokenKind::Equal, "==", 7),
@@ -306,7 +306,7 @@ mod tests {
                     ))])],
                 }),
             }],
-            end_blocks: vec![Item::End(Action {
+            end_blocks: vec![Rule::End(Action {
                 statements: vec![Statement::Print(vec![Expression::String("hello".into())])],
             })],
         };
