@@ -34,6 +34,10 @@ impl<'a> Program<'a> {
         self.items.push(item);
     }
 
+    pub fn begin_blocks_iter(&self) -> std::slice::Iter<'_, Item<'a>> {
+        self.begin_blocks.iter()
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, Item<'a>> {
         self.items.iter()
     }
@@ -153,6 +157,7 @@ impl<'a> fmt::Display for Statement<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'a> {
     Number(f64),
+    String(&'a str),
     Field(Box<Expression<'a>>),
     // non_unary_expr
     Infix {
@@ -166,6 +171,7 @@ impl<'a> fmt::Display for Expression<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Number(n) => write!(f, "{}", n),
+            Expression::String(value) => write!(f, "\"{}\"", value),
             Expression::Field(expr) => write!(f, "${}", expr),
             Expression::Infix {
                 left,
@@ -283,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_program_with_begin_body_and_end_blocks() {
-        let expected_string = "BEGIN { print } $1 == 42 { print $2 } END { print }";
+        let expected_string = "BEGIN { print } $1 == 42 { print $2 } END { print \"hello\" }";
         let program = Program {
             begin_blocks: vec![Item::Begin(Action {
                 statements: vec![Statement::Print(vec![])],
@@ -301,7 +307,7 @@ mod tests {
                 }),
             }],
             end_blocks: vec![Item::End(Action {
-                statements: vec![Statement::Print(vec![])],
+                statements: vec![Statement::Print(vec![Expression::String("hello".into())])],
             })],
         };
 

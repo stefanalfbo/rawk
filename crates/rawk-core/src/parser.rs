@@ -1,6 +1,6 @@
 use crate::{
     Lexer, Program,
-    ast::{Action, Item, Statement},
+    ast::{Action, Expression, Item, Statement},
     token::{Token, TokenKind},
 };
 
@@ -70,8 +70,10 @@ impl<'a> Parser<'a> {
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
         }
+
         if self.current_token.kind == TokenKind::Print {
-            statements.push(Statement::Print(vec![]));
+            let print_statement = self.parse_print_function();
+            statements.push(print_statement);
         }
 
         while self.current_token.kind != TokenKind::RightCurlyBrace
@@ -88,6 +90,31 @@ impl<'a> Parser<'a> {
         } else {
             Item::Action(Action { statements })
         }
+    }
+
+    fn parse_print_function(&mut self) -> Statement<'a> {
+        let mut expressions = Vec::new();
+        self.next_token();
+
+        while self.current_token.kind != TokenKind::RightCurlyBrace
+            && self.current_token.kind != TokenKind::Eof
+        {
+            match self.current_token.kind {
+                TokenKind::String => {
+                    expressions.push(Expression::String(self.current_token.literal));
+                }
+                TokenKind::Number => {
+                    if let Ok(value) = self.current_token.literal.parse::<f64>() {
+                        expressions.push(Expression::Number(value));
+                    }
+                }
+                TokenKind::Comma => {}
+                _ => {}
+            }
+            self.next_token();
+        }
+
+        Statement::Print(expressions)
     }
 
     pub fn parse_program(&mut self) -> Program<'_> {
@@ -159,11 +186,11 @@ mod tests {
 
     #[test]
     fn parse_end_block() {
-        let mut parser = Parser::new(Lexer::new("END { print }"));
+        let mut parser = Parser::new(Lexer::new("END { print 42 }"));
 
         let program = parser.parse_program();
 
         assert_eq!(program.len(), 1);
-        assert_eq!("END { print }", program.to_string());
+        assert_eq!("END { print 42 }", program.to_string());
     }
 }
