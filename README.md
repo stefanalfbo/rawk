@@ -13,6 +13,12 @@ A **R**ust implementation of **AWK** with the goal of achieving POSIX compatibil
   </p>
 </div>
 
+A Rust implementation of AWK aimed at POSIX compatibility, with a focus on a small, readable core and a practical CLI. The project is split into two crates to keep parsing/execution logic reusable and the command-line interface thin.
+
+[rawk-core](./crates/rawk-core/README.md): The language core, including the AST, parser, and evaluator, suitable for embedding or for building alternative front-ends.
+
+[rawk-cli](./crates/rawk-cli/README.md): The command-line interface that wires rawk-core into a usable `rawk` binary with flags and file/stdin handling.
+
 ## Resources
 
 * [POSIX specification](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/awk.html)

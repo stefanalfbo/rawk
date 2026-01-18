@@ -1,10 +1,10 @@
 # rawk-core
 
-![CI](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml/badge.svg)](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/stefanalfbo/rawk/graph/badge.svg?token=SN66UKWM0A)](https://codecov.io/github/stefanalfbo/rawk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Deps.rs Crate Dependencies (latest)](https://img.shields.io/deps-rs/rawk-core/latest)
-![Crates.io Version](https://img.shields.io/crates/v/rawk-core)
+[![Crates.io Version](https://img.shields.io/crates/v/rawk-core)](https://crates.io/crates/rawk-core)
 
 <div>
   <p align="center">
