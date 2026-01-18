@@ -1,9 +1,9 @@
 # rawk
 
-![CI](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml/badge.svg)](https://github.com/stefanalfbo/rawk/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/stefanalfbo/rawk/graph/badge.svg?token=SN66UKWM0A)](https://codecov.io/github/stefanalfbo/rawk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Crates.io Version](https://img.shields.io/crates/v/rawk-core)
+[![Crates.io Version](https://img.shields.io/crates/v/rawk-core)](https://crates.io/crates/rawk-core)
 
 A **R**ust implementation of **AWK** with the goal of achieving POSIX compatibility. 
 
