@@ -47,6 +47,13 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Eof => None,
             TokenKind::LeftCurlyBrace => Some(self.parse_action()),
+            TokenKind::End => {
+                self.next_token();
+                match self.parse_action() {
+                    Item::Action(action) => Some(Item::End(action)),
+                    _ => panic!("Expected action after END"),
+                }
+            }
             _ => panic!(
                 "parse_next_item not yet implemented, found token: {:?}",
                 self.current_token
@@ -148,5 +155,15 @@ mod tests {
 
         assert_eq!(program.len(), 1);
         assert_eq!("BEGIN { print }", program.to_string());
+    }
+
+    #[test]
+    fn parse_end_block() {
+        let mut parser = Parser::new(Lexer::new("END { print }"));
+
+        let program = parser.parse_program();
+
+        assert_eq!(program.len(), 1);
+        assert_eq!("END { print }", program.to_string());
     }
 }

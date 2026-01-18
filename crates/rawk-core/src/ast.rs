@@ -6,6 +6,7 @@ use crate::token::Token;
 pub struct Program<'a> {
     begin_blocks: Vec<Item<'a>>,
     items: Vec<Item<'a>>,
+    end_blocks: Vec<Item<'a>>,
 }
 
 impl<'a> Program<'a> {
@@ -13,11 +14,12 @@ impl<'a> Program<'a> {
         Program {
             begin_blocks: vec![],
             items: vec![],
+            end_blocks: vec![],
         }
     }
 
     pub fn len(&self) -> usize {
-        self.items.len() + self.begin_blocks.len()
+        self.items.len() + self.begin_blocks.len() + self.end_blocks.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -57,6 +59,16 @@ impl<'a> fmt::Display for Program<'a> {
         for item in &self.items {
             write!(f, "{item}")?;
         }
+
+        // Add space between main items and end blocks if both exist
+        if !self.items.is_empty() && !self.end_blocks.is_empty() {
+            write!(f, " ")?;
+        }
+
+        for item in &self.end_blocks {
+            write!(f, "{item}")?;
+        }
+
         Ok(())
     }
 }
@@ -79,6 +91,7 @@ pub enum Item<'a> {
         pattern: Option<Expression<'a>>,
         action: Option<Action<'a>>,
     },
+    End(Action<'a>),
 }
 
 impl<'a> fmt::Display for Item<'a> {
@@ -92,6 +105,7 @@ impl<'a> fmt::Display for Item<'a> {
                 (None, Some(action)) => write!(f, "{}", action),
                 (None, None) => write!(f, ""),
             },
+            Item::End(action) => write!(f, "END {}", action),
         }
     }
 }
@@ -213,6 +227,7 @@ mod tests {
                 }),
                 action: None,
             }],
+            end_blocks: vec![],
         };
 
         assert_eq!(expected_string, program.to_string());
@@ -226,8 +241,25 @@ mod tests {
                 statements: vec![Statement::Print(vec![])],
             })],
             items: vec![],
+            end_blocks: vec![],
         };
 
+        assert!(program.len() == 1);
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_end_block_program_creation() {
+        let expected_string = "END { print }";
+        let program = Program {
+            begin_blocks: vec![],
+            items: vec![],
+            end_blocks: vec![Item::End(Action {
+                statements: vec![Statement::Print(vec![])],
+            })],
+        };
+
+        assert!(program.len() == 1);
         assert_eq!(expected_string, program.to_string());
     }
 
@@ -242,14 +274,16 @@ mod tests {
                     statements: vec![Statement::Print(vec![])],
                 }),
             }],
+            end_blocks: vec![],
         };
 
+        assert!(program.len() == 1);
         assert_eq!(expected_string, program.to_string());
     }
 
     #[test]
-    fn test_program_with_begin_and_body() {
-        let expected_string = "BEGIN { print } $1 == 42 { print $2 }";
+    fn test_program_with_begin_body_and_end_blocks() {
+        let expected_string = "BEGIN { print } $1 == 42 { print $2 } END { print }";
         let program = Program {
             begin_blocks: vec![Item::Begin(Action {
                 statements: vec![Statement::Print(vec![])],
@@ -266,6 +300,9 @@ mod tests {
                     ))])],
                 }),
             }],
+            end_blocks: vec![Item::End(Action {
+                statements: vec![Statement::Print(vec![])],
+            })],
         };
 
         assert_eq!(expected_string, program.to_string());
