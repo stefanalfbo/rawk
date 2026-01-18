@@ -4,20 +4,28 @@ use crate::token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program<'a> {
+    begin_blocks: Vec<Item<'a>>,
     items: Vec<Item<'a>>,
 }
 
 impl<'a> Program<'a> {
     pub fn new() -> Self {
-        Program { items: vec![] }
+        Program {
+            begin_blocks: vec![],
+            items: vec![],
+        }
     }
 
     pub fn len(&self) -> usize {
-        self.items.len()
+        self.items.len() + self.begin_blocks.len()
     }
 
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    pub fn add_begin_block(&mut self, item: Item<'a>) {
+        self.begin_blocks.push(item);
     }
 
     pub fn add_item(&mut self, item: Item<'a>) {
@@ -37,15 +45,19 @@ impl<'a> Default for Program<'a> {
 
 impl<'a> fmt::Display for Program<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.items
-                .iter()
-                .map(|item| item.to_string())
-                .collect::<Vec<String>>()
-                .join("")
-        )
+        for item in &self.begin_blocks {
+            write!(f, "{item}")?;
+        }
+
+        // Add space between begin blocks and main items if both exist
+        if !self.begin_blocks.is_empty() && !self.items.is_empty() {
+            write!(f, " ")?;
+        }
+
+        for item in &self.items {
+            write!(f, "{item}")?;
+        }
+        Ok(())
     }
 }
 
@@ -61,6 +73,7 @@ pub struct Action<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item<'a> {
+    Begin(Action<'a>),
     Action(Action<'a>),
     PatternAction {
         pattern: Option<Expression<'a>>,
@@ -71,6 +84,7 @@ pub enum Item<'a> {
 impl<'a> fmt::Display for Item<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Item::Begin(action) => write!(f, "BEGIN {}", action),
             Item::Action(action) => write!(f, "{}", action),
             Item::PatternAction { pattern, action } => match (pattern, action) {
                 (Some(expr), Some(action)) => write!(f, "{} {}", expr, action),
@@ -163,6 +177,18 @@ mod tests {
     }
 
     #[test]
+    fn test_add_block_to_program() {
+        let mut program = Program::new();
+
+        let item = Item::Action(Action {
+            statements: vec![Statement::Print(vec![])],
+        });
+        program.add_begin_block(item);
+
+        assert_eq!(program.begin_blocks.len(), 1);
+    }
+
+    #[test]
     fn test_add_item_to_program() {
         let mut program = Program::new();
 
@@ -178,6 +204,7 @@ mod tests {
     fn test_program_creation() {
         let expected_string = "$3 > 5";
         let program = Program {
+            begin_blocks: vec![],
             items: vec![Item::PatternAction {
                 pattern: Some(Expression::Infix {
                     left: Box::new(Expression::Field(Box::new(Expression::Number(3.0)))),
@@ -192,13 +219,51 @@ mod tests {
     }
 
     #[test]
+    fn test_begin_block_program_creation() {
+        let expected_string = "BEGIN { print }";
+        let program = Program {
+            begin_blocks: vec![Item::Begin(Action {
+                statements: vec![Statement::Print(vec![])],
+            })],
+            items: vec![],
+        };
+
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
     fn test_action_without_pattern_program_creation() {
         let expected_string = "{ print }";
         let program = Program {
+            begin_blocks: vec![],
             items: vec![Item::PatternAction {
                 pattern: None,
                 action: Some(Action {
                     statements: vec![Statement::Print(vec![])],
+                }),
+            }],
+        };
+
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_program_with_begin_and_body() {
+        let expected_string = "BEGIN { print } $1 == 42 { print $2 }";
+        let program = Program {
+            begin_blocks: vec![Item::Begin(Action {
+                statements: vec![Statement::Print(vec![])],
+            })],
+            items: vec![Item::PatternAction {
+                pattern: Some(Expression::Infix {
+                    left: Box::new(Expression::Field(Box::new(Expression::Number(1.0)))),
+                    operator: Token::new(TokenKind::Equal, "==", 7),
+                    right: Box::new(Expression::Number(42.0)),
+                }),
+                action: Some(Action {
+                    statements: vec![Statement::Print(vec![Expression::Field(Box::new(
+                        Expression::Number(2.0),
+                    ))])],
                 }),
             }],
         };

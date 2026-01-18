@@ -1,4 +1,4 @@
-use crate::{Action, Expression, Item, Program, ast::Statement};
+use crate::{Action, Item, Program, ast::Statement};
 
 pub struct Evaluator<'a> {
     program: Program<'a>,
@@ -28,8 +28,8 @@ impl<'a> Evaluator<'a> {
 
         for input_line in &self.input_lines {
             match item {
-                Item::PatternAction { pattern, action } => {
-                    output_lines.push(eval_pattern_action(pattern, action, input_line));
+                Item::Action(action) => {
+                    output_lines.push(eval_action(action, input_line));
                 }
                 _ => {}
             }
@@ -39,14 +39,8 @@ impl<'a> Evaluator<'a> {
     }
 }
 
-fn eval_pattern_action(
-    _pattern: &Option<Expression>,
-    action: &Option<Action>,
-    input_line: &String,
-) -> String {
-    if let Some(action) = action
-        && action.statements.len() == 1
-    {
+fn eval_action(action: &Action, input_line: &String) -> String {
+    if action.statements.len() == 1 {
         let statement = &action.statements[0];
 
         match statement {

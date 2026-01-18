@@ -34,6 +34,13 @@ impl<'a> Parser<'a> {
 
     fn parse_next_item(&mut self) -> Option<Item<'a>> {
         match &self.current_token.kind {
+            TokenKind::Begin => {
+                self.next_token();
+                match self.parse_action() {
+                    Item::Action(action) => Some(Item::Begin(action)),
+                    _ => panic!("Expected action after BEGIN"),
+                }
+            }
             TokenKind::NewLine => {
                 self.next_token();
                 self.parse_next_item()
@@ -50,6 +57,8 @@ impl<'a> Parser<'a> {
     fn parse_action(&mut self) -> Item<'a> {
         self.next_token(); // consume '{'
 
+        let pattern = None;
+
         let mut statements = Vec::new();
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
@@ -64,9 +73,13 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
 
-        Item::PatternAction {
-            pattern: None,
-            action: Some(Action { statements }),
+        if pattern.is_some() {
+            Item::PatternAction {
+                pattern,
+                action: Some(Action { statements }),
+            }
+        } else {
+            Item::Action(Action { statements })
         }
     }
 
@@ -75,6 +88,7 @@ impl<'a> Parser<'a> {
 
         while !self.is_eof() {
             match self.parse_next_item() {
+                Some(Item::Begin(action)) => program.add_begin_block(Item::Begin(action)),
                 Some(item) => program.add_item(item),
                 None => {}
             }
@@ -124,5 +138,15 @@ mod tests {
 
         assert_eq!(program.len(), 1);
         assert_eq!("{ print }", program.to_string());
+    }
+
+    #[test]
+    fn parse_begin_block() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print }"));
+
+        let program = parser.parse_program();
+
+        assert_eq!(program.len(), 1);
+        assert_eq!("BEGIN { print }", program.to_string());
     }
 }
