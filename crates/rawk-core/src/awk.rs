@@ -1,29 +1,40 @@
-//! Facade for running AWK scripts with rawk-core.
-//!
-//! This module wires together the lexer, parser, and evaluator so callers only
-//! need to provide a program string and input lines. The lexer tokenizes the
-//! script, the parser builds an AST `Program`, and the evaluator walks that
-//! program against the provided data to produce output lines.
-//!
-//! Example:
-//! ```
-//! use rawk_core::awk;
-//!
-//! let output = awk::execute("{print}", vec!["foo".into(), "bar".into()]);
-//! assert_eq!(output, vec!["foo".to_string(), "bar".to_string()]);
-//! ```
-use crate::{Evaluator, Lexer, Parser};
+use crate::{Evaluator, Lexer, Parser, Program};
 
-/// Execute an AWK script against the given input lines and return the output.
+/// High-level wrapper for compiling and running an AWK script.
 ///
-/// `script` is the raw AWK program text (e.g., `{print}`) and `input`
-/// contains the lines to process. The script is lexed, parsed, and then
-/// evaluated; the resulting output lines are returned in order.
-pub fn execute(script: &str, input: Vec<String>) -> Vec<String> {
-    let lexer = Lexer::new(script);
-    let mut parser = Parser::new(lexer);
-    let program = parser.parse_program();
-    let mut evaluator = Evaluator::new(program, input);
+/// This type parses the script once and can be run with different input.
+///
+/// # Example
+/// ```
+/// use rawk_core::awk::Awk;
+///
+/// let awk = Awk::new("{ print }");
+/// let output = awk.run(vec!["hello world".into()]);
+/// assert_eq!(output, vec!["hello world".to_string()]);
+/// ```
+pub struct Awk {
+    program: Program<'static>,
+}
 
-    evaluator.eval()
+impl Awk {
+    /// Parse an AWK script into an executable program.
+    ///
+    /// The script is stored with a static lifetime to keep the AST valid.
+    pub fn new(script: impl Into<String>) -> Self {
+        let script: String = script.into();
+        let script: &'static str = Box::leak(script.into_boxed_str());
+
+        let lexer = Lexer::new(script);
+        let parser: &'static mut Parser<'static> = Box::leak(Box::new(Parser::new(lexer)));
+        let program = parser.parse_program();
+
+        Self { program }
+    }
+
+    /// Execute the compiled program against the given input lines.
+    pub fn run(self, input: Vec<String>) -> Vec<String> {
+        let mut evaluator = Evaluator::new(self.program, input);
+
+        evaluator.eval()
+    }
 }

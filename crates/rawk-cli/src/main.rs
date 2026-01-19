@@ -1,7 +1,7 @@
 use std::{io, path};
 
 use clap::{CommandFactory, Parser};
-use rawk_core::awk;
+use rawk_core::awk::Awk;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -52,7 +52,8 @@ fn execute(script: &str, path: &path::Path) {
         .map(|line| line.to_string())
         .collect::<Vec<String>>();
 
-    let output_lines = awk::execute(script, input_lines);
+    let awk = Awk::new(script);
+    let output_lines = awk.run(input_lines);
 
     for line in output_lines {
         println!("{}", line);
