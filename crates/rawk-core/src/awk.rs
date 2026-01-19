@@ -32,8 +32,8 @@ impl Awk {
     }
 
     /// Execute the compiled program against the given input lines.
-    pub fn run(self, input: Vec<String>) -> Vec<String> {
-        let mut evaluator = Evaluator::new(self.program, input);
+    pub fn run(&self, input: Vec<String>) -> Vec<String> {
+        let mut evaluator = Evaluator::new(self.program.clone(), input);
 
         evaluator.eval()
     }

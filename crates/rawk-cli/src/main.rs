@@ -22,15 +22,21 @@ fn main() -> io::Result<()> {
         match args.args.as_slice() {
             [input] => (script, input.clone()),
             _ => {
-                let mut cmd = Args::command();
-                cmd.print_help()?;
-                println!();
+                // No input file provided only script, enter interactive mode
+                interactive_mode(&script);
+
                 return Ok(());
             }
         }
     } else {
         match args.args.as_slice() {
             [script, input] => (script.clone(), input.clone()),
+            [script] => {
+                // No input file provided only script, enter interactive mode
+                interactive_mode(script);
+
+                return Ok(());
+            }
             _ => {
                 let mut cmd = Args::command();
                 cmd.print_help()?;
@@ -57,5 +63,27 @@ fn execute(script: &str, path: &path::Path) {
 
     for line in output_lines {
         println!("{}", line);
+    }
+}
+
+fn interactive_mode(script: &str) {
+    use std::io::Write;
+
+    let awk = Awk::new(script);
+    let mut input = String::new();
+
+    loop {
+        io::stdout().flush().unwrap();
+
+        input.clear();
+        if io::stdin().read_line(&mut input).is_err() {
+            break;
+        }
+
+        let output_lines = awk.run(vec![input.trim().to_string()]);
+
+        for line in output_lines {
+            println!("{}", line);
+        }
     }
 }
