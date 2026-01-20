@@ -158,6 +158,7 @@ impl<'a> fmt::Display for Statement<'a> {
 pub enum Expression<'a> {
     Number(f64),
     String(&'a str),
+    Regex(&'a str),
     Field(Box<Expression<'a>>),
     // non_unary_expr
     Infix {
@@ -172,6 +173,7 @@ impl<'a> fmt::Display for Expression<'a> {
         match self {
             Expression::Number(n) => write!(f, "{}", n),
             Expression::String(value) => write!(f, "\"{}\"", value),
+            Expression::Regex(value) => write!(f, "/{}/", value),
             Expression::Field(expr) => write!(f, "${}", expr),
             Expression::Infix {
                 left,
@@ -312,5 +314,12 @@ mod tests {
         };
 
         assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_print_regex_expression() {
+        let expr = Expression::Regex("^[a-z]+$");
+
+        assert_eq!("/^[a-z]+$/", expr.to_string());
     }
 }

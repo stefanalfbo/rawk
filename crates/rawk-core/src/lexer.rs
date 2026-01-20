@@ -6,6 +6,7 @@ pub struct Lexer<'a> {
     position: usize,
     read_position: usize,
     ch: Option<u8>,
+    allow_regex: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -15,10 +16,15 @@ impl<'a> Lexer<'a> {
             position: 0,
             read_position: 0,
             ch: None,
+            allow_regex: false,
         };
 
         lexer.read_char();
         lexer
+    }
+
+    pub fn set_allow_regex(&mut self, allow: bool) {
+        self.allow_regex = allow;
     }
 
     pub fn next_token(&mut self) -> Token<'a> {
@@ -133,7 +139,9 @@ impl<'a> Lexer<'a> {
                 }
             }
             Some(b'/') => {
-                if self.peek_char() == Some(b'=') {
+                if self.allow_regex {
+                    self.read_regex()
+                } else if self.peek_char() == Some(b'=') {
                     self.read_char();
                     Token::new(TokenKind::DivideAssign, "/=", start)
                 } else {
@@ -290,6 +298,36 @@ impl<'a> Lexer<'a> {
         };
 
         Token::new(TokenKind::String, literal, position)
+    }
+
+    fn read_regex(&mut self) -> Token<'a> {
+        // skip opening slash
+        self.read_char();
+        let position = self.position;
+        let mut escaped = false;
+
+        while let Some(ch) = self.ch {
+            if !escaped && ch == b'/' {
+                break;
+            }
+            if !escaped && ch == b'\n' {
+                break;
+            }
+            if !escaped && ch == b'\\' {
+                escaped = true;
+            } else {
+                escaped = false;
+            }
+            self.read_char();
+        }
+
+        let literal = &self.input[position..self.position];
+
+        if self.ch != Some(b'/') {
+            return Token::new(TokenKind::Illegal, literal, position);
+        }
+
+        Token::new(TokenKind::Regex, literal, position)
     }
 
     fn skip_whitespace(&mut self) {
@@ -660,6 +698,27 @@ mod tests {
             let token = lexer.next_token();
             assert_token(token, expected_kind, expected_literal);
         }
+    }
+
+    #[test]
+    fn read_regex_token_when_allowed() {
+        let input = r"/foo\//";
+        let mut lexer = Lexer::new(input);
+        lexer.set_allow_regex(true);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Regex, r"foo\/");
+    }
+
+    #[test]
+    fn slash_is_division_when_regex_not_allowed() {
+        let input = "/foo/";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Division, "/");
     }
 
     #[test]

@@ -8,24 +8,29 @@ use crate::{
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token<'a>,
-    peek_token: Token<'a>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
+        // Enable regex parsing for the first token since it could be a pattern
+        lexer.set_allow_regex(true);
         let current_token = lexer.next_token();
-        let peek_token = lexer.next_token();
+        lexer.set_allow_regex(false);
 
         Parser {
             lexer,
             current_token,
-            peek_token,
         }
     }
 
     fn next_token(&mut self) {
-        self.current_token = self.peek_token.clone();
-        self.peek_token = self.lexer.next_token();
+        self.next_token_with_regex(false);
+    }
+
+    fn next_token_with_regex(&mut self, allow_regex: bool) {
+        self.lexer.set_allow_regex(allow_regex);
+        self.current_token = self.lexer.next_token();
+        self.lexer.set_allow_regex(false);
     }
 
     fn is_eof(&self) -> bool {
@@ -42,7 +47,7 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::NewLine => {
-                self.next_token();
+                self.next_token_with_regex(true);
                 self.parse_next_rule()
             }
             TokenKind::Eof => None,
@@ -52,6 +57,24 @@ impl<'a> Parser<'a> {
                 match self.parse_action() {
                     Rule::Action(action) => Some(Rule::End(action)),
                     _ => panic!("Expected action after END"),
+                }
+            }
+            TokenKind::Regex => {
+                let pattern = Some(Expression::Regex(self.current_token.literal));
+                self.next_token();
+                if self.current_token.kind == TokenKind::LeftCurlyBrace {
+                    match self.parse_action() {
+                        Rule::Action(action) => Some(Rule::PatternAction {
+                            pattern,
+                            action: Some(action),
+                        }),
+                        _ => panic!("Expected action after regex pattern"),
+                    }
+                } else {
+                    Some(Rule::PatternAction {
+                        pattern,
+                        action: None,
+                    })
                 }
             }
             _ => panic!(
@@ -126,7 +149,7 @@ impl<'a> Parser<'a> {
                 Some(rule) => program.add_rule(rule),
                 None => {}
             }
-            self.next_token();
+            self.next_token_with_regex(true);
         }
 
         program
@@ -139,10 +162,11 @@ mod tests {
 
     #[test]
     fn create_parser() {
-        let parser = Parser::new(Lexer::new("42 == 42"));
+        let mut parser = Parser::new(Lexer::new("42 == 42"));
 
         assert_eq!(parser.current_token.literal, "42");
-        assert_eq!(parser.peek_token.literal, "==");
+        parser.next_token();
+        assert_eq!(parser.current_token.literal, "==");
     }
 
     #[test]
@@ -192,5 +216,15 @@ mod tests {
 
         assert_eq!(program.len(), 1);
         assert_eq!("END { print 42 }", program.to_string());
+    }
+
+    #[test]
+    fn parse_regex_pattern_action() {
+        let mut parser = Parser::new(Lexer::new("/foo/ { print }"));
+
+        let program = parser.parse_program();
+
+        assert_eq!(program.len(), 1);
+        assert_eq!("/foo/ { print }", program.to_string());
     }
 }

@@ -79,6 +79,7 @@ fn eval_expression(expression: &Expression, _input_line: Option<&str>) -> String
     match expression {
         Expression::String(value) => value.to_string(),
         Expression::Number(value) => value.to_string(),
+        Expression::Regex(value) => value.to_string(),
         Expression::Field(_inner) => "not implemented".to_string(),
         Expression::Infix { .. } => "not implemented".to_string(),
     }
