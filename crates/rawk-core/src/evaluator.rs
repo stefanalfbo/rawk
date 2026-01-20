@@ -23,8 +23,12 @@ impl<'a> Evaluator<'a> {
             output_lines.extend(self.eval_begin_rule(rule));
         }
 
-        for rule in self.program.iter() {
+        for rule in self.program.rules_iter() {
             output_lines.extend(self.eval_rule(rule));
+        }
+
+        for rule in self.program.end_blocks_iter() {
+            output_lines.extend(self.eval_end_rule(rule));
         }
 
         output_lines
@@ -48,6 +52,13 @@ impl<'a> Evaluator<'a> {
     fn eval_begin_rule(&self, rule: &Rule) -> Vec<String> {
         match rule {
             Rule::Begin(action) => vec![eval_action(action, None)],
+            _ => Vec::new(),
+        }
+    }
+
+    fn eval_end_rule(&self, rule: &Rule) -> Vec<String> {
+        match rule {
+            Rule::End(action) => vec![eval_action(action, None)],
             _ => Vec::new(),
         }
     }
@@ -114,5 +125,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["hello".to_string()]);
+    }
+
+    #[test]
+    fn eval_end_print_string_literal() {
+        let lexer = Lexer::new(r#"END { print "42" } { print "hello" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one row".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["hello".to_string(), "42".to_string()]);
     }
 }

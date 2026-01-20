@@ -30,6 +30,10 @@ impl<'a> Program<'a> {
         self.begin_blocks.push(rule);
     }
 
+    pub fn add_end_block(&mut self, rule: Rule<'a>) {
+        self.end_blocks.push(rule);
+    }
+
     pub fn add_rule(&mut self, rule: Rule<'a>) {
         self.rules.push(rule);
     }
@@ -38,7 +42,11 @@ impl<'a> Program<'a> {
         self.begin_blocks.iter()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
+    pub fn end_blocks_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
+        self.end_blocks.iter()
+    }
+
+    pub fn rules_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
         self.rules.iter()
     }
 }

@@ -146,6 +146,7 @@ impl<'a> Parser<'a> {
         while !self.is_eof() {
             match self.parse_next_rule() {
                 Some(Rule::Begin(action)) => program.add_begin_block(Rule::Begin(action)),
+                Some(Rule::End(action)) => program.add_end_block(Rule::End(action)),
                 Some(rule) => program.add_rule(rule),
                 None => {}
             }
