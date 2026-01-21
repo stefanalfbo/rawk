@@ -273,4 +273,88 @@ mod tests {
         assert_eq!(program.len(), 1);
         assert_eq!("/foo/ { print }", program.to_string());
     }
+
+    #[test]
+    fn parse_print_infix_expression() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print 1 + 2 }"));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let rule = begin_blocks.next().expect("expected begin block");
+
+        let statements = match rule {
+            Rule::Begin(Action { statements }) => statements,
+            _ => panic!("expected begin rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        match &exprs[0] {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => {
+                assert!(matches!(**left, Expression::Number(1.0)));
+                assert_eq!(operator.kind, TokenKind::Plus);
+                assert!(matches!(**right, Expression::Number(2.0)));
+            }
+            _ => panic!("expected infix expression"),
+        }
+    }
+
+    #[test]
+    fn parse_print_parenthesized_expression() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print (1 + 2) * 3 }"));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let rule = begin_blocks.next().expect("expected begin block");
+
+        let statements = match rule {
+            Rule::Begin(Action { statements }) => statements,
+            _ => panic!("expected begin rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        match &exprs[0] {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => {
+                assert_eq!(operator.kind, TokenKind::Asterisk);
+                assert!(matches!(**right, Expression::Number(3.0)));
+                assert!(matches!(**left, Expression::Infix { .. }));
+            }
+            _ => panic!("expected infix expression"),
+        }
+    }
+
+    #[test]
+    fn parse_print_concatenation() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { print "Value:" 42 }"#));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let rule = begin_blocks.next().expect("expected begin block");
+
+        let statements = match rule {
+            Rule::Begin(Action { statements }) => statements,
+            _ => panic!("expected begin rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        assert_eq!(exprs.len(), 2);
+        assert!(matches!(exprs[0], Expression::String("Value:")));
+        assert!(matches!(exprs[1], Expression::Number(42.0)));
+    }
 }
