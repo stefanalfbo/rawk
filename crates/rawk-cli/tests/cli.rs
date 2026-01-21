@@ -51,3 +51,22 @@ fn print_identity_outputs_input_lines_from_file() {
     assert!(String::from_utf8_lossy(&output.stdout).contains("Beth    4.00    0\n"));
     assert!(output.stderr.is_empty());
 }
+
+#[test]
+fn print_begin_end_blocks_with_expressions() {
+    let script = "BEGIN { print 1+1 } END { print 3 + 3}";
+
+    let output = run_rawk(script);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("2"));
+    assert_eq!(lines.next(), Some("6"));
+    assert!(output.stderr.is_empty());
+}

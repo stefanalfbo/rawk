@@ -1,6 +1,7 @@
 use crate::{
     Action, Program, Rule,
     ast::{Expression, Statement},
+    token::TokenKind,
 };
 
 pub struct Evaluator<'a> {
@@ -78,7 +79,7 @@ fn eval_action(action: &Action, input_line: Option<&str>) -> String {
                     .iter()
                     .map(|expr| eval_expression(expr, input_line))
                     .collect::<Vec<String>>();
-                return parts.join(" ");
+                return parts.join("");
             }
         }
     } else {
@@ -92,7 +93,44 @@ fn eval_expression(expression: &Expression, _input_line: Option<&str>) -> String
         Expression::Number(value) => value.to_string(),
         Expression::Regex(value) => value.to_string(),
         Expression::Field(_inner) => "not implemented".to_string(),
-        Expression::Infix { .. } => "not implemented".to_string(),
+        Expression::Infix {
+            left,
+            operator,
+            right,
+        } => eval_numeric_infix(left, operator, right)
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "not implemented".to_string()),
+    }
+}
+
+fn eval_numeric_infix(
+    left: &Expression<'_>,
+    operator: &crate::token::Token<'_>,
+    right: &Expression<'_>,
+) -> Option<f64> {
+    let left_value = eval_numeric_expression(left)?;
+    let right_value = eval_numeric_expression(right)?;
+
+    match operator.kind {
+        TokenKind::Plus => Some(left_value + right_value),
+        TokenKind::Minus => Some(left_value - right_value),
+        TokenKind::Asterisk => Some(left_value * right_value),
+        TokenKind::Division => Some(left_value / right_value),
+        TokenKind::Percent => Some(left_value % right_value),
+        TokenKind::Caret => Some(left_value.powf(right_value)),
+        _ => None,
+    }
+}
+
+fn eval_numeric_expression(expression: &Expression<'_>) -> Option<f64> {
+    match expression {
+        Expression::Number(value) => Some(*value),
+        Expression::Infix {
+            left,
+            operator,
+            right,
+        } => eval_numeric_infix(left, operator, right),
+        _ => None,
     }
 }
 
@@ -137,5 +175,101 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["hello".to_string(), "42".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_numeric_plus_infix_expression() {
+        let lexer = Lexer::new(r#"BEGIN { print 1 + 2 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_numberic_multiply_infix_expression() {
+        let lexer = Lexer::new(r#"BEGIN { print 2 * 3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["6".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_numeric_mod_infix_expression() {
+        let lexer = Lexer::new(r#"BEGIN { print 5 % 3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["2".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_numeric_div_infix_expression() {
+        let lexer = Lexer::new(r#"BEGIN { print 5 / 5 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_numeric_caret_infix_expression() {
+        let lexer = Lexer::new(r#"BEGIN { print 2 ^ 3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["8".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_numeric_minus_infix_expression() {
+        let lexer = Lexer::new(r#"BEGIN { print 5 - 3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["2".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_string_and_number_expressions() {
+        let lexer = Lexer::new(r#"BEGIN { print "Value:" 42 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["Value:42".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_expression_with_parantheses() {
+        let lexer = Lexer::new(r#"BEGIN { print (1 + 2) * 3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["9".to_string()]);
     }
 }

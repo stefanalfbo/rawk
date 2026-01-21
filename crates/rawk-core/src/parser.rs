@@ -122,22 +122,67 @@ impl<'a> Parser<'a> {
         while self.current_token.kind != TokenKind::RightCurlyBrace
             && self.current_token.kind != TokenKind::Eof
         {
-            match self.current_token.kind {
-                TokenKind::String => {
-                    expressions.push(Expression::String(self.current_token.literal));
-                }
-                TokenKind::Number => {
-                    if let Ok(value) = self.current_token.literal.parse::<f64>() {
-                        expressions.push(Expression::Number(value));
-                    }
-                }
-                TokenKind::Comma => {}
-                _ => {}
-            }
-            self.next_token();
+            let expression = self.parse_expression();
+            expressions.push(expression);
         }
 
         Statement::Print(expressions)
+    }
+
+    fn parse_expression(&mut self) -> Expression<'a> {
+        let mut left = self.parse_primary_expression();
+
+        while matches!(
+            self.current_token.kind,
+            TokenKind::Plus
+                | TokenKind::Minus
+                | TokenKind::Asterisk
+                | TokenKind::Division
+                | TokenKind::Percent
+                | TokenKind::Caret
+        ) {
+            let operator = self.current_token.clone();
+            self.next_token();
+            let right = self.parse_primary_expression();
+
+            left = Expression::Infix {
+                left: Box::new(left),
+                operator,
+                right: Box::new(right),
+            };
+        }
+
+        left
+    }
+
+    fn parse_primary_expression(&mut self) -> Expression<'a> {
+        match self.current_token.kind {
+            TokenKind::String => {
+                let expression = Expression::String(self.current_token.literal);
+                self.next_token();
+                expression
+            }
+            TokenKind::Number => {
+                let expression = if let Ok(value) = self.current_token.literal.parse::<f64>() {
+                    Expression::Number(value)
+                } else {
+                    todo!()
+                };
+                self.next_token();
+                expression
+            }
+            TokenKind::LeftParen => {
+                self.next_token();
+                let expression = self.parse_expression();
+                if self.current_token.kind == TokenKind::RightParen {
+                    self.next_token();
+                }
+                expression
+            }
+            _ => {
+                todo!()
+            }
+        }
     }
 
     pub fn parse_program(&mut self) -> Program<'_> {
