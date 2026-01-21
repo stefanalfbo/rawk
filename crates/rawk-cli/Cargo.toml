@@ -13,4 +13,4 @@ license = { workspace = true }
 
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }
-rawk-core = { version = "0.0.4", path = "../rawk-core" }
+rawk-core = { version = "0.0.5", path = "../rawk-core" }

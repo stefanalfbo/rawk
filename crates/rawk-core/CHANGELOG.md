@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5](https://github.com/stefanalfbo/rawk/compare/v0.0.4...v0.0.5) - 2026-01-21
+
+### Other
+
+- Add more tests to the parser to verify infix, parenthesis and concatenation
+- Enable expressions in print statements, like: print 1 + 1 or print (3 * 2) + 1
+- Evalute END blocks too
+- Make a first attempt to implement support for regex
+- Add interactive mode to rawk-cli
+- Refactor the awk module to try out another api for that module
+- Refactor and rename Item to Rule to use AWK terminlogy more in the code.
+- Evaluate BEGIN blocks with print statements that has arguments
+- Add end blocks to the ast/parser
+- Update the READMEs and add one for the rawk-cli crate.
+
 ## [0.0.4](https://github.com/stefanalfbo/rawk/compare/v0.0.3...v0.0.4) - 2026-01-18
 
 ### Other
