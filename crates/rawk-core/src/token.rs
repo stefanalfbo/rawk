@@ -116,7 +116,7 @@ impl Token<'_> {
     }
 }
 
-pub fn lookup_keyword<'a>(ident: &'a str) -> Option<TokenKind> {
+pub fn lookup_keyword(ident: &str) -> Option<TokenKind> {
     match ident {
         "BEGIN" => Some(TokenKind::Begin),
         "END" => Some(TokenKind::End),
@@ -139,7 +139,7 @@ pub fn lookup_keyword<'a>(ident: &'a str) -> Option<TokenKind> {
     }
 }
 
-pub fn lookup_functions<'a>(ident: &'a str) -> Option<TokenKind> {
+pub fn lookup_functions(ident: &str) -> Option<TokenKind> {
     match ident {
         "atan2" => Some(TokenKind::Atan2),
         "close" => Some(TokenKind::Close),

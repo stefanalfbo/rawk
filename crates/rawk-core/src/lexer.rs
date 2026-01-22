@@ -313,11 +313,8 @@ impl<'a> Lexer<'a> {
             if !escaped && ch == b'\n' {
                 break;
             }
-            if !escaped && ch == b'\\' {
-                escaped = true;
-            } else {
-                escaped = false;
-            }
+            escaped = !escaped && ch == b'\\';
+
             self.read_char();
         }
 

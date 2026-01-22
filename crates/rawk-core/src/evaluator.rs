@@ -39,11 +39,8 @@ impl<'a> Evaluator<'a> {
         let mut output_lines = Vec::new();
 
         for input_line in &self.input_lines {
-            match rule {
-                Rule::Action(action) => {
-                    output_lines.push(eval_action(action, Some(input_line)));
-                }
-                _ => {}
+            if let Rule::Action(action) = rule {
+                output_lines.push(eval_action(action, Some(input_line)));
             }
         }
 
@@ -79,11 +76,11 @@ fn eval_action(action: &Action, input_line: Option<&str>) -> String {
                     .iter()
                     .map(|expr| eval_expression(expr, input_line))
                     .collect::<Vec<String>>();
-                return parts.join("");
+                parts.join("")
             }
         }
     } else {
-        return format!("not implemented");
+        "not implemented".to_string()
     }
 }
 
