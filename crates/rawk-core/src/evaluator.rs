@@ -269,4 +269,40 @@ mod tests {
 
         assert_eq!(output, vec!["9".to_string()]);
     }
+
+    #[test]
+    fn eval_print_multiplication_has_higher_precedence_than_addition() {
+        let lexer = Lexer::new(r#"BEGIN { print 1 + 2 * 3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["7".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_power_is_right_associative() {
+        let lexer = Lexer::new(r#"BEGIN { print 2 ^ 3 ^ 2 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["512".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_minus_is_left_associative() {
+        let lexer = Lexer::new(r#"BEGIN { print 5 - 3 - 1 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1".to_string()]);
+    }
 }

@@ -130,20 +130,26 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> Expression<'a> {
+        self.parse_expression_with_min_precedence(0)
+    }
+
+    fn parse_expression_with_min_precedence(&mut self, min_precedence: u8) -> Expression<'a> {
         let mut left = self.parse_primary_expression();
 
-        while matches!(
-            self.current_token.kind,
-            TokenKind::Plus
-                | TokenKind::Minus
-                | TokenKind::Asterisk
-                | TokenKind::Division
-                | TokenKind::Percent
-                | TokenKind::Caret
-        ) {
+        loop {
+            let (left_precedence, right_precedence) =
+                match infix_operator_precedence(&self.current_token.kind) {
+                    Some(value) => value,
+                    None => break,
+                };
+
+            if left_precedence < min_precedence {
+                break;
+            }
+
             let operator = self.current_token.clone();
             self.next_token();
-            let right = self.parse_primary_expression();
+            let right = self.parse_expression_with_min_precedence(right_precedence);
 
             left = Expression::Infix {
                 left: Box::new(left),
@@ -199,6 +205,15 @@ impl<'a> Parser<'a> {
         }
 
         program
+    }
+}
+
+fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
+    match kind {
+        TokenKind::Plus | TokenKind::Minus => Some((1, 2)),
+        TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((3, 4)),
+        TokenKind::Caret => Some((7, 6)),
+        _ => None,
     }
 }
 
@@ -331,6 +346,114 @@ mod tests {
                 assert_eq!(operator.kind, TokenKind::Asterisk);
                 assert!(matches!(**right, Expression::Number(3.0)));
                 assert!(matches!(**left, Expression::Infix { .. }));
+            }
+            _ => panic!("expected infix expression"),
+        }
+    }
+
+    #[test]
+    fn parse_print_multiplication_has_higher_precedence_than_addition() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print 1 + 2 * 3 }"));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let rule = begin_blocks.next().expect("expected begin block");
+
+        let statements = match rule {
+            Rule::Begin(Action { statements }) => statements,
+            _ => panic!("expected begin rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        match &exprs[0] {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => {
+                assert_eq!(operator.kind, TokenKind::Plus);
+                assert!(matches!(**left, Expression::Number(1.0)));
+                match &**right {
+                    Expression::Infix {
+                        operator: right_op, ..
+                    } => assert_eq!(right_op.kind, TokenKind::Asterisk),
+                    _ => panic!("expected nested infix expression"),
+                }
+            }
+            _ => panic!("expected infix expression"),
+        }
+    }
+
+    #[test]
+    fn parse_print_power_is_right_associative() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print 2 ^ 3 ^ 2 }"));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let rule = begin_blocks.next().expect("expected begin block");
+
+        let statements = match rule {
+            Rule::Begin(Action { statements }) => statements,
+            _ => panic!("expected begin rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        match &exprs[0] {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => {
+                assert_eq!(operator.kind, TokenKind::Caret);
+                assert!(matches!(**left, Expression::Number(2.0)));
+                match &**right {
+                    Expression::Infix {
+                        operator: right_op, ..
+                    } => assert_eq!(right_op.kind, TokenKind::Caret),
+                    _ => panic!("expected nested infix expression"),
+                }
+            }
+            _ => panic!("expected infix expression"),
+        }
+    }
+
+    #[test]
+    fn parse_print_minus_is_left_associative() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print 5 - 3 - 1 }"));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let rule = begin_blocks.next().expect("expected begin block");
+
+        let statements = match rule {
+            Rule::Begin(Action { statements }) => statements,
+            _ => panic!("expected begin rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        match &exprs[0] {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => {
+                assert_eq!(operator.kind, TokenKind::Minus);
+                match &**left {
+                    Expression::Infix {
+                        operator: left_op, ..
+                    } => assert_eq!(left_op.kind, TokenKind::Minus),
+                    _ => panic!("expected nested infix expression"),
+                }
+                assert!(matches!(**right, Expression::Number(1.0)));
             }
             _ => panic!("expected infix expression"),
         }
