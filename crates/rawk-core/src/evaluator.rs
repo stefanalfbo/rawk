@@ -84,12 +84,12 @@ fn eval_action(action: &Action, input_line: Option<&str>) -> String {
     }
 }
 
-fn eval_expression(expression: &Expression, _input_line: Option<&str>) -> String {
+fn eval_expression(expression: &Expression, input_line: Option<&str>) -> String {
     match expression {
         Expression::String(value) => value.to_string(),
         Expression::Number(value) => value.to_string(),
         Expression::Regex(value) => value.to_string(),
-        Expression::Field(_inner) => "not implemented".to_string(),
+        Expression::Field(inner) => eval_field_expression(inner, input_line),
         Expression::Infix {
             left,
             operator,
@@ -98,6 +98,31 @@ fn eval_expression(expression: &Expression, _input_line: Option<&str>) -> String
             .map(|value| value.to_string())
             .unwrap_or_else(|| "not implemented".to_string()),
     }
+}
+
+fn eval_field_expression(expression: &Expression<'_>, input_line: Option<&str>) -> String {
+    let line = match input_line {
+        Some(value) => value,
+        None => return String::new(),
+    };
+
+    let index = match eval_numeric_expression(expression) {
+        Some(value) => value as i64,
+        None => return String::new(),
+    };
+
+    if index == 0 {
+        return line.to_string();
+    }
+
+    if index < 0 {
+        return String::new();
+    }
+
+    line.split_whitespace()
+        .nth((index - 1) as usize)
+        .unwrap_or("")
+        .to_string()
 }
 
 fn eval_numeric_infix(
@@ -304,5 +329,29 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_field_zero_returns_entire_line() {
+        let lexer = Lexer::new(r#"{ print $0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one two".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["one two".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_field_first_column() {
+        let lexer = Lexer::new(r#"{ print $1 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one     two".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["one".to_string()]);
     }
 }

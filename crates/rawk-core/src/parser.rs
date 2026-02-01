@@ -177,6 +177,11 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 expression
             }
+            TokenKind::DollarSign => {
+                self.next_token();
+                let expression = self.parse_primary_expression();
+                Expression::Field(Box::new(expression))
+            }
             TokenKind::LeftParen => {
                 self.next_token();
                 let expression = self.parse_expression();
@@ -479,5 +484,28 @@ mod tests {
         assert_eq!(exprs.len(), 2);
         assert!(matches!(exprs[0], Expression::String("Value:")));
         assert!(matches!(exprs[1], Expression::Number(42.0)));
+    }
+
+    #[test]
+    fn parse_print_field_expression() {
+        let mut parser = Parser::new(Lexer::new("{ print $1 }"));
+
+        let program = parser.parse_program();
+        let mut rules = program.rules_iter();
+        let rule = rules.next().expect("expected rule");
+
+        let statements = match rule {
+            Rule::Action(Action { statements }) => statements,
+            _ => panic!("expected action rule"),
+        };
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+        };
+
+        match &exprs[0] {
+            Expression::Field(inner) => assert!(matches!(**inner, Expression::Number(1.0))),
+            _ => panic!("expected field expression"),
+        }
     }
 }
