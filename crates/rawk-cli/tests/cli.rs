@@ -70,3 +70,28 @@ fn print_begin_end_blocks_with_expressions() {
     assert_eq!(lines.next(), Some("6"));
     assert!(output.stderr.is_empty());
 }
+
+#[test]
+fn print_begin_rules_and_end_blocks_with_expressions() {
+    let script = "BEGIN { print 10 } { print $1 } END { print 20 }";
+
+    let output = run_rawk(script);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("10"));
+    assert_eq!(lines.next(), Some("Beth"));
+    assert_eq!(lines.next(), Some("Dan"));
+    assert_eq!(lines.next(), Some("Kathy"));
+    assert_eq!(lines.next(), Some("Mark"));
+    assert_eq!(lines.next(), Some("Mary"));
+    assert_eq!(lines.next(), Some("Susie"));
+    assert_eq!(lines.next(), Some("20"));
+    assert!(output.stderr.is_empty());
+}
