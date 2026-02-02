@@ -24,6 +24,14 @@ fn run_rawk_from_file() -> std::process::Output {
         .expect("failed to run rawk")
 }
 
+fn run_rawk_no_args() -> std::process::Output {
+    let rawk = env!("CARGO_BIN_EXE_rawk-cli");
+
+    Command::new(rawk)
+        .output()
+        .expect("failed to run rawk")
+}
+
 #[test]
 fn print_identity_outputs_input_lines() {
     let script = "{ print }";
@@ -93,5 +101,22 @@ fn print_begin_rules_and_end_blocks_with_expressions() {
     assert_eq!(lines.next(), Some("Mary"));
     assert_eq!(lines.next(), Some("Susie"));
     assert_eq!(lines.next(), Some("20"));
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn help_shows_when_no_args_given() {
+    let output = run_rawk_no_args();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(stdout.contains("Usage:"), "stdout: {stdout}");
+    assert!(stdout.contains("ARGS"), "stdout: {stdout}");
+    assert!(stdout.contains("file"), "stdout: {stdout}");
     assert!(output.stderr.is_empty());
 }
