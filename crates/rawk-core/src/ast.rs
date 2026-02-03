@@ -152,6 +152,7 @@ impl<'a> fmt::Display for Statement<'a> {
                         "print {}",
                         expressions
                             .iter()
+                            .filter(|expr| *expr != &Expression::String(" "))
                             .map(|expr| expr.to_string())
                             .collect::<Vec<String>>()
                             .join(", ")
@@ -299,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_program_with_begin_body_and_end_blocks() {
-        let expected_string = "BEGIN { print } $1 == 42 { print $2 } END { print \"hello\" }";
+        let expected_string = "BEGIN { print } $1 == 42 { print $2, $3 } END { print \"hello\" }";
         let program = Program {
             begin_blocks: vec![Rule::Begin(Action {
                 statements: vec![Statement::Print(vec![])],
@@ -311,9 +312,11 @@ mod tests {
                     right: Box::new(Expression::Number(42.0)),
                 }),
                 action: Some(Action {
-                    statements: vec![Statement::Print(vec![Expression::Field(Box::new(
-                        Expression::Number(2.0),
-                    ))])],
+                    statements: vec![Statement::Print(vec![
+                        Expression::Field(Box::new(Expression::Number(2.0))),
+                        Expression::String(" "),
+                        Expression::Field(Box::new(Expression::Number(3.0))),
+                    ])],
                 }),
             }],
             end_blocks: vec![Rule::End(Action {

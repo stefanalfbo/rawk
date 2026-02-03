@@ -122,8 +122,13 @@ impl<'a> Parser<'a> {
         while self.current_token.kind != TokenKind::RightCurlyBrace
             && self.current_token.kind != TokenKind::Eof
         {
-            let expression = self.parse_expression();
-            expressions.push(expression);
+            if self.current_token.kind == TokenKind::Comma {
+                self.next_token();
+                expressions.push(Expression::String(" "));
+            } else {
+                let expression = self.parse_expression();
+                expressions.push(expression);
+            }
         }
 
         Statement::Print(expressions)
@@ -507,5 +512,14 @@ mod tests {
             Expression::Field(inner) => assert!(matches!(**inner, Expression::Number(1.0))),
             _ => panic!("expected field expression"),
         }
+    }
+
+    #[test]
+    fn parse_print_with_commas() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { print "Value:", 42, $1 }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"BEGIN { print "Value:", 42, $1 }"#, program.to_string());
     }
 }
