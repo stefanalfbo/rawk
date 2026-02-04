@@ -90,6 +90,7 @@ fn eval_expression(expression: &Expression, input_line: Option<&str>) -> String 
         Expression::Number(value) => value.to_string(),
         Expression::Regex(value) => value.to_string(),
         Expression::Field(inner) => eval_field_expression(inner, input_line),
+        Expression::Identifier(identifier) => eval_identifier_expression(identifier, input_line),
         Expression::Infix {
             left,
             operator,
@@ -97,6 +98,21 @@ fn eval_expression(expression: &Expression, input_line: Option<&str>) -> String 
         } => eval_numeric_infix(left, operator, right)
             .map(|value| value.to_string())
             .unwrap_or_else(|| "not implemented".to_string()),
+    }
+}
+
+fn eval_identifier_expression(identifier: &str, input_line: Option<&str>) -> String {
+    match identifier {
+        "NF" => {
+            let line = match input_line {
+                Some(value) => value,
+                None => return "0".to_string(),
+            };
+
+            let field_count = line.split_whitespace().count();
+            field_count.to_string()
+        }
+        _ => "".to_string(),
     }
 }
 
@@ -345,13 +361,49 @@ mod tests {
 
     #[test]
     fn eval_print_field_first_column() {
-        let lexer = Lexer::new(r#"{ print $1 }"#);
+        let lexer = Lexer::new(r#"{ print $1, $3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one     two".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one     two three".to_string()]);
 
         let output = evaluator.eval();
 
-        assert_eq!(output, vec!["one".to_string()]);
+        assert_eq!(output, vec!["one three".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_number_of_fields_identifier() {
+        let lexer = Lexer::new(r#"{ print NF, $1 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one two three".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3 one".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_number_of_fields_on_empty_line() {
+        let lexer = Lexer::new(r#"{ print NF }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["0".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_uninitialized_identifier() {
+        let lexer = Lexer::new(r#"{ print XYZ }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one two".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["".to_string()]);
     }
 }

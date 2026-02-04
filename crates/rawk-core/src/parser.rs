@@ -195,6 +195,11 @@ impl<'a> Parser<'a> {
                 }
                 expression
             }
+            TokenKind::Identifier => {
+                let identifier = self.current_token.literal;
+                self.next_token();
+                Expression::Identifier(identifier)
+            }
             _ => {
                 todo!()
             }
@@ -521,5 +526,14 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"BEGIN { print "Value:", 42, $1 }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_number_of_fields_identifier() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { print NF }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"BEGIN { print NF }"#, program.to_string());
     }
 }

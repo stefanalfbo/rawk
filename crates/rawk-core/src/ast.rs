@@ -169,6 +169,7 @@ pub enum Expression<'a> {
     String(&'a str),
     Regex(&'a str),
     Field(Box<Expression<'a>>),
+    Identifier(&'a str),
     // non_unary_expr
     Infix {
         left: Box<Expression<'a>>,
@@ -184,6 +185,7 @@ impl<'a> fmt::Display for Expression<'a> {
             Expression::String(value) => write!(f, "\"{}\"", value),
             Expression::Regex(value) => write!(f, "/{}/", value),
             Expression::Field(expr) => write!(f, "${}", expr),
+            Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::Infix {
                 left,
                 operator,
@@ -300,7 +302,8 @@ mod tests {
 
     #[test]
     fn test_program_with_begin_body_and_end_blocks() {
-        let expected_string = "BEGIN { print } $1 == 42 { print $2, $3 } END { print \"hello\" }";
+        let expected_string =
+            "BEGIN { print } $1 == 42 { print NF, $2, $3 } END { print \"hello\" }";
         let program = Program {
             begin_blocks: vec![Rule::Begin(Action {
                 statements: vec![Statement::Print(vec![])],
@@ -313,6 +316,8 @@ mod tests {
                 }),
                 action: Some(Action {
                     statements: vec![Statement::Print(vec![
+                        Expression::Identifier("NF"),
+                        Expression::String(" "),
                         Expression::Field(Box::new(Expression::Number(2.0))),
                         Expression::String(" "),
                         Expression::Field(Box::new(Expression::Number(3.0))),

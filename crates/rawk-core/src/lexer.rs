@@ -200,13 +200,16 @@ impl<'a> Lexer<'a> {
         }
         let literal = &self.input[position..self.position];
 
-        if let Some(token_kind) = lookup_keyword(literal) {
+        let token = if let Some(token_kind) = lookup_keyword(literal) {
             Token::new(token_kind, literal, position)
         } else if let Some(token_kind) = lookup_functions(literal) {
             Token::new(token_kind, literal, position)
         } else {
             Token::new(TokenKind::Identifier, literal, position)
-        }
+        };
+
+        self.rewind_one();
+        token
     }
 
     fn read_number(&mut self) -> Token<'a> {
@@ -764,11 +767,12 @@ mod tests {
 
     #[test]
     fn test_identifiers() {
-        let input = "my_variable anotherVar _privateVar var123";
+        let input = "my_variable, anotherVar _privateVar var123";
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
             (TokenKind::Identifier, "my_variable"),
+            (TokenKind::Comma, ","),
             (TokenKind::Identifier, "anotherVar"),
             (TokenKind::Identifier, "_privateVar"),
             (TokenKind::Identifier, "var123"),
