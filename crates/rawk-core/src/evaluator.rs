@@ -95,7 +95,7 @@ fn eval_expression(expression: &Expression, input_line: Option<&str>) -> String 
             left,
             operator,
             right,
-        } => eval_numeric_infix(left, operator, right)
+        } => eval_numeric_infix(left, operator, right, input_line)
             .map(|value| value.to_string())
             .unwrap_or_else(|| "not implemented".to_string()),
     }
@@ -122,7 +122,7 @@ fn eval_field_expression(expression: &Expression<'_>, input_line: Option<&str>) 
         None => return String::new(),
     };
 
-    let index = match eval_numeric_expression(expression) {
+    let index = match eval_numeric_expression(expression, input_line) {
         Some(value) => value as i64,
         None => return String::new(),
     };
@@ -145,9 +145,10 @@ fn eval_numeric_infix(
     left: &Expression<'_>,
     operator: &crate::token::Token<'_>,
     right: &Expression<'_>,
+    input_line: Option<&str>,
 ) -> Option<f64> {
-    let left_value = eval_numeric_expression(left)?;
-    let right_value = eval_numeric_expression(right)?;
+    let left_value = eval_numeric_expression(left, input_line)?;
+    let right_value = eval_numeric_expression(right, input_line)?;
 
     match operator.kind {
         TokenKind::Plus => Some(left_value + right_value),
@@ -160,14 +161,18 @@ fn eval_numeric_infix(
     }
 }
 
-fn eval_numeric_expression(expression: &Expression<'_>) -> Option<f64> {
+fn eval_numeric_expression(expression: &Expression<'_>, input_line: Option<&str>) -> Option<f64> {
     match expression {
         Expression::Number(value) => Some(*value),
+        Expression::Identifier(identifier) => eval_identifier_expression(identifier, input_line)
+            .parse::<f64>()
+            .ok(),
+        Expression::Field(inner) => eval_field_expression(inner, input_line).parse::<f64>().ok(),
         Expression::Infix {
             left,
             operator,
             right,
-        } => eval_numeric_infix(left, operator, right),
+        } => eval_numeric_infix(left, operator, right, input_line),
         _ => None,
     }
 }
@@ -405,5 +410,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_use_number_of_fields_in_field_expression() {
+        let lexer = Lexer::new(r#"{ print $NF }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one two three".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["three".to_string()]);
     }
 }
