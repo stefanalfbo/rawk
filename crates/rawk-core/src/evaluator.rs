@@ -3,10 +3,12 @@ use crate::{
     ast::{Expression, Statement},
     token::TokenKind,
 };
+use std::cell::Cell;
 
 pub struct Evaluator<'a> {
     program: Program<'a>,
     input_lines: Vec<String>,
+    current_line_number: Cell<usize>,
 }
 
 impl<'a> Evaluator<'a> {
@@ -14,6 +16,7 @@ impl<'a> Evaluator<'a> {
         Self {
             program,
             input_lines,
+            current_line_number: Cell::new(0),
         }
     }
 
@@ -38,9 +41,11 @@ impl<'a> Evaluator<'a> {
     fn eval_rule(&self, rule: &Rule) -> Vec<String> {
         let mut output_lines = Vec::new();
 
-        for input_line in &self.input_lines {
+        for (i, input_line) in self.input_lines.iter().enumerate() {
+            self.current_line_number.set(i + 1);
+
             if let Rule::Action(action) = rule {
-                output_lines.push(eval_action(action, Some(input_line)));
+                output_lines.push(self.eval_action(action, Some(input_line)));
             }
         }
 
@@ -49,131 +54,151 @@ impl<'a> Evaluator<'a> {
 
     fn eval_begin_rule(&self, rule: &Rule) -> Vec<String> {
         match rule {
-            Rule::Begin(action) => vec![eval_action(action, None)],
+            Rule::Begin(action) => vec![self.eval_action(action, None)],
             _ => Vec::new(),
         }
     }
 
     fn eval_end_rule(&self, rule: &Rule) -> Vec<String> {
         match rule {
-            Rule::End(action) => vec![eval_action(action, None)],
+            Rule::End(action) => vec![self.eval_action(action, None)],
             _ => Vec::new(),
         }
     }
-}
 
-fn eval_action(action: &Action, input_line: Option<&str>) -> String {
-    if action.statements.len() == 1 {
-        let statement = &action.statements[0];
+    fn eval_action(&self, action: &Action, input_line: Option<&str>) -> String {
+        if action.statements.len() == 1 {
+            let statement = &action.statements[0];
 
-        match statement {
-            Statement::Print(expressions) => {
-                if expressions.is_empty() {
-                    return input_line.unwrap_or("").to_string();
+            match statement {
+                Statement::Print(expressions) => {
+                    if expressions.is_empty() {
+                        return input_line.unwrap_or("").to_string();
+                    }
+
+                    let parts = expressions
+                        .iter()
+                        .map(|expr| self.eval_expression(expr, input_line))
+                        .collect::<Vec<String>>();
+                    parts.join("")
                 }
-
-                let parts = expressions
-                    .iter()
-                    .map(|expr| eval_expression(expr, input_line))
-                    .collect::<Vec<String>>();
-                parts.join("")
             }
+        } else {
+            "not implemented".to_string()
         }
-    } else {
-        "not implemented".to_string()
     }
-}
 
-fn eval_expression(expression: &Expression, input_line: Option<&str>) -> String {
-    match expression {
-        Expression::String(value) => value.to_string(),
-        Expression::Number(value) => value.to_string(),
-        Expression::Regex(value) => value.to_string(),
-        Expression::Field(inner) => eval_field_expression(inner, input_line),
-        Expression::Identifier(identifier) => eval_identifier_expression(identifier, input_line),
-        Expression::Infix {
-            left,
-            operator,
-            right,
-        } => eval_numeric_infix(left, operator, right, input_line)
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| "not implemented".to_string()),
-    }
-}
-
-fn eval_identifier_expression(identifier: &str, input_line: Option<&str>) -> String {
-    match identifier {
-        "NF" => {
-            let line = match input_line {
-                Some(value) => value,
-                None => return "0".to_string(),
-            };
-
-            let field_count = line.split_whitespace().count();
-            field_count.to_string()
+    fn eval_expression(&self, expression: &Expression, input_line: Option<&str>) -> String {
+        match expression {
+            Expression::String(value) => value.to_string(),
+            Expression::Number(value) => value.to_string(),
+            Expression::Regex(value) => value.to_string(),
+            Expression::Field(inner) => self.eval_field_expression(inner, input_line),
+            Expression::Identifier(identifier) => {
+                self.eval_identifier_expression(identifier, input_line)
+            }
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => self
+                .eval_numeric_infix(left, operator, right, input_line)
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "not implemented".to_string()),
         }
-        _ => "".to_string(),
-    }
-}
-
-fn eval_field_expression(expression: &Expression<'_>, input_line: Option<&str>) -> String {
-    let line = match input_line {
-        Some(value) => value,
-        None => return String::new(),
-    };
-
-    let index = match eval_numeric_expression(expression, input_line) {
-        Some(value) => value as i64,
-        None => return String::new(),
-    };
-
-    if index == 0 {
-        return line.to_string();
     }
 
-    if index < 0 {
-        return String::new();
+    fn eval_identifier_expression(&self, identifier: &str, input_line: Option<&str>) -> String {
+        match identifier {
+            "NF" => {
+                let line = match input_line {
+                    Some(value) => value,
+                    None => return "0".to_string(),
+                };
+
+                let field_count = line.split_whitespace().count();
+                field_count.to_string()
+            }
+            "NR" => match input_line {
+                Some(_) => self.current_line_number.get().to_string(),
+                None => "0".to_string(),
+            },
+            _ => "".to_string(),
+        }
     }
 
-    line.split_whitespace()
-        .nth((index - 1) as usize)
-        .unwrap_or("")
-        .to_string()
-}
+    fn eval_field_expression(
+        &self,
+        expression: &Expression<'_>,
+        input_line: Option<&str>,
+    ) -> String {
+        let line = match input_line {
+            Some(value) => value,
+            None => return String::new(),
+        };
 
-fn eval_numeric_infix(
-    left: &Expression<'_>,
-    operator: &crate::token::Token<'_>,
-    right: &Expression<'_>,
-    input_line: Option<&str>,
-) -> Option<f64> {
-    let left_value = eval_numeric_expression(left, input_line)?;
-    let right_value = eval_numeric_expression(right, input_line)?;
+        let index = match self.eval_numeric_expression(expression, input_line) {
+            Some(value) => value as i64,
+            None => return String::new(),
+        };
 
-    match operator.kind {
-        TokenKind::Plus => Some(left_value + right_value),
-        TokenKind::Minus => Some(left_value - right_value),
-        TokenKind::Asterisk => Some(left_value * right_value),
-        TokenKind::Division => Some(left_value / right_value),
-        TokenKind::Percent => Some(left_value % right_value),
-        TokenKind::Caret => Some(left_value.powf(right_value)),
-        _ => None,
+        if index == 0 {
+            return line.to_string();
+        }
+
+        if index < 0 {
+            return String::new();
+        }
+
+        line.split_whitespace()
+            .nth((index - 1) as usize)
+            .unwrap_or("")
+            .to_string()
     }
-}
 
-fn eval_numeric_expression(expression: &Expression<'_>, input_line: Option<&str>) -> Option<f64> {
-    match expression {
-        Expression::Number(value) => Some(*value),
-        Expression::Identifier(identifier) => eval_identifier_expression(identifier, input_line)
-            .parse::<f64>()
-            .ok(),
-        Expression::Field(inner) => eval_field_expression(inner, input_line).parse::<f64>().ok(),
-        Expression::Infix {
-            left,
-            operator,
-            right,
-        } => eval_numeric_infix(left, operator, right, input_line),
-        _ => None,
+    fn eval_numeric_infix(
+        &self,
+        left: &Expression<'_>,
+        operator: &crate::token::Token<'_>,
+        right: &Expression<'_>,
+        input_line: Option<&str>,
+    ) -> Option<f64> {
+        let left_value = self.eval_numeric_expression(left, input_line)?;
+        let right_value = self.eval_numeric_expression(right, input_line)?;
+
+        match operator.kind {
+            TokenKind::Plus => Some(left_value + right_value),
+            TokenKind::Minus => Some(left_value - right_value),
+            TokenKind::Asterisk => Some(left_value * right_value),
+            TokenKind::Division => Some(left_value / right_value),
+            TokenKind::Percent => Some(left_value % right_value),
+            TokenKind::Caret => Some(left_value.powf(right_value)),
+            _ => None,
+        }
+    }
+
+    fn eval_numeric_expression(
+        &self,
+        expression: &Expression<'_>,
+        input_line: Option<&str>,
+    ) -> Option<f64> {
+        match expression {
+            Expression::Number(value) => Some(*value),
+            Expression::Identifier(identifier) => self
+                .eval_identifier_expression(identifier, input_line)
+                .parse::<f64>()
+                .ok(),
+            Expression::Field(inner) => self
+                .eval_field_expression(inner, input_line)
+                .parse::<f64>()
+                .ok(),
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } => self.eval_numeric_infix(left, operator, right, input_line),
+            _ => None,
+        }
     }
 }
 
@@ -422,5 +447,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["three".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_line_numbers() {
+        let lexer = Lexer::new(r#"{ print NR, $0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["one".to_string(), "two".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1 one".to_string(), "2 two".to_string()]);
     }
 }
