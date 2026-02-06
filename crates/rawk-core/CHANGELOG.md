@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7](https://github.com/stefanalfbo/rawk/compare/v0.0.6...v0.0.7) - 2026-02-06
+
+### Other
+
+- Refactor the evaluator and add more state to the struct, like the current line that is processed
+- Enable support for NR, the current line number
+- Make it possible to use number of fields in a field expression
+- Enable support for NF, the number of fields
+- Handle more complex print statement like fields seperated with comma, '{ print , }'
+
 ## [0.0.6](https://github.com/stefanalfbo/rawk/compare/v0.0.5...v0.0.6) - 2026-02-01
 
 ### Other
