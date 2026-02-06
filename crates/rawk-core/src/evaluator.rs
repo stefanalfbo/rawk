@@ -9,6 +9,7 @@ pub struct Evaluator<'a> {
     program: Program<'a>,
     input_lines: Vec<String>,
     current_line_number: Cell<usize>,
+    current_line: Option<String>,
 }
 
 impl<'a> Evaluator<'a> {
@@ -17,6 +18,7 @@ impl<'a> Evaluator<'a> {
             program,
             input_lines,
             current_line_number: Cell::new(0),
+            current_line: None,
         }
     }
 
@@ -27,7 +29,8 @@ impl<'a> Evaluator<'a> {
             output_lines.extend(self.eval_begin_rule(rule));
         }
 
-        for rule in self.program.rules_iter() {
+        let rules: Vec<Rule<'a>> = self.program.rules_iter().cloned().collect();
+        for rule in rules.iter() {
             output_lines.extend(self.eval_rule(rule));
         }
 
@@ -38,17 +41,19 @@ impl<'a> Evaluator<'a> {
         output_lines
     }
 
-    fn eval_rule(&self, rule: &Rule) -> Vec<String> {
+    fn eval_rule(&mut self, rule: &Rule) -> Vec<String> {
         let mut output_lines = Vec::new();
 
         for (i, input_line) in self.input_lines.iter().enumerate() {
             self.current_line_number.set(i + 1);
+            self.current_line = Some(input_line.clone());
 
             if let Rule::Action(action) = rule {
                 output_lines.push(self.eval_action(action, Some(input_line)));
             }
         }
 
+        self.current_line = None;
         output_lines
     }
 
@@ -78,7 +83,7 @@ impl<'a> Evaluator<'a> {
 
                     let parts = expressions
                         .iter()
-                        .map(|expr| self.eval_expression(expr, input_line))
+                        .map(|expr| self.eval_expression(expr))
                         .collect::<Vec<String>>();
                     parts.join("")
                 }
@@ -88,30 +93,28 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_expression(&self, expression: &Expression, input_line: Option<&str>) -> String {
+    fn eval_expression(&self, expression: &Expression) -> String {
         match expression {
             Expression::String(value) => value.to_string(),
             Expression::Number(value) => value.to_string(),
             Expression::Regex(value) => value.to_string(),
-            Expression::Field(inner) => self.eval_field_expression(inner, input_line),
-            Expression::Identifier(identifier) => {
-                self.eval_identifier_expression(identifier, input_line)
-            }
+            Expression::Field(inner) => self.eval_field_expression(inner),
+            Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
             Expression::Infix {
                 left,
                 operator,
                 right,
             } => self
-                .eval_numeric_infix(left, operator, right, input_line)
+                .eval_numeric_infix(left, operator, right)
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "not implemented".to_string()),
         }
     }
 
-    fn eval_identifier_expression(&self, identifier: &str, input_line: Option<&str>) -> String {
+    fn eval_identifier_expression(&self, identifier: &str) -> String {
         match identifier {
             "NF" => {
-                let line = match input_line {
+                let line = match self.current_line.as_deref() {
                     Some(value) => value,
                     None => return "0".to_string(),
                 };
@@ -119,7 +122,7 @@ impl<'a> Evaluator<'a> {
                 let field_count = line.split_whitespace().count();
                 field_count.to_string()
             }
-            "NR" => match input_line {
+            "NR" => match self.current_line.as_ref() {
                 Some(_) => self.current_line_number.get().to_string(),
                 None => "0".to_string(),
             },
@@ -127,17 +130,13 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_field_expression(
-        &self,
-        expression: &Expression<'_>,
-        input_line: Option<&str>,
-    ) -> String {
-        let line = match input_line {
+    fn eval_field_expression(&self, expression: &Expression<'_>) -> String {
+        let line = match self.current_line.as_deref() {
             Some(value) => value,
             None => return String::new(),
         };
 
-        let index = match self.eval_numeric_expression(expression, input_line) {
+        let index = match self.eval_numeric_expression(expression) {
             Some(value) => value as i64,
             None => return String::new(),
         };
@@ -161,10 +160,9 @@ impl<'a> Evaluator<'a> {
         left: &Expression<'_>,
         operator: &crate::token::Token<'_>,
         right: &Expression<'_>,
-        input_line: Option<&str>,
     ) -> Option<f64> {
-        let left_value = self.eval_numeric_expression(left, input_line)?;
-        let right_value = self.eval_numeric_expression(right, input_line)?;
+        let left_value = self.eval_numeric_expression(left)?;
+        let right_value = self.eval_numeric_expression(right)?;
 
         match operator.kind {
             TokenKind::Plus => Some(left_value + right_value),
@@ -177,26 +175,19 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_numeric_expression(
-        &self,
-        expression: &Expression<'_>,
-        input_line: Option<&str>,
-    ) -> Option<f64> {
+    fn eval_numeric_expression(&self, expression: &Expression<'_>) -> Option<f64> {
         match expression {
             Expression::Number(value) => Some(*value),
             Expression::Identifier(identifier) => self
-                .eval_identifier_expression(identifier, input_line)
+                .eval_identifier_expression(identifier)
                 .parse::<f64>()
                 .ok(),
-            Expression::Field(inner) => self
-                .eval_field_expression(inner, input_line)
-                .parse::<f64>()
-                .ok(),
+            Expression::Field(inner) => self.eval_field_expression(inner).parse::<f64>().ok(),
             Expression::Infix {
                 left,
                 operator,
                 right,
-            } => self.eval_numeric_infix(left, operator, right, input_line),
+            } => self.eval_numeric_infix(left, operator, right),
             _ => None,
         }
     }
