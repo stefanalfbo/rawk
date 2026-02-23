@@ -29,3 +29,19 @@ fn p2() {
 
     assert_eq!(output, expected);
 }
+
+#[test]
+#[ignore = "Not supported yet."]
+fn p3() {
+    let script = include_str!("onetrueawk-testdata/p.3");
+    let data = include_str!("onetrueawk-testdata/countries");
+    let expected_data = include_str!("onetrueawk-testdata/p.3.expected");
+
+    let input: Vec<String> = data.lines().map(str::to_string).collect();
+    let expected: Vec<String> = expected_data.lines().map(str::to_string).collect();
+
+    let awk = Awk::new(script);
+    let output = awk.run(input);
+
+    assert_eq!(output, expected);
+}
