@@ -269,6 +269,13 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_condition(&self, expression: &Expression<'_>) -> bool {
+        if let Expression::Regex(pattern) = expression {
+            return self
+                .current_line
+                .as_deref()
+                .is_some_and(|line| line.contains(pattern));
+        }
+
         if let Expression::Infix {
             left,
             operator,
