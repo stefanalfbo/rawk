@@ -10,6 +10,7 @@ pub struct Evaluator<'a> {
     input_lines: Vec<String>,
     current_line_number: Cell<usize>,
     current_line: Option<String>,
+    field_separator: String,
 }
 
 impl<'a> Evaluator<'a> {
@@ -19,13 +20,15 @@ impl<'a> Evaluator<'a> {
             input_lines,
             current_line_number: Cell::new(0),
             current_line: None,
+            field_separator: " ".to_string(),
         }
     }
 
     pub fn eval(&mut self) -> Vec<String> {
         let mut output_lines: Vec<String> = Vec::new();
 
-        for rule in self.program.begin_blocks_iter() {
+        let begin_rules: Vec<Rule<'a>> = self.program.begin_blocks_iter().cloned().collect();
+        for rule in begin_rules.iter() {
             output_lines.extend(self.eval_begin_rule(rule));
         }
 
@@ -34,7 +37,8 @@ impl<'a> Evaluator<'a> {
             output_lines.extend(self.eval_rule(rule));
         }
 
-        for rule in self.program.end_blocks_iter() {
+        let end_rules: Vec<Rule<'a>> = self.program.end_blocks_iter().cloned().collect();
+        for rule in end_rules.iter() {
             output_lines.extend(self.eval_end_rule(rule));
         }
 
@@ -44,12 +48,13 @@ impl<'a> Evaluator<'a> {
     fn eval_rule(&mut self, rule: &Rule) -> Vec<String> {
         let mut output_lines = Vec::new();
 
-        for (i, input_line) in self.input_lines.iter().enumerate() {
+        let input_lines = self.input_lines.clone();
+        for (i, input_line) in input_lines.iter().enumerate() {
             self.current_line_number.set(i + 1);
             self.current_line = Some(input_line.clone());
 
             if let Rule::Action(action) = rule {
-                output_lines.push(self.eval_action(action, Some(input_line)));
+                output_lines.extend(self.eval_action(action, Some(input_line)));
             }
         }
 
@@ -57,30 +62,40 @@ impl<'a> Evaluator<'a> {
         output_lines
     }
 
-    fn eval_begin_rule(&self, rule: &Rule) -> Vec<String> {
+    fn eval_begin_rule(&mut self, rule: &Rule) -> Vec<String> {
         match rule {
-            Rule::Begin(action) => vec![self.eval_action(action, None)],
+            Rule::Begin(action) => self.eval_action(action, None),
             _ => Vec::new(),
         }
     }
 
-    fn eval_end_rule(&self, rule: &Rule) -> Vec<String> {
+    fn eval_end_rule(&mut self, rule: &Rule) -> Vec<String> {
         match rule {
-            Rule::End(action) => vec![self.eval_action(action, None)],
+            Rule::End(action) => self.eval_action(action, None),
             _ => Vec::new(),
         }
     }
 
-    fn eval_action(&self, action: &Action, input_line: Option<&str>) -> String {
-        if action.statements.len() == 1 {
-            let statement = &action.statements[0];
+    fn eval_action(&mut self, action: &Action, input_line: Option<&str>) -> Vec<String> {
+        let mut output = Vec::new();
 
-            match statement {
-                Statement::Print(expressions) => self.eval_print(expressions, input_line),
-                Statement::Printf(expressions) => self.eval_printf(expressions),
+        for statement in &action.statements {
+            if let Some(line) = self.eval_statement(statement, input_line) {
+                output.push(line);
             }
-        } else {
-            "not implemented".to_string()
+        }
+
+        output
+    }
+
+    fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Option<String> {
+        match statement {
+            Statement::Print(expressions) => Some(self.eval_print(expressions, input_line)),
+            Statement::Printf(expressions) => Some(self.eval_printf(expressions)),
+            Statement::Assignment { identifier, value } => {
+                self.eval_assignment(identifier, value);
+                None
+            }
         }
     }
 
@@ -113,6 +128,12 @@ impl<'a> Evaluator<'a> {
         rendered.trim_end_matches(['\r', '\n']).to_string()
     }
 
+    fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
+        if identifier == "FS" {
+            self.field_separator = unescape_awk_string(&self.eval_expression(value));
+        }
+    }
+
     fn eval_expression(&self, expression: &Expression) -> String {
         match expression {
             Expression::String(value) => value.to_string(),
@@ -139,7 +160,7 @@ impl<'a> Evaluator<'a> {
                     None => return "0".to_string(),
                 };
 
-                let field_count = line.split_whitespace().count();
+                let field_count = self.split_fields(line).len();
                 field_count.to_string()
             }
             "NR" => match self.current_line.as_ref() {
@@ -169,10 +190,20 @@ impl<'a> Evaluator<'a> {
             return String::new();
         }
 
-        line.split_whitespace()
+        self.split_fields(line)
+            .into_iter()
             .nth((index - 1) as usize)
-            .unwrap_or("")
-            .to_string()
+            .unwrap_or_default()
+    }
+
+    fn split_fields(&self, line: &str) -> Vec<String> {
+        if self.field_separator == " " {
+            line.split_whitespace().map(str::to_string).collect()
+        } else {
+            line.split(&self.field_separator)
+                .map(str::to_string)
+                .collect()
+        }
     }
 
     fn eval_numeric_infix(

@@ -15,6 +15,13 @@ enum CommaBehavior {
     SkipComma,
 }
 
+enum StatementEnd {
+    RightCurlyBrace,
+    NewLine,
+    Semicolon,
+    Eof,
+}
+
 impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
         // Enable regex parsing for the first token since it could be a pattern
@@ -95,22 +102,22 @@ impl<'a> Parser<'a> {
         let pattern = None;
 
         let mut statements = Vec::new();
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
-
-        if self.current_token.kind == TokenKind::Print {
-            let print_statement = self.parse_print_function();
-            statements.push(print_statement);
-        } else if self.current_token.kind == TokenKind::Printf {
-            let printf_statement = self.parse_printf_function();
-            statements.push(printf_statement);
-        }
-
         while self.current_token.kind != TokenKind::RightCurlyBrace
             && self.current_token.kind != TokenKind::Eof
         {
-            self.next_token();
+            while self.current_token.kind == TokenKind::NewLine
+                || self.current_token.kind == TokenKind::Semicolon
+            {
+                self.next_token();
+            }
+
+            if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::Eof
+            {
+                break;
+            }
+
+            statements.push(self.parse_statement());
         }
 
         if pattern.is_some() {
@@ -121,6 +128,27 @@ impl<'a> Parser<'a> {
         } else {
             Rule::Action(Action { statements })
         }
+    }
+
+    fn parse_statement(&mut self) -> Statement<'a> {
+        match self.current_token.kind {
+            TokenKind::Print => self.parse_print_function(),
+            TokenKind::Printf => self.parse_printf_function(),
+            TokenKind::Identifier => self.parse_assignment_statement(),
+            _ => todo!(),
+        }
+    }
+
+    fn parse_assignment_statement(&mut self) -> Statement<'a> {
+        let identifier = self.current_token.literal;
+        self.next_token();
+        if self.current_token.kind != TokenKind::Assign {
+            todo!()
+        }
+        self.next_token();
+        let value = self.parse_expression();
+
+        Statement::Assignment { identifier, value }
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
@@ -142,9 +170,7 @@ impl<'a> Parser<'a> {
         let mut expressions = Vec::new();
         self.next_token();
 
-        while self.current_token.kind != TokenKind::RightCurlyBrace
-            && self.current_token.kind != TokenKind::Eof
-        {
+        while !self.is_statement_end() {
             if self.current_token.kind == TokenKind::Comma {
                 self.next_token();
                 if let CommaBehavior::InsertSpaceExpression = comma_behavior {
@@ -157,6 +183,16 @@ impl<'a> Parser<'a> {
         }
 
         expressions
+    }
+
+    fn is_statement_end(&self) -> bool {
+        matches!(
+            statement_end_kind(&self.current_token.kind),
+            Some(StatementEnd::RightCurlyBrace)
+                | Some(StatementEnd::NewLine)
+                | Some(StatementEnd::Semicolon)
+                | Some(StatementEnd::Eof)
+        )
     }
 
     fn parse_expression(&mut self) -> Expression<'a> {
@@ -253,6 +289,16 @@ fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
         TokenKind::Plus | TokenKind::Minus => Some((1, 2)),
         TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((3, 4)),
         TokenKind::Caret => Some((7, 6)),
+        _ => None,
+    }
+}
+
+fn statement_end_kind(kind: &TokenKind) -> Option<StatementEnd> {
+    match kind {
+        TokenKind::RightCurlyBrace => Some(StatementEnd::RightCurlyBrace),
+        TokenKind::NewLine => Some(StatementEnd::NewLine),
+        TokenKind::Semicolon => Some(StatementEnd::Semicolon),
+        TokenKind::Eof => Some(StatementEnd::Eof),
         _ => None,
     }
 }

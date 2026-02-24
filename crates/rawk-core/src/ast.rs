@@ -89,6 +89,10 @@ impl<'a> fmt::Display for Program<'a> {
 pub enum Statement<'a> {
     Print(Vec<Expression<'a>>),
     Printf(Vec<Expression<'a>>),
+    Assignment {
+        identifier: &'a str,
+        value: Expression<'a>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -175,6 +179,7 @@ impl<'a> fmt::Display for Statement<'a> {
                     )
                 }
             }
+            Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
         }
     }
 }
