@@ -221,7 +221,11 @@ impl<'a> Parser<'a> {
             }
 
             let operator = self.current_token.clone();
-            self.next_token();
+            if matches!(operator.kind, TokenKind::Tilde | TokenKind::NoMatch) {
+                self.next_token_with_regex(true);
+            } else {
+                self.next_token();
+            }
             let right = self.parse_expression_with_min_precedence(right_precedence);
 
             left = Expression::Infix {
@@ -303,7 +307,9 @@ fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
         | TokenKind::GreaterThan
         | TokenKind::GreaterThanOrEqual
         | TokenKind::LessThan
-        | TokenKind::LessThanOrEqual => Some((1, 2)),
+        | TokenKind::LessThanOrEqual
+        | TokenKind::Tilde
+        | TokenKind::NoMatch => Some((1, 2)),
         TokenKind::Plus | TokenKind::Minus => Some((3, 4)),
         TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((5, 6)),
         TokenKind::Caret => Some((9, 8)),

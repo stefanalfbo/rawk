@@ -282,6 +282,9 @@ impl<'a> Evaluator<'a> {
             right,
         } = expression
         {
+            if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
+                return value;
+            }
             if let Some(value) = self.eval_comparison(left, operator.kind.clone(), right) {
                 return value;
             }
@@ -340,6 +343,30 @@ impl<'a> Evaluator<'a> {
         };
 
         Some(result)
+    }
+
+    fn eval_regex_match(
+        &self,
+        left: &Expression<'_>,
+        operator: TokenKind,
+        right: &Expression<'_>,
+    ) -> Option<bool> {
+        if !matches!(operator, TokenKind::Tilde | TokenKind::NoMatch) {
+            return None;
+        }
+
+        let haystack = self.eval_expression(left);
+        let needle = match right {
+            Expression::Regex(pattern) => pattern.to_string(),
+            _ => self.eval_expression(right),
+        };
+
+        let matches = haystack.contains(&needle);
+        Some(if operator == TokenKind::NoMatch {
+            !matches
+        } else {
+            matches
+        })
     }
 }
 
