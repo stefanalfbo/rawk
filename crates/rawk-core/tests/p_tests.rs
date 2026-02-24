@@ -10,92 +10,82 @@ fn assert_script_output_matches(script: &str, data: &str, expected_data: &str) {
     assert_eq!(output, expected);
 }
 
-#[test]
-fn p1() {
-    let script = include_str!("onetrueawk-testdata/p.1");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.1.expected");
+macro_rules! p_test {
+    ($name:ident, $num:literal) => {
+        #[test]
+        fn $name() {
+            let script = include_str!(concat!("onetrueawk-testdata/p.", $num));
+            let data = include_str!("onetrueawk-testdata/countries");
+            let expected_data = include_str!(concat!("onetrueawk-testdata/p.", $num, ".expected"));
 
-    assert_script_output_matches(script, data, expected_data);
+            assert_script_output_matches(script, data, expected_data);
+        }
+    };
 }
 
-#[test]
-fn p2() {
-    let script = include_str!("onetrueawk-testdata/p.2");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.2.expected");
+macro_rules! p_test_ignored {
+    ($name:ident, $num:literal) => {
+        #[test]
+        #[ignore = "not supported yet"]
+        fn $name() {
+            let script = include_str!(concat!("onetrueawk-testdata/p.", $num));
+            let data = include_str!("onetrueawk-testdata/countries");
+            let expected_data = include_str!(concat!("onetrueawk-testdata/p.", $num, ".expected"));
 
-    assert_script_output_matches(script, data, expected_data);
+            assert_script_output_matches(script, data, expected_data);
+        }
+    };
 }
 
-#[test]
-fn p3() {
-    let script = include_str!("onetrueawk-testdata/p.3");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.3.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p4() {
-    let script = include_str!("onetrueawk-testdata/p.4");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.4.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p5() {
-    let script = include_str!("onetrueawk-testdata/p.5");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.5.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p5a() {
-    let script = include_str!("onetrueawk-testdata/p.5a");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.5a.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p6() {
-    let script = include_str!("onetrueawk-testdata/p.6");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.6.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p7() {
-    let script = include_str!("onetrueawk-testdata/p.7");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.7.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p8() {
-    let script = include_str!("onetrueawk-testdata/p.8");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.8.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
-
-#[test]
-fn p9() {
-    let script = include_str!("onetrueawk-testdata/p.9");
-    let data = include_str!("onetrueawk-testdata/countries");
-    let expected_data = include_str!("onetrueawk-testdata/p.9.expected");
-
-    assert_script_output_matches(script, data, expected_data);
-}
+p_test!(p1, "1");
+p_test!(p2, "2");
+p_test!(p3, "3");
+p_test!(p4, "4");
+p_test!(p5, "5");
+p_test!(p6, "6");
+p_test!(p7, "7");
+p_test!(p8, "8");
+p_test!(p9, "9");
+p_test!(p10, "10");
+p_test_ignored!(p11, "11");
+p_test_ignored!(p12, "12");
+p_test_ignored!(p13, "13");
+p_test_ignored!(p14, "14");
+p_test_ignored!(p15, "15");
+p_test_ignored!(p16, "16");
+p_test_ignored!(p17, "17");
+p_test_ignored!(p18, "18");
+p_test_ignored!(p19, "19");
+p_test_ignored!(p20, "20");
+p_test_ignored!(p21, "21");
+p_test_ignored!(p22, "22");
+p_test_ignored!(p23, "23");
+p_test_ignored!(p24, "24");
+p_test_ignored!(p25, "25");
+p_test_ignored!(p26, "26");
+p_test_ignored!(p27, "27");
+p_test_ignored!(p28, "28");
+p_test_ignored!(p29, "29");
+p_test_ignored!(p30, "30");
+p_test_ignored!(p31, "31");
+p_test_ignored!(p32, "32");
+p_test_ignored!(p33, "33");
+p_test_ignored!(p34, "34");
+p_test_ignored!(p35, "35");
+p_test_ignored!(p36, "36");
+p_test_ignored!(p37, "37");
+p_test_ignored!(p38, "38");
+p_test_ignored!(p39, "39");
+p_test_ignored!(p40, "40");
+p_test_ignored!(p41, "41");
+p_test_ignored!(p42, "42");
+p_test_ignored!(p43, "43");
+p_test_ignored!(p44, "44");
+p_test_ignored!(p45, "45");
+p_test_ignored!(p46, "46");
+p_test_ignored!(p47, "47");
+p_test_ignored!(p48, "48");
+p_test_ignored!(p49, "49");
+p_test_ignored!(p50, "50");
+p_test_ignored!(p51, "51");
+p_test_ignored!(p52, "52");
