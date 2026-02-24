@@ -269,12 +269,70 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_condition(&self, expression: &Expression<'_>) -> bool {
+        if let Expression::Infix {
+            left,
+            operator,
+            right,
+        } = expression
+        {
+            if let Some(value) = self.eval_comparison(left, operator.kind.clone(), right) {
+                return value;
+            }
+        }
+
         if let Some(value) = self.eval_numeric_expression(expression) {
             return value != 0.0;
         }
 
         let value = self.eval_expression(expression);
         !value.is_empty()
+    }
+
+    fn eval_comparison(
+        &self,
+        left: &Expression<'_>,
+        operator: TokenKind,
+        right: &Expression<'_>,
+    ) -> Option<bool> {
+        if !matches!(
+            operator,
+            TokenKind::Equal
+                | TokenKind::NotEqual
+                | TokenKind::GreaterThan
+                | TokenKind::GreaterThanOrEqual
+                | TokenKind::LessThan
+                | TokenKind::LessThanOrEqual
+        ) {
+            return None;
+        }
+
+        let left_str = self.eval_expression(left);
+        let right_str = self.eval_expression(right);
+        let left_num = left_str.parse::<f64>().ok();
+        let right_num = right_str.parse::<f64>().ok();
+
+        let result = match (left_num, right_num) {
+            (Some(l), Some(r)) => match operator {
+                TokenKind::Equal => l == r,
+                TokenKind::NotEqual => l != r,
+                TokenKind::GreaterThan => l > r,
+                TokenKind::GreaterThanOrEqual => l >= r,
+                TokenKind::LessThan => l < r,
+                TokenKind::LessThanOrEqual => l <= r,
+                _ => unreachable!(),
+            },
+            _ => match operator {
+                TokenKind::Equal => left_str == right_str,
+                TokenKind::NotEqual => left_str != right_str,
+                TokenKind::GreaterThan => left_str > right_str,
+                TokenKind::GreaterThanOrEqual => left_str >= right_str,
+                TokenKind::LessThan => left_str < right_str,
+                TokenKind::LessThanOrEqual => left_str <= right_str,
+                _ => unreachable!(),
+            },
+        };
+
+        Some(result)
     }
 }
 
