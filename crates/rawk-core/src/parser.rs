@@ -221,7 +221,10 @@ impl<'a> Parser<'a> {
             }
 
             let operator = self.current_token.clone();
-            if matches!(operator.kind, TokenKind::Tilde | TokenKind::NoMatch) {
+            if matches!(
+                operator.kind,
+                TokenKind::Tilde | TokenKind::NoMatch | TokenKind::And | TokenKind::Or
+            ) {
                 self.next_token_with_regex(true);
             } else {
                 self.next_token();

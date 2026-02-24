@@ -425,6 +425,17 @@ fn awk_regex_matches(text: &str, pattern: &str) -> bool {
         };
     }
 
+    if core.starts_with('(') && core.ends_with(')') && core.contains('|') {
+        return core[1..core.len() - 1]
+            .split('|')
+            .any(|alt| match (anchored_start, anchored_end) {
+            (true, true) => text == alt,
+            (true, false) => text.starts_with(alt),
+            (false, true) => text.ends_with(alt),
+            (false, false) => text.contains(alt),
+        });
+    }
+
     if anchored_start && anchored_end {
         return text == core;
     }
