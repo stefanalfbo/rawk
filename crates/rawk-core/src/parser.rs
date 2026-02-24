@@ -71,28 +71,35 @@ impl<'a> Parser<'a> {
                     _ => panic!("Expected action after END"),
                 }
             }
-            TokenKind::Regex => {
-                let pattern = Some(Expression::Regex(self.current_token.literal));
-                self.next_token();
-                if self.current_token.kind == TokenKind::LeftCurlyBrace {
-                    match self.parse_action() {
-                        Rule::Action(action) => Some(Rule::PatternAction {
-                            pattern,
-                            action: Some(action),
-                        }),
-                        _ => panic!("Expected action after regex pattern"),
-                    }
-                } else {
-                    Some(Rule::PatternAction {
-                        pattern,
-                        action: None,
-                    })
-                }
-            }
+            TokenKind::Regex
+            | TokenKind::String
+            | TokenKind::Number
+            | TokenKind::DollarSign
+            | TokenKind::LeftParen
+            | TokenKind::Identifier => self.parse_pattern_rule(),
             _ => panic!(
                 "parse_next_rule not yet implemented, found token: {:?}",
                 self.current_token
             ),
+        }
+    }
+
+    fn parse_pattern_rule(&mut self) -> Option<Rule<'a>> {
+        let pattern = Some(self.parse_expression());
+
+        if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            match self.parse_action() {
+                Rule::Action(action) => Some(Rule::PatternAction {
+                    pattern,
+                    action: Some(action),
+                }),
+                _ => panic!("Expected action after pattern"),
+            }
+        } else {
+            Some(Rule::PatternAction {
+                pattern,
+                action: None,
+            })
         }
     }
 
@@ -234,6 +241,11 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 expression
             }
+            TokenKind::Regex => {
+                let expression = Expression::Regex(self.current_token.literal);
+                self.next_token();
+                expression
+            }
             TokenKind::Number => {
                 let expression = if let Ok(value) = self.current_token.literal.parse::<f64>() {
                     Expression::Number(value)
@@ -286,9 +298,15 @@ impl<'a> Parser<'a> {
 
 fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
     match kind {
-        TokenKind::Plus | TokenKind::Minus => Some((1, 2)),
-        TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((3, 4)),
-        TokenKind::Caret => Some((7, 6)),
+        TokenKind::Equal
+        | TokenKind::NotEqual
+        | TokenKind::GreaterThan
+        | TokenKind::GreaterThanOrEqual
+        | TokenKind::LessThan
+        | TokenKind::LessThanOrEqual => Some((1, 2)),
+        TokenKind::Plus | TokenKind::Minus => Some((3, 4)),
+        TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((5, 6)),
+        TokenKind::Caret => Some((9, 8)),
         _ => None,
     }
 }

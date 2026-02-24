@@ -56,8 +56,22 @@ impl<'a> Evaluator<'a> {
             self.current_line_number.set(i + 1);
             self.current_line = Some(input_line.clone());
 
-            if let Rule::Action(action) = rule {
-                output_lines.extend(self.eval_action(action, Some(input_line)));
+            match rule {
+                Rule::Action(action) => output_lines.extend(self.eval_action(action, Some(input_line))),
+                Rule::PatternAction { pattern, action } => {
+                    let matches = match pattern.as_ref() {
+                        Some(expr) => self.eval_condition(expr),
+                        None => true,
+                    };
+                    if matches {
+                        if let Some(action) = action {
+                            output_lines.extend(self.eval_action(action, Some(input_line)));
+                        } else {
+                            output_lines.push(expand_tabs_with_tabstop(input_line, 8));
+                        }
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -225,6 +239,14 @@ impl<'a> Evaluator<'a> {
             TokenKind::Division => Some(left_value / right_value),
             TokenKind::Percent => Some(left_value % right_value),
             TokenKind::Caret => Some(left_value.powf(right_value)),
+            TokenKind::GreaterThan => Some(if left_value > right_value { 1.0 } else { 0.0 }),
+            TokenKind::GreaterThanOrEqual => {
+                Some(if left_value >= right_value { 1.0 } else { 0.0 })
+            }
+            TokenKind::LessThan => Some(if left_value < right_value { 1.0 } else { 0.0 }),
+            TokenKind::LessThanOrEqual => Some(if left_value <= right_value { 1.0 } else { 0.0 }),
+            TokenKind::Equal => Some(if left_value == right_value { 1.0 } else { 0.0 }),
+            TokenKind::NotEqual => Some(if left_value != right_value { 1.0 } else { 0.0 }),
             _ => None,
         }
     }
@@ -244,6 +266,15 @@ impl<'a> Evaluator<'a> {
             } => self.eval_numeric_infix(left, operator, right),
             _ => None,
         }
+    }
+
+    fn eval_condition(&self, expression: &Expression<'_>) -> bool {
+        if let Some(value) = self.eval_numeric_expression(expression) {
+            return value != 0.0;
+        }
+
+        let value = self.eval_expression(expression);
+        !value.is_empty()
     }
 }
 
@@ -358,12 +389,16 @@ fn format_printf(format: &str, args: &[String]) -> String {
 }
 
 fn expand_tabs(input: &str) -> String {
+    expand_tabs_with_tabstop(input, 4)
+}
+
+fn expand_tabs_with_tabstop(input: &str, tabstop: usize) -> String {
     let mut output = String::new();
     let mut column = 0usize;
 
     for ch in input.chars() {
         if ch == '\t' {
-            let spaces = 4 - (column % 4);
+            let spaces = tabstop - (column % tabstop);
             output.push_str(&" ".repeat(spaces));
             column += spaces;
             continue;
