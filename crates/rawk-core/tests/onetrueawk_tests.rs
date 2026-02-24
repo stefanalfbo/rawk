@@ -54,3 +54,12 @@ fn p5() {
 
     assert_script_output_matches(script, data, expected_data);
 }
+
+#[test]
+fn p6() {
+    let script = include_str!("onetrueawk-testdata/p.6");
+    let data = include_str!("onetrueawk-testdata/countries");
+    let expected_data = include_str!("onetrueawk-testdata/p.6.expected");
+
+    assert_script_output_matches(script, data, expected_data);
+}

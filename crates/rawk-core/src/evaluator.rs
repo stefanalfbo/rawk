@@ -37,6 +37,9 @@ impl<'a> Evaluator<'a> {
             output_lines.extend(self.eval_rule(rule));
         }
 
+        self.current_line_number.set(self.input_lines.len());
+        self.current_line = None;
+
         let end_rules: Vec<Rule<'a>> = self.program.end_blocks_iter().cloned().collect();
         for rule in end_rules.iter() {
             output_lines.extend(self.eval_end_rule(rule));
@@ -165,7 +168,7 @@ impl<'a> Evaluator<'a> {
             }
             "NR" => match self.current_line.as_ref() {
                 Some(_) => self.current_line_number.get().to_string(),
-                None => "0".to_string(),
+                None => self.current_line_number.get().to_string(),
             },
             _ => "".to_string(),
         }
