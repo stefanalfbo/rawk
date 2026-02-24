@@ -127,7 +127,7 @@ impl<'a> Evaluator<'a> {
             .map(|expr| self.eval_expression(expr))
             .collect();
 
-        let rendered = format_printf(&format, &args);
+        let rendered = expand_tabs(&format_printf(&format, &args));
         rendered.trim_end_matches(['\r', '\n']).to_string()
     }
 
@@ -355,6 +355,29 @@ fn format_printf(format: &str, args: &[String]) -> String {
     }
 
     result
+}
+
+fn expand_tabs(input: &str) -> String {
+    let mut output = String::new();
+    let mut column = 0usize;
+
+    for ch in input.chars() {
+        if ch == '\t' {
+            let spaces = 4 - (column % 4);
+            output.push_str(&" ".repeat(spaces));
+            column += spaces;
+            continue;
+        }
+
+        output.push(ch);
+        if ch == '\n' || ch == '\r' {
+            column = 0;
+        } else {
+            column += 1;
+        }
+    }
+
+    output
 }
 
 #[cfg(test)]
