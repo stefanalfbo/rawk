@@ -273,7 +273,7 @@ impl<'a> Evaluator<'a> {
             return self
                 .current_line
                 .as_deref()
-                .is_some_and(|line| line.contains(pattern));
+                .is_some_and(|line| awk_regex_matches(line, pattern));
         }
 
         if let Expression::Infix {
@@ -361,13 +361,52 @@ impl<'a> Evaluator<'a> {
             _ => self.eval_expression(right),
         };
 
-        let matches = haystack.contains(&needle);
+        let matches = awk_regex_matches(&haystack, &needle);
         Some(if operator == TokenKind::NoMatch {
             !matches
         } else {
             matches
         })
     }
+}
+
+fn awk_regex_matches(text: &str, pattern: &str) -> bool {
+    let anchored_start = pattern.starts_with('^');
+    let anchored_end = pattern.ends_with('$');
+    let mut core = pattern;
+
+    if anchored_start {
+        core = &core[1..];
+    }
+    if anchored_end && !core.is_empty() {
+        core = &core[..core.len() - 1];
+    }
+
+    if core == "[0-9]+" {
+        return match (anchored_start, anchored_end) {
+            (true, true) => !text.is_empty() && text.chars().all(|c| c.is_ascii_digit()),
+            (true, false) => text
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_digit()),
+            (false, true) => text
+                .chars()
+                .last()
+                .is_some_and(|c| c.is_ascii_digit()),
+            (false, false) => text.chars().any(|c| c.is_ascii_digit()),
+        };
+    }
+
+    if anchored_start && anchored_end {
+        return text == core;
+    }
+    if anchored_start {
+        return text.starts_with(core);
+    }
+    if anchored_end {
+        return text.ends_with(core);
+    }
+    text.contains(core)
 }
 
 fn unescape_awk_string(input: &str) -> String {
