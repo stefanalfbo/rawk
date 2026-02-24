@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.7](https://github.com/stefanalfbo/rawk/compare/v0.0.6...v0.0.7) - 2026-02-24
+
+### Other
+
+- Refactor regex matching in evaluator and update test cases for p.13 - p.17
+- Implement regex match evaluation and update parser for regex operators; enable test case for p.12
+- Add regex condition evaluation and update test case for p.11
+- Add new test cases for One True AWK functionality
+- Add test case for p.10 with corresponding input
+- Add test case for p.9 with corresponding input and expected output
+- Add comparison operators support in evaluator and implement test case for p.8
+- rename onetrueawk_tests to p_tests
+- Implement pattern action support in parser and enhance evaluator with comparison operators; add test case for p.7
+- Add tab expansion in printf formatting and implement test case for p.5a
+- Add support for NR variable in evaluator and implement test case for p.6
+- Add assignment statement support in parser and evaluator to be able to use the FS
+- Add printf statement support in parser and evaluator, refactor print handling
+- Refactor test cases to use a common assertion function for output validation
+- Add test case for p.4 and corresponding expected output
+- Add test case for p.3 and corresponding expected output
+- Add test case for p.2 and corresponding expected output
+- Add initial test files which are based on the test suite from one true awk repository
+- Refactor the evaluator and add more state to the struct, like the current line that is processed
+- Enable support for NR, the current line number
+- Make it possible to use number of fields in a field expression
+- Enable support for NF, the number of fields
+- Handle more complex print statement like fields seperated with comma, '{ print , }'
+
 ## [0.0.6](https://github.com/stefanalfbo/rawk/compare/v0.0.5...v0.0.6) - 2026-02-01
 
 ### Other
