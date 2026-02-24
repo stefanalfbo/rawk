@@ -76,21 +76,41 @@ impl<'a> Evaluator<'a> {
             let statement = &action.statements[0];
 
             match statement {
-                Statement::Print(expressions) => {
-                    if expressions.is_empty() {
-                        return input_line.unwrap_or("").to_string();
-                    }
-
-                    let parts = expressions
-                        .iter()
-                        .map(|expr| self.eval_expression(expr))
-                        .collect::<Vec<String>>();
-                    parts.join("")
-                }
+                Statement::Print(expressions) => self.eval_print(expressions, input_line),
+                Statement::Printf(expressions) => self.eval_printf(expressions),
             }
         } else {
             "not implemented".to_string()
         }
+    }
+
+    fn eval_print(&self, expressions: &[Expression<'_>], input_line: Option<&str>) -> String {
+        if expressions.is_empty() {
+            return input_line.unwrap_or("").to_string();
+        }
+
+        let parts = expressions
+            .iter()
+            .map(|expr| self.eval_expression(expr))
+            .collect::<Vec<String>>();
+        parts.join("")
+    }
+
+    fn eval_printf(&self, expressions: &[Expression<'_>]) -> String {
+        if expressions.is_empty() {
+            return String::new();
+        }
+
+        let format = self.eval_expression(&expressions[0]);
+        let format = unescape_awk_string(&format);
+        let args: Vec<String> = expressions
+            .iter()
+            .skip(1)
+            .map(|expr| self.eval_expression(expr))
+            .collect();
+
+        let rendered = format_printf(&format, &args);
+        rendered.trim_end_matches(['\r', '\n']).to_string()
     }
 
     fn eval_expression(&self, expression: &Expression) -> String {
@@ -191,6 +211,116 @@ impl<'a> Evaluator<'a> {
             _ => None,
         }
     }
+}
+
+fn unescape_awk_string(input: &str) -> String {
+    let mut output = String::new();
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            output.push(ch);
+            continue;
+        }
+
+        match chars.next() {
+            Some('n') => output.push('\n'),
+            Some('t') => output.push('\t'),
+            Some('r') => output.push('\r'),
+            Some('\\') => output.push('\\'),
+            Some('"') => output.push('"'),
+            Some(other) => {
+                output.push('\\');
+                output.push(other);
+            }
+            None => output.push('\\'),
+        }
+    }
+
+    output
+}
+
+fn format_printf(format: &str, args: &[String]) -> String {
+    let mut result = String::new();
+    let mut chars = format.chars().peekable();
+    let mut arg_index = 0usize;
+
+    while let Some(ch) = chars.next() {
+        if ch != '%' {
+            result.push(ch);
+            continue;
+        }
+
+        if chars.peek() == Some(&'%') {
+            chars.next();
+            result.push('%');
+            continue;
+        }
+
+        let mut left_justify = false;
+        if chars.peek() == Some(&'-') {
+            left_justify = true;
+            chars.next();
+        }
+
+        let mut width: usize = 0;
+        while let Some(next) = chars.peek() {
+            if next.is_ascii_digit() {
+                width = (width * 10) + (*next as usize - '0' as usize);
+                chars.next();
+            } else {
+                break;
+            }
+        }
+
+        let specifier = match chars.next() {
+            Some(value) => value,
+            None => {
+                result.push('%');
+                break;
+            }
+        };
+
+        let arg = args.get(arg_index).cloned().unwrap_or_default();
+        arg_index += 1;
+
+        let formatted = match specifier {
+            's' => arg,
+            'd' => arg
+                .parse::<f64>()
+                .map(|value| value.trunc() as i64)
+                .unwrap_or(0)
+                .to_string(),
+            _ => {
+                result.push('%');
+                if left_justify {
+                    result.push('-');
+                }
+                if width > 0 {
+                    result.push_str(&width.to_string());
+                }
+                result.push(specifier);
+                continue;
+            }
+        };
+
+        if width <= formatted.len() {
+            result.push_str(&formatted);
+            continue;
+        }
+
+        let padding_len = width - formatted.len();
+        let padding = " ".repeat(padding_len);
+        if left_justify {
+            result.push_str(&formatted);
+            result.push_str(&padding);
+        } else {
+            result.push_str(&padding);
+            result.push_str(&formatted);
+        }
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -450,5 +580,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["1 one".to_string(), "2 two".to_string()]);
+    }
+
+    #[test]
+    fn eval_printf_with_width_and_alignment() {
+        let lexer = Lexer::new(r#"{ printf "[%10s] [%-16d]\n", $1, $3 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["USSR 8649 275 Asia".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["[      USSR] [275             ]".to_string()]);
     }
 }

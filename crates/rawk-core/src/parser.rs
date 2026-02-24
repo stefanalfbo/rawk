@@ -10,6 +10,11 @@ pub struct Parser<'a> {
     current_token: Token<'a>,
 }
 
+enum CommaBehavior {
+    InsertSpaceExpression,
+    SkipComma,
+}
+
 impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
         // Enable regex parsing for the first token since it could be a pattern
@@ -97,6 +102,9 @@ impl<'a> Parser<'a> {
         if self.current_token.kind == TokenKind::Print {
             let print_statement = self.parse_print_function();
             statements.push(print_statement);
+        } else if self.current_token.kind == TokenKind::Printf {
+            let printf_statement = self.parse_printf_function();
+            statements.push(printf_statement);
         }
 
         while self.current_token.kind != TokenKind::RightCurlyBrace
@@ -116,6 +124,21 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
+        let expressions = self.parse_expression_list_until_action_end(CommaBehavior::InsertSpaceExpression);
+
+        Statement::Print(expressions)
+    }
+
+    fn parse_printf_function(&mut self) -> Statement<'a> {
+        let expressions = self.parse_expression_list_until_action_end(CommaBehavior::SkipComma);
+
+        Statement::Printf(expressions)
+    }
+
+    fn parse_expression_list_until_action_end(
+        &mut self,
+        comma_behavior: CommaBehavior,
+    ) -> Vec<Expression<'a>> {
         let mut expressions = Vec::new();
         self.next_token();
 
@@ -124,14 +147,16 @@ impl<'a> Parser<'a> {
         {
             if self.current_token.kind == TokenKind::Comma {
                 self.next_token();
-                expressions.push(Expression::String(" "));
+                if let CommaBehavior::InsertSpaceExpression = comma_behavior {
+                    expressions.push(Expression::String(" "));
+                }
             } else {
                 let expression = self.parse_expression();
                 expressions.push(expression);
             }
         }
 
-        Statement::Print(expressions)
+        expressions
     }
 
     fn parse_expression(&mut self) -> Expression<'a> {
@@ -319,6 +344,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         match &exprs[0] {
@@ -350,6 +376,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         match &exprs[0] {
@@ -381,6 +408,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         match &exprs[0] {
@@ -417,6 +445,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         match &exprs[0] {
@@ -453,6 +482,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         match &exprs[0] {
@@ -489,6 +519,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         assert_eq!(exprs.len(), 2);
@@ -511,6 +542,7 @@ mod tests {
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
         };
 
         match &exprs[0] {
@@ -535,5 +567,17 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"BEGIN { print NF }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_printf_with_format_and_arguments() {
+        let mut parser = Parser::new(Lexer::new(r#"{ printf "[%10s] [%-16d]\n", $1, $3 }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ printf "[%10s] [%-16d]\n", $1, $3 }"#,
+            program.to_string()
+        );
     }
 }

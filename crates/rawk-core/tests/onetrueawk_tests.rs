@@ -29,7 +29,6 @@ fn p2() {
 }
 
 #[test]
-#[ignore = "Not supported yet."]
 fn p3() {
     let script = include_str!("onetrueawk-testdata/p.3");
     let data = include_str!("onetrueawk-testdata/countries");

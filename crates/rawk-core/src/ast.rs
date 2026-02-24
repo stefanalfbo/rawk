@@ -88,6 +88,7 @@ impl<'a> fmt::Display for Program<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'a> {
     Print(Vec<Expression<'a>>),
+    Printf(Vec<Expression<'a>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -153,6 +154,21 @@ impl<'a> fmt::Display for Statement<'a> {
                         expressions
                             .iter()
                             .filter(|expr| *expr != &Expression::String(" "))
+                            .map(|expr| expr.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
+            }
+            Statement::Printf(expressions) => {
+                if expressions.is_empty() {
+                    write!(f, "printf")
+                } else {
+                    write!(
+                        f,
+                        "printf {}",
+                        expressions
+                            .iter()
                             .map(|expr| expr.to_string())
                             .collect::<Vec<String>>()
                             .join(", ")
