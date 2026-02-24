@@ -302,6 +302,8 @@ impl<'a> Parser<'a> {
 
 fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
     match kind {
+        TokenKind::Or => Some((1, 2)),
+        TokenKind::And => Some((3, 4)),
         TokenKind::Equal
         | TokenKind::NotEqual
         | TokenKind::GreaterThan
@@ -309,10 +311,10 @@ fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
         | TokenKind::LessThan
         | TokenKind::LessThanOrEqual
         | TokenKind::Tilde
-        | TokenKind::NoMatch => Some((1, 2)),
-        TokenKind::Plus | TokenKind::Minus => Some((3, 4)),
-        TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((5, 6)),
-        TokenKind::Caret => Some((9, 8)),
+        | TokenKind::NoMatch => Some((5, 6)),
+        TokenKind::Plus | TokenKind::Minus => Some((7, 8)),
+        TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((9, 10)),
+        TokenKind::Caret => Some((13, 12)),
         _ => None,
     }
 }

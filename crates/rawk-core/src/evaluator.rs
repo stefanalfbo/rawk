@@ -67,7 +67,7 @@ impl<'a> Evaluator<'a> {
                         if let Some(action) = action {
                             output_lines.extend(self.eval_action(action, Some(input_line)));
                         } else {
-                            output_lines.push(expand_tabs_with_tabstop(input_line, 8));
+                            output_lines.push(input_line.clone());
                         }
                     }
                 }
@@ -282,6 +282,9 @@ impl<'a> Evaluator<'a> {
             right,
         } = expression
         {
+            if let Some(value) = self.eval_logical(left, operator.kind.clone(), right) {
+                return value;
+            }
             if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
                 return value;
             }
@@ -367,6 +370,31 @@ impl<'a> Evaluator<'a> {
         } else {
             matches
         })
+    }
+
+    fn eval_logical(
+        &self,
+        left: &Expression<'_>,
+        operator: TokenKind,
+        right: &Expression<'_>,
+    ) -> Option<bool> {
+        match operator {
+            TokenKind::And => {
+                if !self.eval_condition(left) {
+                    Some(false)
+                } else {
+                    Some(self.eval_condition(right))
+                }
+            }
+            TokenKind::Or => {
+                if self.eval_condition(left) {
+                    Some(true)
+                } else {
+                    Some(self.eval_condition(right))
+                }
+            }
+            _ => None,
+        }
     }
 }
 
