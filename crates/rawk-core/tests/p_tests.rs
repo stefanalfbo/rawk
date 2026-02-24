@@ -90,3 +90,12 @@ fn p8() {
 
     assert_script_output_matches(script, data, expected_data);
 }
+
+#[test]
+fn p9() {
+    let script = include_str!("onetrueawk-testdata/p.9");
+    let data = include_str!("onetrueawk-testdata/countries");
+    let expected_data = include_str!("onetrueawk-testdata/p.9.expected");
+
+    assert_script_output_matches(script, data, expected_data);
+}
