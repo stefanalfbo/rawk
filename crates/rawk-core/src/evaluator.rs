@@ -50,6 +50,7 @@ impl<'a> Evaluator<'a> {
 
     fn eval_rule(&mut self, rule: &Rule) -> Vec<String> {
         let mut output_lines = Vec::new();
+        let mut range_active = false;
 
         let input_lines = self.input_lines.clone();
         for (i, input_line) in input_lines.iter().enumerate() {
@@ -60,7 +61,7 @@ impl<'a> Evaluator<'a> {
                 Rule::Action(action) => output_lines.extend(self.eval_action(action, Some(input_line))),
                 Rule::PatternAction { pattern, action } => {
                     let matches = match pattern.as_ref() {
-                        Some(expr) => self.eval_condition(expr),
+                        Some(expr) => self.eval_pattern_condition(expr, &mut range_active),
                         None => true,
                     };
                     if matches {
@@ -77,6 +78,37 @@ impl<'a> Evaluator<'a> {
 
         self.current_line = None;
         output_lines
+    }
+
+    fn eval_pattern_condition(
+        &self,
+        expression: &Expression<'_>,
+        range_active: &mut bool,
+    ) -> bool {
+        if let Expression::Infix {
+            left,
+            operator,
+            right,
+        } = expression
+        {
+            if operator.kind == TokenKind::Comma {
+                if !*range_active {
+                    let start = self.eval_condition(left);
+                    if !start {
+                        return false;
+                    }
+                    *range_active = true;
+                }
+
+                let matched = true;
+                if self.eval_condition(right) {
+                    *range_active = false;
+                }
+                return matched;
+            }
+        }
+
+        self.eval_condition(expression)
     }
 
     fn eval_begin_rule(&mut self, rule: &Rule) -> Vec<String> {

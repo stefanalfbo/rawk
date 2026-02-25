@@ -85,7 +85,18 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_pattern_rule(&mut self) -> Option<Rule<'a>> {
-        let pattern = Some(self.parse_expression());
+        let mut pattern = self.parse_expression();
+        if self.current_token.kind == TokenKind::Comma {
+            let operator = self.current_token.clone();
+            self.next_token_with_regex(true);
+            let right = self.parse_expression();
+            pattern = Expression::Infix {
+                left: Box::new(pattern),
+                operator,
+                right: Box::new(right),
+            };
+        }
+        let pattern = Some(pattern);
 
         if self.current_token.kind == TokenKind::LeftCurlyBrace {
             match self.parse_action() {
