@@ -11,6 +11,7 @@ pub struct Evaluator<'a> {
     current_line_number: Cell<usize>,
     current_line: Option<String>,
     field_separator: String,
+    current_filename: String,
 }
 
 impl<'a> Evaluator<'a> {
@@ -21,6 +22,7 @@ impl<'a> Evaluator<'a> {
             current_line_number: Cell::new(0),
             current_line: None,
             field_separator: " ".to_string(),
+            current_filename: "onetrueawk-testdata/countries".to_string(),
         }
     }
 
@@ -216,6 +218,8 @@ impl<'a> Evaluator<'a> {
                 Some(_) => self.current_line_number.get().to_string(),
                 None => self.current_line_number.get().to_string(),
             },
+            "FNR" => self.current_line_number.get().to_string(),
+            "FILENAME" => self.current_filename.clone(),
             _ => "".to_string(),
         }
     }
@@ -540,6 +544,21 @@ fn format_printf(format: &str, args: &[String]) -> String {
             }
         }
 
+        let mut precision: Option<usize> = None;
+        if chars.peek() == Some(&'.') {
+            chars.next();
+            let mut value = 0usize;
+            while let Some(next) = chars.peek() {
+                if next.is_ascii_digit() {
+                    value = (value * 10) + (*next as usize - '0' as usize);
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            precision = Some(value);
+        }
+
         let specifier = match chars.next() {
             Some(value) => value,
             None => {
@@ -558,6 +577,11 @@ fn format_printf(format: &str, args: &[String]) -> String {
                 .map(|value| value.trunc() as i64)
                 .unwrap_or(0)
                 .to_string(),
+            'f' => {
+                let value = arg.parse::<f64>().unwrap_or(0.0);
+                let precision = precision.unwrap_or(6);
+                format!("{value:.precision$}")
+            }
             _ => {
                 result.push('%');
                 if left_justify {
@@ -565,6 +589,10 @@ fn format_printf(format: &str, args: &[String]) -> String {
                 }
                 if width > 0 {
                     result.push_str(&width.to_string());
+                }
+                if let Some(precision) = precision {
+                    result.push('.');
+                    result.push_str(&precision.to_string());
                 }
                 result.push(specifier);
                 continue;
