@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.8](https://github.com/stefanalfbo/rawk/compare/v0.0.7...v0.0.8) - 2026-02-26
+
+### Other
+
+- Add current filename tracking and enhance printf formatting; update tests for consistency
+- Implement infix pattern parsing in the parser and enhance pattern evaluation in the evaluator; update tests for consistency
+- Enhance regex matching in evaluator and parser; add expected output files for tests
+- Refactor evaluator to improve logical expression evaluation and update parser precedence for logical operators; adjust test cases for consistency
+
 ## [0.0.7](https://github.com/stefanalfbo/rawk/compare/v0.0.6...v0.0.7) - 2026-02-24
 
 ### Other
