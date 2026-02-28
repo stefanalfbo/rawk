@@ -69,7 +69,8 @@ impl<'a> Parser<'a> {
             | TokenKind::Number
             | TokenKind::DollarSign
             | TokenKind::LeftParen
-            | TokenKind::Identifier => self.parse_pattern_rule(),
+            | TokenKind::Identifier
+            | TokenKind::Length => self.parse_pattern_rule(),
             _ => panic!(
                 "parse_next_rule not yet implemented, found token: {:?}",
                 self.current_token
@@ -776,5 +777,19 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ print length, $0 }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_length_expression_as_rule_pattern() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"length($1) > max { max = length($1); name = $1 } END { print name }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"length($1) > max { max = length($1); name = $1 } END { print name }"#,
+            program.to_string()
+        );
     }
 }
