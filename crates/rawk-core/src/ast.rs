@@ -93,6 +93,13 @@ pub enum Statement<'a> {
         identifier: &'a str,
         value: Expression<'a>,
     },
+    AddAssignment {
+        identifier: &'a str,
+        value: Expression<'a>,
+    },
+    PreIncrement {
+        identifier: &'a str,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -180,6 +187,10 @@ impl<'a> fmt::Display for Statement<'a> {
                 }
             }
             Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
+            Statement::AddAssignment { identifier, value } => {
+                write!(f, "{identifier} += {value}")
+            }
+            Statement::PreIncrement { identifier } => write!(f, "++{identifier}"),
         }
     }
 }
@@ -358,5 +369,51 @@ mod tests {
         let expr = Expression::Regex("^[a-z]+$");
 
         assert_eq!("/^[a-z]+$/", expr.to_string());
+    }
+
+    #[test]
+    fn test_assignment_statement_display() {
+        let statement = Statement::Assignment {
+            identifier: "pop",
+            value: Expression::Infix {
+                left: Box::new(Expression::Identifier("pop")),
+                operator: Token::new(TokenKind::Plus, "+", 0),
+                right: Box::new(Expression::Field(Box::new(Expression::Number(3.0)))),
+            },
+        };
+
+        assert_eq!("pop = pop + $3", statement.to_string());
+    }
+
+    #[test]
+    fn test_add_assignment_statement_display() {
+        let statement = Statement::AddAssignment {
+            identifier: "pop",
+            value: Expression::Field(Box::new(Expression::Number(3.0))),
+        };
+
+        assert_eq!("pop += $3", statement.to_string());
+    }
+
+    #[test]
+    fn test_pre_increment_statement_display() {
+        let statement = Statement::PreIncrement { identifier: "n" };
+
+        assert_eq!("++n", statement.to_string());
+    }
+
+    #[test]
+    fn test_action_with_new_statements_display() {
+        let action = Action {
+            statements: vec![
+                Statement::AddAssignment {
+                    identifier: "pop",
+                    value: Expression::Field(Box::new(Expression::Number(3.0))),
+                },
+                Statement::PreIncrement { identifier: "n" },
+            ],
+        };
+
+        assert_eq!("{ pop += $3; ++n }", action.to_string());
     }
 }

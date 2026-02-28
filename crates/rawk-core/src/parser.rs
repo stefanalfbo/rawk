@@ -146,6 +146,7 @@ impl<'a> Parser<'a> {
             TokenKind::Print => self.parse_print_function(),
             TokenKind::Printf => self.parse_printf_function(),
             TokenKind::Identifier => self.parse_assignment_statement(),
+            TokenKind::Increment => self.parse_pre_increment_statement(),
             _ => todo!(),
         }
     }
@@ -153,13 +154,27 @@ impl<'a> Parser<'a> {
     fn parse_assignment_statement(&mut self) -> Statement<'a> {
         let identifier = self.current_token.literal;
         self.next_token();
-        if self.current_token.kind != TokenKind::Assign {
+        if self.current_token.kind == TokenKind::Assign {
+            self.next_token();
+            let value = self.parse_expression();
+            Statement::Assignment { identifier, value }
+        } else if self.current_token.kind == TokenKind::AddAssign {
+            self.next_token();
+            let value = self.parse_expression();
+            Statement::AddAssignment { identifier, value }
+        } else {
             todo!()
         }
-        self.next_token();
-        let value = self.parse_expression();
+    }
 
-        Statement::Assignment { identifier, value }
+    fn parse_pre_increment_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::Identifier {
+            todo!()
+        }
+        let identifier = self.current_token.literal;
+        self.next_token();
+        Statement::PreIncrement { identifier }
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
@@ -656,6 +671,38 @@ mod tests {
 
         assert_eq!(
             r#"{ printf "[%10s] [%-16d]\n", $1, $3 }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_add_assignment_and_pre_increment() {
+        let mut parser = Parser::new(Lexer::new(r#"/Asia/ { pop += $3; ++n }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"/Asia/ { pop += $3; ++n }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_regex_match_pattern_action() {
+        let mut parser = Parser::new(Lexer::new(r#"$4 ~ /Asia/ { print $1 }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"$4 ~ /Asia/ { print $1 }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_print_with_line_continuation_after_comma() {
+        let mut parser = Parser::new(Lexer::new(
+            "END { print \"population of\", n,\\\n\"Asian countries in millions is\", pop }",
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            "END { print \"population of\", n, \"Asian countries in millions is\", pop }",
             program.to_string()
         );
     }

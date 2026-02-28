@@ -150,6 +150,14 @@ impl<'a> Evaluator<'a> {
                 self.eval_assignment(identifier, value);
                 None
             }
+            Statement::AddAssignment { identifier, value } => {
+                self.eval_add_assignment(identifier, value);
+                None
+            }
+            Statement::PreIncrement { identifier } => {
+                self.eval_pre_increment(identifier);
+                None
+            }
         }
     }
 
@@ -189,6 +197,25 @@ impl<'a> Evaluator<'a> {
         }
         self.variables
             .insert(identifier.to_string(), assigned_value);
+    }
+
+    fn eval_add_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
+        let current = self
+            .eval_identifier_expression(identifier)
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let increment = self.eval_numeric_expression(value).unwrap_or(0.0);
+        self.variables
+            .insert(identifier.to_string(), (current + increment).to_string());
+    }
+
+    fn eval_pre_increment(&mut self, identifier: &str) {
+        let current = self
+            .eval_identifier_expression(identifier)
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        self.variables
+            .insert(identifier.to_string(), (current + 1.0).to_string());
     }
 
     fn eval_expression(&self, expression: &Expression) -> String {
