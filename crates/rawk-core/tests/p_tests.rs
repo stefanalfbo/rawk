@@ -90,6 +90,6 @@ p_test!(p48, "48");
 p_test!(p48a, "48a");
 p_test!(p48b, "48b");
 p_test!(p49, "49");
-p_test_ignored!(p50, "50");
+p_test!(p50, "50");
 p_test_ignored!(p51, "51");
 p_test_ignored!(p52, "52");
