@@ -98,6 +98,7 @@ pub enum Statement<'a> {
         target: Expression<'a>,
     },
     Printf(Vec<Expression<'a>>),
+    System(Expression<'a>),
     Gsub {
         pattern: Expression<'a>,
         replacement: Expression<'a>,
@@ -280,6 +281,7 @@ impl<'a> fmt::Display for Statement<'a> {
                     )
                 }
             }
+            Statement::System(command) => write!(f, "system({command})"),
             Statement::Gsub {
                 pattern,
                 replacement,
@@ -623,6 +625,16 @@ mod tests {
         };
 
         assert_eq!(r#"gsub(/USA/, "United States")"#, statement.to_string());
+    }
+
+    #[test]
+    fn test_system_statement_display() {
+        let statement = Statement::System(Expression::Concatenation {
+            left: Box::new(Expression::String("cat ")),
+            right: Box::new(Expression::Field(Box::new(Expression::Number(2.0)))),
+        });
+
+        assert_eq!(r#"system("cat " $2)"#, statement.to_string());
     }
 
     #[test]

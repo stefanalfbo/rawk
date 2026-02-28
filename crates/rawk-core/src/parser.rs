@@ -146,6 +146,7 @@ impl<'a> Parser<'a> {
         match self.current_token.kind {
             TokenKind::Print => self.parse_print_function(),
             TokenKind::Printf => self.parse_printf_function(),
+            TokenKind::System => self.parse_system_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::While => self.parse_while_statement(),
@@ -526,6 +527,20 @@ impl<'a> Parser<'a> {
             pattern,
             replacement,
         }
+    }
+
+    fn parse_system_function(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token();
+        let command = self.parse_expression();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+        Statement::System(command)
     }
 
     fn parse_expression_list_until_action_end(&mut self) -> Vec<Expression<'a>> {
@@ -1198,6 +1213,15 @@ mod tests {
             r#"{ gsub(/USA/, "United States"); print }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_system_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"{ system("cat " $2) }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ system("cat " $2) }"#, program.to_string());
     }
 
     #[test]

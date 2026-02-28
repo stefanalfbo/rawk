@@ -205,6 +205,10 @@ impl<'a> Evaluator<'a> {
                     vec![line]
                 }
             }
+            Statement::System(command) => {
+                self.eval_system(command);
+                Vec::new()
+            }
             Statement::Gsub {
                 pattern,
                 replacement,
@@ -569,6 +573,10 @@ impl<'a> Evaluator<'a> {
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
         let replaced = awk_gsub_replace_all(&line, &pattern, &replacement);
         self.current_line = Some(replaced);
+    }
+
+    fn eval_system(&self, command: &Expression<'_>) {
+        let _command = self.eval_expression(command);
     }
 
     fn eval_expression(&self, expression: &Expression) -> String {
