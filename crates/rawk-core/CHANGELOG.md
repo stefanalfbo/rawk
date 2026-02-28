@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9](https://github.com/stefanalfbo/rawk/compare/v0.0.8...v0.0.9) - 2026-02-28
+
+### Other
+
+- Enable test case p.52 and update expected output
+- Add expected output for test case p.51 and enable the test
+- Add expected output for test case p.50 and enable the test
+- Add System statement support; implement parsing and evaluation; update tests
+- Add pre-decrement and post-decrement statements; implement rand expression and update parser, evaluator, and tests
+- Add support for ARGC and ARGV in evaluator; update tests and expected output
+- Add PrintPipe statement and related functionality; update evaluator, parser, and tests
+- Add PrintRedirect statement and related functionality; update parser, evaluator, and tests
+- Enable test for p46 in p_tests; update expected output file
+- Add support for filename tracking in evaluator and awk; update tests for expected output
+- Add support for output record separator in evaluator; update tests for expected output
+- Add support for function definitions and argument consumption in parser; update tests for expected output
+- Add support for 'for-in' statements in parser and evaluator; enhance tests for expected output
+- Add support for array assignment and array add assignment in parser and evaluator; enhance tests for expected output
+- Add support for exit statement in parser and evaluator; enhance tests for expected output
+- Add support for 'for' statements in parser and evaluator; enhance tests for expected output
+- Add support for while loops and post-increment statements in parser and evaluator; enhance tests for expected output
+- Add support for 'if' statements in parser and evaluator; enhance tests for expected output
+- Enable test p37 by removing the ignored status
+- Refactor evaluator to format numbers consistently; update parser to simplify expression parsing; enhance tests for expected output
+- Add support for chained assignments in parser and evaluator; enhance tests and expected output
+- Add compound assignment support in parser; enhance tests and expected output
+- Add Concatenation expression support; enhance parser, evaluator, and tests
+- Add FieldAssignment and Substr support; enhance parser, evaluator, and tests
+- Add support for Length expressions in parser; update tests and expected output
+- Add Length expression support; enhance parser, evaluator, and tests
+- Add gsub statement support; enhance parser, evaluator, and tests
+- Add expected output for p.28 and enable corresponding test case
+- Add expected output for p.27 and enable corresponding test case
+- Add support for AddAssignment and PreIncrement statements; enhance parser and evaluator; update tests for new functionality
+- Enhance evaluator with variable storage and update assignment handling; improve parser logic for statement endings; add newline handling for CRLF in lexer; enable test case for p.26 and update expected output
+- Add expected output for p.25 and enable test case in p_tests
+
 ## [0.0.8](https://github.com/stefanalfbo/rawk/compare/v0.0.7...v0.0.8) - 2026-02-26
 
 ### Other
