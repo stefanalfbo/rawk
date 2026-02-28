@@ -17,6 +17,7 @@ pub struct Evaluator<'a> {
     current_filename: String,
     variables: HashMap<String, String>,
     array_variables: HashMap<String, String>,
+    argv: Vec<String>,
     pipe_outputs: HashMap<String, Vec<String>>,
     exited: bool,
     has_output: bool,
@@ -28,6 +29,7 @@ impl<'a> Evaluator<'a> {
         input_lines: Vec<String>,
         current_filename: impl Into<String>,
     ) -> Self {
+        let current_filename = current_filename.into();
         Self {
             program,
             input_lines,
@@ -36,9 +38,10 @@ impl<'a> Evaluator<'a> {
             field_separator: " ".to_string(),
             output_field_separator: " ".to_string(),
             output_record_separator: "\n".to_string(),
-            current_filename: current_filename.into(),
+            current_filename: current_filename.clone(),
             variables: HashMap::new(),
             array_variables: HashMap::new(),
+            argv: vec!["rawk".to_string(), current_filename],
             pipe_outputs: HashMap::new(),
             exited: false,
             has_output: false,
@@ -192,7 +195,14 @@ impl<'a> Evaluator<'a> {
                 self.eval_print_redirect(expressions, target, *append, input_line);
                 Vec::new()
             }
-            Statement::Printf(expressions) => vec![self.eval_printf(expressions)],
+            Statement::Printf(expressions) => {
+                let line = self.eval_printf(expressions);
+                if line.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![line]
+                }
+            }
             Statement::Gsub {
                 pattern,
                 replacement,
@@ -337,7 +347,7 @@ impl<'a> Evaluator<'a> {
             .collect();
 
         let rendered = expand_tabs(&format_printf(&format, &args));
-        rendered.trim_end_matches(['\r', '\n']).to_string()
+        rendered.trim_end().to_string()
     }
 
     fn eval_print_redirect(
@@ -540,11 +550,9 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
-            Expression::ArrayAccess { identifier, index } => self
-                .array_variables
-                .get(&self.array_key(identifier, index))
-                .cloned()
-                .unwrap_or_default(),
+            Expression::ArrayAccess { identifier, index } => {
+                self.eval_array_access(identifier, index)
+            }
             Expression::Length(expression) => self.eval_length_expression(expression.as_deref()),
             Expression::Substr {
                 string,
@@ -584,6 +592,7 @@ impl<'a> Evaluator<'a> {
             },
             "FNR" => self.current_line_number.get().to_string(),
             "FILENAME" => self.current_filename.clone(),
+            "ARGC" => self.argv.len().to_string(),
             _ => self
                 .variables
                 .get(identifier)
@@ -594,6 +603,21 @@ impl<'a> Evaluator<'a> {
 
     fn array_key(&self, identifier: &str, index: &Expression<'_>) -> String {
         format!("{identifier}\u{1f}{}", self.eval_expression(index))
+    }
+
+    fn eval_array_access(&self, identifier: &str, index: &Expression<'_>) -> String {
+        if identifier == "ARGV" {
+            let idx = self.eval_numeric_expression(index).unwrap_or(0.0) as isize;
+            if idx < 0 {
+                return String::new();
+            }
+            return self.argv.get(idx as usize).cloned().unwrap_or_default();
+        }
+
+        self.array_variables
+            .get(&self.array_key(identifier, index))
+            .cloned()
+            .unwrap_or_default()
     }
 
     fn array_keys(&self, identifier: &str) -> Vec<String> {
@@ -716,9 +740,9 @@ impl<'a> Evaluator<'a> {
                 .ok()
                 .or(Some(0.0)),
             Expression::ArrayAccess { identifier, index } => self
-                .array_variables
-                .get(&self.array_key(identifier, index))
-                .and_then(|value| value.parse::<f64>().ok())
+                .eval_array_access(identifier, index)
+                .parse::<f64>()
+                .ok()
                 .or(Some(0.0)),
             Expression::Field(inner) => self.eval_field_expression(inner).parse::<f64>().ok(),
             Expression::Length(expression) => self
