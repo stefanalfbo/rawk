@@ -183,11 +183,20 @@ impl<'a> Parser<'a> {
     fn parse_field_assignment_statement(&mut self) -> Statement<'a> {
         self.next_token();
         let field = self.parse_primary_expression();
-        if self.current_token.kind != TokenKind::Assign {
-            todo!()
-        }
+        let assign_token = self.current_token.clone();
         self.next_token();
-        let value = self.parse_expression();
+        let right_value = self.parse_expression();
+
+        let value = if assign_token.kind == TokenKind::Assign {
+            right_value
+        } else {
+            let operator = compound_assign_operator(&assign_token);
+            Expression::Infix {
+                left: Box::new(Expression::Field(Box::new(field.clone()))),
+                operator,
+                right: Box::new(right_value),
+            }
+        };
         Statement::FieldAssignment { field, value }
     }
 
@@ -470,6 +479,20 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::Length
             | TokenKind::Substr
     )
+}
+
+fn compound_assign_operator(token: &Token<'_>) -> Token<'static> {
+    let (kind, literal) = match token.kind {
+        TokenKind::AddAssign => (TokenKind::Plus, "+"),
+        TokenKind::SubtractAssign => (TokenKind::Minus, "-"),
+        TokenKind::MultiplyAssign => (TokenKind::Asterisk, "*"),
+        TokenKind::DivideAssign => (TokenKind::Division, "/"),
+        TokenKind::ModuloAssign => (TokenKind::Percent, "%"),
+        TokenKind::PowerAssign => (TokenKind::Caret, "^"),
+        _ => todo!(),
+    };
+
+    Token::new(kind, literal, token.span.start)
 }
 
 #[cfg(test)]
@@ -886,5 +909,14 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ s = s " " substr($1, 1, 3) }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_field_divide_assignment() {
+        let mut parser = Parser::new(Lexer::new(r#"{ $2 /= 1000; print }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ $2 = $2 / 1000; print }"#, program.to_string());
     }
 }
