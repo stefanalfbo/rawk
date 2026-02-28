@@ -188,7 +188,7 @@ impl<'a> Evaluator<'a> {
             .iter()
             .map(|expr| self.eval_expression(expr))
             .collect::<Vec<String>>();
-        parts.join("")
+        parts.join(&self.output_field_separator)
     }
 
     fn eval_printf(&self, expressions: &[Expression<'_>]) -> String {
@@ -319,7 +319,7 @@ impl<'a> Evaluator<'a> {
     fn eval_expression(&self, expression: &Expression) -> String {
         match expression {
             Expression::String(value) => value.to_string(),
-            Expression::Number(value) => value.to_string(),
+            Expression::Number(value) => format_awk_number(*value),
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
@@ -340,7 +340,7 @@ impl<'a> Evaluator<'a> {
                 right,
             } => self
                 .eval_numeric_infix(left, operator, right)
-                .map(|value| value.to_string())
+                .map(format_awk_number)
                 .unwrap_or_else(|| "not implemented".to_string()),
         }
     }
@@ -880,6 +880,29 @@ fn expand_tabs_with_tabstop(input: &str, tabstop: usize) -> String {
     }
 
     output
+}
+
+fn format_awk_number(value: f64) -> String {
+    if !value.is_finite() {
+        return value.to_string();
+    }
+
+    if value == 0.0 {
+        return "0".to_string();
+    }
+
+    let abs = value.abs();
+    let digits_before_decimal = if abs >= 1.0 {
+        abs.log10().floor() as i32 + 1
+    } else {
+        0
+    };
+    let decimals = (6 - digits_before_decimal).max(0) as usize;
+    let formatted = format!("{value:.decimals$}");
+    formatted
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
 }
 
 #[cfg(test)]

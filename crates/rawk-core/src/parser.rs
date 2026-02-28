@@ -10,11 +10,6 @@ pub struct Parser<'a> {
     current_token: Token<'a>,
 }
 
-enum CommaBehavior {
-    InsertSpaceExpression,
-    SkipComma,
-}
-
 impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
         // Enable regex parsing for the first token since it could be a pattern
@@ -201,13 +196,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
-        let expressions = self.parse_expression_list_until_action_end(CommaBehavior::InsertSpaceExpression);
+        let expressions = self.parse_expression_list_until_action_end();
 
         Statement::Print(expressions)
     }
 
     fn parse_printf_function(&mut self) -> Statement<'a> {
-        let expressions = self.parse_expression_list_until_action_end(CommaBehavior::SkipComma);
+        let expressions = self.parse_expression_list_until_action_end();
 
         Statement::Printf(expressions)
     }
@@ -242,10 +237,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expression_list_until_action_end(
-        &mut self,
-        comma_behavior: CommaBehavior,
-    ) -> Vec<Expression<'a>> {
+    fn parse_expression_list_until_action_end(&mut self) -> Vec<Expression<'a>> {
         let mut expressions = Vec::new();
         let mut expect_more = false;
         self.next_token();
@@ -269,9 +261,6 @@ impl<'a> Parser<'a> {
 
             if self.current_token.kind == TokenKind::Comma {
                 self.next_token();
-                if let CommaBehavior::InsertSpaceExpression = comma_behavior {
-                    expressions.push(Expression::String(" "));
-                }
                 expect_more = true;
                 continue;
             }
