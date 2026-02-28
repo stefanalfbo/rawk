@@ -160,6 +160,11 @@ impl<'a> Lexer<'a> {
                 if self.peek_char() == Some(b'\n') {
                     self.read_char();
                     Token::new(TokenKind::NewLine, "<newline>", start)
+                } else if self.peek_char() == Some(b'\r') && self.peek_next_char() == Some(b'\n')
+                {
+                    self.read_char();
+                    self.read_char();
+                    Token::new(TokenKind::NewLine, "<newline>", start)
                 } else {
                     Token::new(TokenKind::Illegal, "<illegal>", start)
                 }
@@ -651,6 +656,23 @@ mod tests {
     #[test]
     fn expect_newline_after_backslash() {
         let input = "123 \\\n456";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            (TokenKind::Number, "123"),
+            (TokenKind::NewLine, "<newline>"),
+            (TokenKind::Number, "456"),
+            (TokenKind::Eof, ""),
+        ];
+        for (expected_kind, expected_literal) in expected_tokens {
+            let token = lexer.next_token();
+            assert_token(token, expected_kind, expected_literal);
+        }
+    }
+
+    #[test]
+    fn expect_newline_after_backslash_with_crlf() {
+        let input = "123 \\\r\n456";
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![

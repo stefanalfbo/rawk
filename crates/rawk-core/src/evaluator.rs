@@ -3,6 +3,7 @@ use crate::{
     ast::{Expression, Statement},
     token::TokenKind,
 };
+use std::collections::HashMap;
 use std::cell::Cell;
 
 pub struct Evaluator<'a> {
@@ -12,6 +13,7 @@ pub struct Evaluator<'a> {
     current_line: Option<String>,
     field_separator: String,
     current_filename: String,
+    variables: HashMap<String, String>,
 }
 
 impl<'a> Evaluator<'a> {
@@ -23,6 +25,7 @@ impl<'a> Evaluator<'a> {
             current_line: None,
             field_separator: " ".to_string(),
             current_filename: "onetrueawk-testdata/countries".to_string(),
+            variables: HashMap::new(),
         }
     }
 
@@ -180,9 +183,12 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
+        let assigned_value = self.eval_expression(value);
         if identifier == "FS" {
-            self.field_separator = unescape_awk_string(&self.eval_expression(value));
+            self.field_separator = unescape_awk_string(&assigned_value);
         }
+        self.variables
+            .insert(identifier.to_string(), assigned_value);
     }
 
     fn eval_expression(&self, expression: &Expression) -> String {
@@ -220,7 +226,11 @@ impl<'a> Evaluator<'a> {
             },
             "FNR" => self.current_line_number.get().to_string(),
             "FILENAME" => self.current_filename.clone(),
-            _ => "".to_string(),
+            _ => self
+                .variables
+                .get(identifier)
+                .cloned()
+                .unwrap_or_default(),
         }
     }
 
@@ -293,7 +303,8 @@ impl<'a> Evaluator<'a> {
             Expression::Identifier(identifier) => self
                 .eval_identifier_expression(identifier)
                 .parse::<f64>()
-                .ok(),
+                .ok()
+                .or(Some(0.0)),
             Expression::Field(inner) => self.eval_field_expression(inner).parse::<f64>().ok(),
             Expression::Infix {
                 left,

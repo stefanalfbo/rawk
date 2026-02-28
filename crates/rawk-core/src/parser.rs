@@ -15,13 +15,6 @@ enum CommaBehavior {
     SkipComma,
 }
 
-enum StatementEnd {
-    RightCurlyBrace,
-    NewLine,
-    Semicolon,
-    Eof,
-}
-
 impl<'a> Parser<'a> {
     pub fn new(mut lexer: Lexer<'a>) -> Self {
         // Enable regex parsing for the first token since it could be a pattern
@@ -186,31 +179,41 @@ impl<'a> Parser<'a> {
         comma_behavior: CommaBehavior,
     ) -> Vec<Expression<'a>> {
         let mut expressions = Vec::new();
+        let mut expect_more = false;
         self.next_token();
 
-        while !self.is_statement_end() {
+        loop {
+            if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::Eof
+            {
+                break;
+            }
+
+            if self.current_token.kind == TokenKind::NewLine
+                || self.current_token.kind == TokenKind::Semicolon
+            {
+                if expect_more {
+                    self.next_token();
+                    continue;
+                }
+                break;
+            }
+
             if self.current_token.kind == TokenKind::Comma {
                 self.next_token();
                 if let CommaBehavior::InsertSpaceExpression = comma_behavior {
                     expressions.push(Expression::String(" "));
                 }
-            } else {
-                let expression = self.parse_expression();
-                expressions.push(expression);
+                expect_more = true;
+                continue;
             }
+
+            let expression = self.parse_expression();
+            expressions.push(expression);
+            expect_more = false;
         }
 
         expressions
-    }
-
-    fn is_statement_end(&self) -> bool {
-        matches!(
-            statement_end_kind(&self.current_token.kind),
-            Some(StatementEnd::RightCurlyBrace)
-                | Some(StatementEnd::NewLine)
-                | Some(StatementEnd::Semicolon)
-                | Some(StatementEnd::Eof)
-        )
     }
 
     fn parse_expression(&mut self) -> Expression<'a> {
@@ -329,16 +332,6 @@ fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
         TokenKind::Plus | TokenKind::Minus => Some((7, 8)),
         TokenKind::Asterisk | TokenKind::Division | TokenKind::Percent => Some((9, 10)),
         TokenKind::Caret => Some((13, 12)),
-        _ => None,
-    }
-}
-
-fn statement_end_kind(kind: &TokenKind) -> Option<StatementEnd> {
-    match kind {
-        TokenKind::RightCurlyBrace => Some(StatementEnd::RightCurlyBrace),
-        TokenKind::NewLine => Some(StatementEnd::NewLine),
-        TokenKind::Semicolon => Some(StatementEnd::Semicolon),
-        TokenKind::Eof => Some(StatementEnd::Eof),
         _ => None,
     }
 }
