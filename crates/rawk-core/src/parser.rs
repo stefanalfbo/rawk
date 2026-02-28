@@ -144,6 +144,7 @@ impl<'a> Parser<'a> {
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::While => self.parse_while_statement(),
+            TokenKind::For => self.parse_for_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
@@ -275,6 +276,51 @@ impl<'a> Parser<'a> {
         let statements = self.parse_statement_block();
         Statement::While {
             condition,
+            statements,
+        }
+    }
+
+    fn parse_for_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token();
+
+        let init = self.parse_statement();
+        if self.current_token.kind != TokenKind::Semicolon {
+            todo!()
+        }
+        self.next_token_with_regex(true);
+
+        let condition = self.parse_expression();
+        if self.current_token.kind != TokenKind::Semicolon {
+            todo!()
+        }
+        self.next_token();
+
+        let update = self.parse_statement();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+
+        while self.current_token.kind == TokenKind::NewLine
+            || self.current_token.kind == TokenKind::Semicolon
+        {
+            self.next_token();
+        }
+
+        let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            self.parse_statement_block()
+        } else {
+            vec![self.parse_statement()]
+        };
+
+        Statement::For {
+            init: Box::new(init),
+            condition,
+            update: Box::new(update),
             statements,
         }
     }
@@ -1027,6 +1073,20 @@ mod tests {
 
         assert_eq!(
             r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_for_loop_with_single_body_statement() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ for (i = 1; i <= NF; i++) print $i }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ for (i = 1; i <= NF; i++) { print $i } }"#,
             program.to_string()
         );
     }

@@ -116,6 +116,12 @@ pub enum Statement<'a> {
         condition: Expression<'a>,
         statements: Vec<Statement<'a>>,
     },
+    For {
+        init: Box<Statement<'a>>,
+        condition: Expression<'a>,
+        update: Box<Statement<'a>>,
+        statements: Vec<Statement<'a>>,
+    },
     PostIncrement {
         identifier: &'a str,
     },
@@ -236,6 +242,19 @@ impl<'a> fmt::Display for Statement<'a> {
                     .collect::<Vec<String>>()
                     .join("; ");
                 write!(f, "while ({condition}) {{ {rendered} }}")
+            }
+            Statement::For {
+                init,
+                condition,
+                update,
+                statements,
+            } => {
+                let rendered = statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                write!(f, "for ({init}; {condition}; {update}) {{ {rendered} }}")
             }
             Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
         }
@@ -596,5 +615,26 @@ mod tests {
         };
 
         assert_eq!("while (i <= NF) { print $i; i++ }", statement.to_string());
+    }
+
+    #[test]
+    fn test_for_statement_display() {
+        let statement = Statement::For {
+            init: Box::new(Statement::Assignment {
+                identifier: "i",
+                value: Expression::Number(1.0),
+            }),
+            condition: Expression::Infix {
+                left: Box::new(Expression::Identifier("i")),
+                operator: Token::new(TokenKind::LessThanOrEqual, "<=", 0),
+                right: Box::new(Expression::Identifier("NF")),
+            },
+            update: Box::new(Statement::PostIncrement { identifier: "i" }),
+            statements: vec![Statement::Print(vec![Expression::Field(Box::new(
+                Expression::Identifier("i"),
+            ))])],
+        };
+
+        assert_eq!("for (i = 1; i <= NF; i++) { print $i }", statement.to_string());
     }
 }

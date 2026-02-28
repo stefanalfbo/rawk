@@ -199,6 +199,22 @@ impl<'a> Evaluator<'a> {
                 }
                 output
             }
+            Statement::For {
+                init,
+                condition,
+                update,
+                statements,
+            } => {
+                let mut output = Vec::new();
+                output.extend(self.eval_statement(init, input_line));
+                while self.eval_condition(condition) {
+                    for statement in statements {
+                        output.extend(self.eval_statement(statement, input_line));
+                    }
+                    output.extend(self.eval_statement(update, input_line));
+                }
+                output
+            }
         }
     }
 
@@ -1302,6 +1318,26 @@ mod tests {
     #[test]
     fn eval_while_with_post_increment() {
         let lexer = Lexer::new(r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec![
+                "USSR".to_string(),
+                "8649".to_string(),
+                "275".to_string(),
+                "Asia".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn eval_for_with_post_increment() {
+        let lexer = Lexer::new(r#"{ for (i = 1; i <= NF; i++) print $i }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()]);
