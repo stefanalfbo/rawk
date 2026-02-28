@@ -280,9 +280,26 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression_with_min_precedence(&mut self, min_precedence: u8) -> Expression<'a> {
+        const CONCAT_LEFT_PRECEDENCE: u8 = 6;
+        const CONCAT_RIGHT_PRECEDENCE: u8 = 7;
         let mut left = self.parse_primary_expression();
 
         loop {
+            if infix_operator_precedence(&self.current_token.kind).is_none()
+                && is_expression_start(&self.current_token.kind)
+            {
+                if CONCAT_LEFT_PRECEDENCE < min_precedence {
+                    break;
+                }
+
+                let right = self.parse_expression_with_min_precedence(CONCAT_RIGHT_PRECEDENCE);
+                left = Expression::Concatenation {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                };
+                continue;
+            }
+
             let (left_precedence, right_precedence) =
                 match infix_operator_precedence(&self.current_token.kind) {
                     Some(value) => value,
@@ -439,6 +456,20 @@ fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
         TokenKind::Caret => Some((13, 12)),
         _ => None,
     }
+}
+
+fn is_expression_start(kind: &TokenKind) -> bool {
+    matches!(
+        kind,
+        TokenKind::String
+            | TokenKind::Regex
+            | TokenKind::Number
+            | TokenKind::DollarSign
+            | TokenKind::LeftParen
+            | TokenKind::Identifier
+            | TokenKind::Length
+            | TokenKind::Substr
+    )
 }
 
 #[cfg(test)]
@@ -706,9 +737,14 @@ mod tests {
             _ => panic!("expected print statement"),
         };
 
-        assert_eq!(exprs.len(), 2);
-        assert!(matches!(exprs[0], Expression::String("Value:")));
-        assert!(matches!(exprs[1], Expression::Number(42.0)));
+        assert_eq!(exprs.len(), 1);
+        match &exprs[0] {
+            Expression::Concatenation { left, right } => {
+                assert!(matches!(**left, Expression::String("Value:")));
+                assert!(matches!(**right, Expression::Number(42.0)));
+            }
+            _ => panic!("expected concatenation expression"),
+        }
     }
 
     #[test]
@@ -839,5 +875,16 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ $1 = substr($1, 1, 3); print }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_assignment_with_concatenation_and_substr() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ s = s " " substr($1, 1, 3) }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ s = s " " substr($1, 1, 3) }"#, program.to_string());
     }
 }

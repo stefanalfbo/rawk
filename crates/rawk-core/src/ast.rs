@@ -221,6 +221,10 @@ pub enum Expression<'a> {
         start: Box<Expression<'a>>,
         length: Option<Box<Expression<'a>>>,
     },
+    Concatenation {
+        left: Box<Expression<'a>>,
+        right: Box<Expression<'a>>,
+    },
     // non_unary_expr
     Infix {
         left: Box<Expression<'a>>,
@@ -250,6 +254,7 @@ impl<'a> fmt::Display for Expression<'a> {
                     write!(f, "substr({}, {})", string, start)
                 }
             }
+            Expression::Concatenation { left, right } => write!(f, "{} {}", left, right),
             Expression::Infix {
                 left,
                 operator,
@@ -509,5 +514,19 @@ mod tests {
         };
 
         assert_eq!("$1 = substr($1, 1, 3)", statement.to_string());
+    }
+
+    #[test]
+    fn test_concatenation_expression_display() {
+        let expression = Expression::Concatenation {
+            left: Box::new(Expression::Identifier("s")),
+            right: Box::new(Expression::Substr {
+                string: Box::new(Expression::Field(Box::new(Expression::Number(1.0)))),
+                start: Box::new(Expression::Number(1.0)),
+                length: Some(Box::new(Expression::Number(3.0))),
+            }),
+        };
+
+        assert_eq!("s substr($1, 1, 3)", expression.to_string());
     }
 }

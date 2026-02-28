@@ -281,6 +281,11 @@ impl<'a> Evaluator<'a> {
                 start,
                 length,
             } => self.eval_substr_expression(string, start, length.as_deref()),
+            Expression::Concatenation { left, right } => {
+                let mut value = self.eval_expression(left);
+                value.push_str(&self.eval_expression(right));
+                value
+            }
             Expression::Infix {
                 left,
                 operator,
@@ -433,6 +438,11 @@ impl<'a> Evaluator<'a> {
                 .eval_length_expression(expression.as_deref())
                 .parse::<f64>()
                 .ok(),
+            Expression::Concatenation { left, right } => {
+                let mut value = self.eval_expression(left);
+                value.push_str(&self.eval_expression(right));
+                value.parse::<f64>().ok()
+            }
             Expression::Infix {
                 left,
                 operator,
@@ -1129,5 +1139,23 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["Can 3852 25 North America".to_string()]);
+    }
+
+    #[test]
+    fn eval_assignment_with_concatenation() {
+        let lexer = Lexer::new(r#"{ s = s " " substr($1, 1, 3) } END { print s }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(
+            program,
+            vec![
+                "USSR\t8649\t275\tAsia".to_string(),
+                "Canada\t3852\t25\tNorth America".to_string(),
+            ],
+        );
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec![" USS Can".to_string()]);
     }
 }
