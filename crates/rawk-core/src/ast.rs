@@ -210,6 +210,7 @@ pub enum Expression<'a> {
     Regex(&'a str),
     Field(Box<Expression<'a>>),
     Identifier(&'a str),
+    Length(Option<Box<Expression<'a>>>),
     // non_unary_expr
     Infix {
         left: Box<Expression<'a>>,
@@ -226,6 +227,8 @@ impl<'a> fmt::Display for Expression<'a> {
             Expression::Regex(value) => write!(f, "/{}/", value),
             Expression::Field(expr) => write!(f, "${}", expr),
             Expression::Identifier(ident) => write!(f, "{}", ident),
+            Expression::Length(None) => write!(f, "length"),
+            Expression::Length(Some(expr)) => write!(f, "length({})", expr),
             Expression::Infix {
                 left,
                 operator,
@@ -433,5 +436,32 @@ mod tests {
         };
 
         assert_eq!(r#"gsub(/USA/, "United States")"#, statement.to_string());
+    }
+
+    #[test]
+    fn test_length_expression_without_argument_display() {
+        let expression = Expression::Length(None);
+
+        assert_eq!("length", expression.to_string());
+    }
+
+    #[test]
+    fn test_length_expression_with_argument_display() {
+        let expression = Expression::Length(Some(Box::new(Expression::Field(Box::new(
+            Expression::Number(1.0),
+        )))));
+
+        assert_eq!("length($1)", expression.to_string());
+    }
+
+    #[test]
+    fn test_print_statement_with_length_expression_display() {
+        let statement = Statement::Print(vec![
+            Expression::Length(None),
+            Expression::String(" "),
+            Expression::Field(Box::new(Expression::Number(0.0))),
+        ]);
+
+        assert_eq!("print length, $0", statement.to_string());
     }
 }

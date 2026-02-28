@@ -340,6 +340,25 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 Expression::Identifier(identifier)
             }
+            TokenKind::Length => {
+                self.next_token();
+                if self.current_token.kind == TokenKind::LeftParen {
+                    self.next_token();
+                    if self.current_token.kind == TokenKind::RightParen {
+                        self.next_token();
+                        Expression::Length(None)
+                    } else {
+                        let expression = self.parse_expression();
+                        if self.current_token.kind != TokenKind::RightParen {
+                            todo!()
+                        }
+                        self.next_token();
+                        Expression::Length(Some(Box::new(expression)))
+                    }
+                } else {
+                    Expression::Length(None)
+                }
+            }
             _ => {
                 todo!()
             }
@@ -748,5 +767,14 @@ mod tests {
             r#"{ gsub(/USA/, "United States"); print }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_print_length_builtin_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"{ print length, $0 }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ print length, $0 }"#, program.to_string());
     }
 }

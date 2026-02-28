@@ -252,6 +252,7 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
+            Expression::Length(expression) => self.eval_length_expression(expression.as_deref()),
             Expression::Infix {
                 left,
                 operator,
@@ -313,6 +314,14 @@ impl<'a> Evaluator<'a> {
             .unwrap_or_default()
     }
 
+    fn eval_length_expression(&self, expression: Option<&Expression<'_>>) -> String {
+        let value = match expression {
+            Some(expr) => self.eval_expression(expr),
+            None => self.current_line.clone().unwrap_or_default(),
+        };
+        value.chars().count().to_string()
+    }
+
     fn split_fields(&self, line: &str) -> Vec<String> {
         if self.field_separator == " " {
             line.split_whitespace().map(str::to_string).collect()
@@ -360,6 +369,10 @@ impl<'a> Evaluator<'a> {
                 .ok()
                 .or(Some(0.0)),
             Expression::Field(inner) => self.eval_field_expression(inner).parse::<f64>().ok(),
+            Expression::Length(expression) => self
+                .eval_length_expression(expression.as_deref())
+                .parse::<f64>()
+                .ok(),
             Expression::Infix {
                 left,
                 operator,
@@ -1032,5 +1045,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["United States 3615 237 North America".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_length_and_line() {
+        let lexer = Lexer::new(r#"{ print length, $0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["USSR 8649 275 Asia".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["18 USSR 8649 275 Asia".to_string()]);
     }
 }
