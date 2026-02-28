@@ -430,6 +430,7 @@ impl<'a> Parser<'a> {
                 || self.current_token.kind == TokenKind::Eof
                 || self.current_token.kind == TokenKind::GreaterThan
                 || self.current_token.kind == TokenKind::Append
+                || self.current_token.kind == TokenKind::Pipe
             {
                 break;
             }
@@ -466,6 +467,11 @@ impl<'a> Parser<'a> {
                 target,
                 append,
             };
+        }
+        if self.current_token.kind == TokenKind::Pipe {
+            self.next_token();
+            let target = self.parse_expression();
+            return Statement::PrintPipe { expressions, target };
         }
 
         Statement::Print(expressions)
@@ -1328,5 +1334,14 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ print > "tempbig" }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_print_pipe() {
+        let mut parser = Parser::new(Lexer::new(r#"{ print c ":" pop[c] | "sort" }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ print c ":" pop[c] | "sort" }"#, program.to_string());
     }
 }

@@ -93,6 +93,10 @@ pub enum Statement<'a> {
         target: Expression<'a>,
         append: bool,
     },
+    PrintPipe {
+        expressions: Vec<Expression<'a>>,
+        target: Expression<'a>,
+    },
     Printf(Vec<Expression<'a>>),
     Gsub {
         pattern: Expression<'a>,
@@ -229,6 +233,24 @@ impl<'a> fmt::Display for Statement<'a> {
                     write!(
                         f,
                         "print {} {operator} {target}",
+                        expressions
+                            .iter()
+                            .map(|expr| expr.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
+            }
+            Statement::PrintPipe {
+                expressions,
+                target,
+            } => {
+                if expressions.is_empty() {
+                    write!(f, "print | {target}")
+                } else {
+                    write!(
+                        f,
+                        "print {} | {target}",
                         expressions
                             .iter()
                             .map(|expr| expr.to_string())
@@ -723,6 +745,16 @@ mod tests {
         };
 
         assert_eq!(r#"print > "tempbig""#, statement.to_string());
+    }
+
+    #[test]
+    fn test_print_pipe_statement_display() {
+        let statement = Statement::PrintPipe {
+            expressions: vec![Expression::Identifier("c"), Expression::String(":"), Expression::Number(1.0)],
+            target: Expression::String("sort"),
+        };
+
+        assert_eq!(r#"print c, ":", 1 | "sort""#, statement.to_string());
     }
 
     #[test]

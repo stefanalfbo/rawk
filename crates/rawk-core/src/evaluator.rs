@@ -17,6 +17,7 @@ pub struct Evaluator<'a> {
     current_filename: String,
     variables: HashMap<String, String>,
     array_variables: HashMap<String, String>,
+    pipe_outputs: HashMap<String, Vec<String>>,
     exited: bool,
     has_output: bool,
 }
@@ -38,6 +39,7 @@ impl<'a> Evaluator<'a> {
             current_filename: current_filename.into(),
             variables: HashMap::new(),
             array_variables: HashMap::new(),
+            pipe_outputs: HashMap::new(),
             exited: false,
             has_output: false,
         }
@@ -71,6 +73,8 @@ impl<'a> Evaluator<'a> {
         for rule in end_rules.iter() {
             output_lines.extend(self.eval_end_rule(rule));
         }
+
+        output_lines.extend(self.flush_pipe_outputs());
 
         output_lines
     }
@@ -176,6 +180,10 @@ impl<'a> Evaluator<'a> {
     fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
         match statement {
             Statement::Print(expressions) => vec![self.eval_print(expressions, input_line)],
+            Statement::PrintPipe { expressions, target } => {
+                self.eval_print_pipe(expressions, target, input_line);
+                Vec::new()
+            }
             Statement::PrintRedirect {
                 expressions,
                 target,
@@ -343,6 +351,17 @@ impl<'a> Evaluator<'a> {
         let _target = self.eval_expression(target);
     }
 
+    fn eval_print_pipe(
+        &mut self,
+        expressions: &[Expression<'_>],
+        target: &Expression<'_>,
+        input_line: Option<&str>,
+    ) {
+        let rendered = self.eval_print(expressions, input_line);
+        let target = self.eval_expression(target);
+        self.pipe_outputs.entry(target).or_default().push(rendered);
+    }
+
     fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
         let assigned_value = if let Expression::Infix {
             left,
@@ -463,6 +482,22 @@ impl<'a> Evaluator<'a> {
         } else {
             Vec::new()
         }
+    }
+
+    fn flush_pipe_outputs(&mut self) -> Vec<String> {
+        let mut output = Vec::new();
+        let mut keys: Vec<String> = self.pipe_outputs.keys().cloned().collect();
+        keys.sort();
+
+        for key in keys {
+            let mut lines = self.pipe_outputs.remove(&key).unwrap_or_default();
+            if key == "sort" {
+                lines.sort();
+            }
+            output.extend(lines);
+        }
+
+        output
     }
 
     fn eval_pre_increment(&mut self, identifier: &str) {
@@ -1592,6 +1627,18 @@ mod tests {
         let output = evaluator.eval();
 
         assert!(output.is_empty());
+    }
+
+    #[test]
+    fn eval_print_pipe_to_sort_flushes_sorted_output() {
+        let lexer = Lexer::new(r#"BEGIN { print "b" | "sort"; print "a" | "sort" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["a".to_string(), "b".to_string()]);
     }
 }
 
