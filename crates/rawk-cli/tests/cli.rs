@@ -27,9 +27,7 @@ fn run_rawk_from_file() -> std::process::Output {
 fn run_rawk_no_args() -> std::process::Output {
     let rawk = env!("CARGO_BIN_EXE_rawk-cli");
 
-    Command::new(rawk)
-        .output()
-        .expect("failed to run rawk")
+    Command::new(rawk).output().expect("failed to run rawk")
 }
 
 #[test]
@@ -118,5 +116,23 @@ fn help_shows_when_no_args_given() {
     assert!(stdout.contains("Usage:"), "stdout: {stdout}");
     assert!(stdout.contains("ARGS"), "stdout: {stdout}");
     assert!(stdout.contains("file"), "stdout: {stdout}");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn print_filename() {
+    let script = "END { print FILENAME }";
+
+    let output = run_rawk(script);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("tests/emp.data"));
     assert!(output.stderr.is_empty());
 }

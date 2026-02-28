@@ -22,7 +22,11 @@ pub struct Evaluator<'a> {
 }
 
 impl<'a> Evaluator<'a> {
-    pub fn new(program: Program<'a>, input_lines: Vec<String>) -> Self {
+    pub fn new(
+        program: Program<'a>,
+        input_lines: Vec<String>,
+        current_filename: impl Into<String>,
+    ) -> Self {
         Self {
             program,
             input_lines,
@@ -31,7 +35,7 @@ impl<'a> Evaluator<'a> {
             field_separator: " ".to_string(),
             output_field_separator: " ".to_string(),
             output_record_separator: "\n".to_string(),
-            current_filename: "onetrueawk-testdata/countries".to_string(),
+            current_filename: current_filename.into(),
             variables: HashMap::new(),
             array_variables: HashMap::new(),
             exited: false,
@@ -1097,7 +1101,7 @@ mod tests {
         let lexer = Lexer::new("{ print }");
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["hello, world!".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["hello, world!".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1110,7 +1114,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print "hello" }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1122,7 +1126,7 @@ mod tests {
         let lexer = Lexer::new(r#"END { print "42" } { print "hello" }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one row".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one row".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1134,7 +1138,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 1 + 2 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1146,7 +1150,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 2 * 3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1158,7 +1162,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 5 % 3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1170,7 +1174,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 5 / 5 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1182,7 +1186,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 2 ^ 3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1194,7 +1198,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 5 - 3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1206,7 +1210,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print "Value:" 42 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1218,7 +1222,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print (1 + 2) * 3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1230,7 +1234,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 1 + 2 * 3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1242,7 +1246,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 2 ^ 3 ^ 2 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1254,7 +1258,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { print 5 - 3 - 1 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1266,7 +1270,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print $0 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one two".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one two".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1278,7 +1282,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print $1, $3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one     two three".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one     two three".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1290,7 +1294,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print NF, $1 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one two three".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one two three".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1302,7 +1306,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print NF }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1314,7 +1318,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print XYZ }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one two".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one two".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1326,7 +1330,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print $NF }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one two three".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one two three".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1338,7 +1342,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print NR, $0 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one".to_string(), "two".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["one".to_string(), "two".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1350,7 +1354,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ printf "[%10s] [%-16d]\n", $1, $3 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["USSR 8649 275 Asia".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["USSR 8649 275 Asia".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1362,7 +1366,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ gsub(/USA/, "United States"); print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["USA 3615 237 North America".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["USA 3615 237 North America".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1374,7 +1378,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print length, $0 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["USSR 8649 275 Asia".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["USSR 8649 275 Asia".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1386,7 +1390,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ $1 = substr($1, 1, 3); print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1404,6 +1408,7 @@ mod tests {
                 "USSR\t8649\t275\tAsia".to_string(),
                 "Canada\t3852\t25\tNorth America".to_string(),
             ],
+            "-",
         );
 
         let output = evaluator.eval();
@@ -1416,7 +1421,7 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { FS = OFS = "\t" } { $4 = "NA"; print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1436,6 +1441,7 @@ mod tests {
                 "USSR\t8649\t275\tAsia".to_string(),
                 "China\t3705\t1032\tAsia".to_string(),
             ],
+            "-",
         );
 
         let output = evaluator.eval();
@@ -1448,7 +1454,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1468,7 +1474,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ for (i = 1; i <= NF; i++) print $i }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1490,7 +1496,7 @@ mod tests {
         );
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["A".to_string(), "B".to_string(), "C".to_string()]);
+        let mut evaluator = Evaluator::new(program, vec!["A".to_string(), "B".to_string(), "C".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -1510,6 +1516,7 @@ mod tests {
                 "USSR\t8649\t275\tAsia".to_string(),
                 "China\t3705\t1032\tAsia".to_string(),
             ],
+            "-",
         );
 
         let output = evaluator.eval();
@@ -1524,7 +1531,7 @@ mod tests {
         );
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec![]);
+        let mut evaluator = Evaluator::new(program, vec![], "-");
 
         let output = evaluator.eval();
 
@@ -1545,6 +1552,7 @@ mod tests {
                 "USSR\t8649\t275\tAsia".to_string(),
                 "Canada\t3852\t25\tNorth America".to_string(),
             ],
+            "-",
         );
 
         let output = evaluator.eval();
@@ -1555,3 +1563,4 @@ mod tests {
         );
     }
 }
+

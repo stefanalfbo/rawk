@@ -9,7 +9,7 @@ use crate::{Evaluator, Lexer, Parser, Program};
 /// use rawk_core::awk::Awk;
 ///
 /// let awk = Awk::new("{ print }");
-/// let output = awk.run(vec!["hello world".into()]);
+/// let output = awk.run(vec!["hello world".into()], None);
 /// assert_eq!(output, vec!["hello world".to_string()]);
 /// ```
 pub struct Awk {
@@ -32,8 +32,11 @@ impl Awk {
     }
 
     /// Execute the compiled program against the given input lines.
-    pub fn run(&self, input: Vec<String>) -> Vec<String> {
-        let mut evaluator = Evaluator::new(self.program.clone(), input);
+    ///
+    /// When `filename` is `None`, `FILENAME` defaults to `"-"`.
+    pub fn run(&self, input: Vec<String>, filename: Option<String>) -> Vec<String> {
+        let filename = filename.unwrap_or_else(|| "-".to_string());
+        let mut evaluator = Evaluator::new(self.program.clone(), input, filename);
 
         evaluator.eval()
     }

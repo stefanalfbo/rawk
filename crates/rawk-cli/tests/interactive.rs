@@ -83,3 +83,23 @@ fn interactive_mode_script_from_file() {
     assert!(lines.next().is_none());
     assert!(output.stderr.is_empty());
 }
+
+#[test]
+fn print_filenames_with_filenames_builtin() {
+    let script = "{ print FILENAME }";
+    let input = b"Beth 4.00 0\nDan 3.75 0\n\xff";
+
+    let output = run_rawk_interactive(script, input);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("-"));
+    assert_eq!(lines.next(), Some("-"));
+}

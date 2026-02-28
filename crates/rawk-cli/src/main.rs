@@ -59,11 +59,21 @@ fn execute(script: &str, path: &path::Path) {
         .collect::<Vec<String>>();
 
     let awk = Awk::new(script);
-    let output_lines = awk.run(input_lines);
+    let filename = display_filename(path);
+    let output_lines = awk.run(input_lines, Some(filename));
 
     for line in output_lines {
         println!("{}", line);
     }
+}
+
+fn display_filename(path: &path::Path) -> String {
+    let relative = std::env::current_dir()
+        .ok()
+        .and_then(|cwd| path.strip_prefix(cwd).ok().map(path::Path::to_path_buf))
+        .unwrap_or_else(|| path.to_path_buf());
+
+    relative.to_string_lossy().replace('\\', "/")
 }
 
 fn interactive_mode(script: &str) {
@@ -80,7 +90,7 @@ fn interactive_mode(script: &str) {
             break;
         }
 
-        let output_lines = awk.run(vec![input.trim().to_string()]);
+        let output_lines = awk.run(vec![input.trim().to_string()], None);
 
         for line in output_lines {
             println!("{}", line);
