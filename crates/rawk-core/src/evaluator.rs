@@ -157,6 +157,10 @@ impl<'a> Evaluator<'a> {
                 self.eval_assignment(identifier, value);
                 None
             }
+            Statement::FieldAssignment { field, value } => {
+                self.eval_field_assignment(field, value);
+                None
+            }
             Statement::AddAssignment { identifier, value } => {
                 self.eval_add_assignment(identifier, value);
                 None
@@ -221,6 +225,25 @@ impl<'a> Evaluator<'a> {
             .insert(identifier.to_string(), (current + increment).to_string());
     }
 
+    fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
+        let line = match self.current_line.as_ref() {
+            Some(value) => value.clone(),
+            None => return,
+        };
+
+        let index = self.eval_numeric_expression(field).unwrap_or(0.0) as i64;
+        if index <= 0 {
+            return;
+        }
+
+        let mut fields = self.split_fields(&line);
+        while fields.len() < index as usize {
+            fields.push(String::new());
+        }
+        fields[(index - 1) as usize] = self.eval_expression(value);
+        self.current_line = Some(fields.join(" "));
+    }
+
     fn eval_pre_increment(&mut self, identifier: &str) {
         let current = self
             .eval_identifier_expression(identifier)
@@ -253,6 +276,11 @@ impl<'a> Evaluator<'a> {
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
             Expression::Length(expression) => self.eval_length_expression(expression.as_deref()),
+            Expression::Substr {
+                string,
+                start,
+                length,
+            } => self.eval_substr_expression(string, start, length.as_deref()),
             Expression::Infix {
                 left,
                 operator,
@@ -320,6 +348,38 @@ impl<'a> Evaluator<'a> {
             None => self.current_line.clone().unwrap_or_default(),
         };
         value.chars().count().to_string()
+    }
+
+    fn eval_substr_expression(
+        &self,
+        string: &Expression<'_>,
+        start: &Expression<'_>,
+        length: Option<&Expression<'_>>,
+    ) -> String {
+        let source = self.eval_expression(string);
+        let chars: Vec<char> = source.chars().collect();
+        if chars.is_empty() {
+            return String::new();
+        }
+
+        let start_index = self.eval_numeric_expression(start).unwrap_or(1.0) as i64;
+        let start_index = if start_index <= 1 { 0 } else { (start_index - 1) as usize };
+        if start_index >= chars.len() {
+            return String::new();
+        }
+
+        let end_index = match length {
+            Some(length) => {
+                let len = self.eval_numeric_expression(length).unwrap_or(0.0) as i64;
+                if len <= 0 {
+                    return String::new();
+                }
+                (start_index + len as usize).min(chars.len())
+            }
+            None => chars.len(),
+        };
+
+        chars[start_index..end_index].iter().collect()
     }
 
     fn split_fields(&self, line: &str) -> Vec<String> {
@@ -1057,5 +1117,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["18 USSR 8649 275 Asia".to_string()]);
+    }
+
+    #[test]
+    fn eval_field_assignment_with_substr_then_print() {
+        let lexer = Lexer::new(r#"{ $1 = substr($1, 1, 3); print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["Can 3852 25 North America".to_string()]);
     }
 }

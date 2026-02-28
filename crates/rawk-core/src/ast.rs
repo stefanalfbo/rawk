@@ -97,6 +97,10 @@ pub enum Statement<'a> {
         identifier: &'a str,
         value: Expression<'a>,
     },
+    FieldAssignment {
+        field: Expression<'a>,
+        value: Expression<'a>,
+    },
     AddAssignment {
         identifier: &'a str,
         value: Expression<'a>,
@@ -195,6 +199,7 @@ impl<'a> fmt::Display for Statement<'a> {
                 replacement,
             } => write!(f, "gsub({}, {})", pattern, replacement),
             Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
+            Statement::FieldAssignment { field, value } => write!(f, "${field} = {value}"),
             Statement::AddAssignment { identifier, value } => {
                 write!(f, "{identifier} += {value}")
             }
@@ -211,6 +216,11 @@ pub enum Expression<'a> {
     Field(Box<Expression<'a>>),
     Identifier(&'a str),
     Length(Option<Box<Expression<'a>>>),
+    Substr {
+        string: Box<Expression<'a>>,
+        start: Box<Expression<'a>>,
+        length: Option<Box<Expression<'a>>>,
+    },
     // non_unary_expr
     Infix {
         left: Box<Expression<'a>>,
@@ -229,6 +239,17 @@ impl<'a> fmt::Display for Expression<'a> {
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::Length(None) => write!(f, "length"),
             Expression::Length(Some(expr)) => write!(f, "length({})", expr),
+            Expression::Substr {
+                string,
+                start,
+                length,
+            } => {
+                if let Some(length) = length {
+                    write!(f, "substr({}, {}, {})", string, start, length)
+                } else {
+                    write!(f, "substr({}, {})", string, start)
+                }
+            }
             Expression::Infix {
                 left,
                 operator,
@@ -463,5 +484,30 @@ mod tests {
         ]);
 
         assert_eq!("print length, $0", statement.to_string());
+    }
+
+    #[test]
+    fn test_substr_expression_display() {
+        let expression = Expression::Substr {
+            string: Box::new(Expression::Field(Box::new(Expression::Number(1.0)))),
+            start: Box::new(Expression::Number(1.0)),
+            length: Some(Box::new(Expression::Number(3.0))),
+        };
+
+        assert_eq!("substr($1, 1, 3)", expression.to_string());
+    }
+
+    #[test]
+    fn test_field_assignment_statement_display() {
+        let statement = Statement::FieldAssignment {
+            field: Expression::Number(1.0),
+            value: Expression::Substr {
+                string: Box::new(Expression::Field(Box::new(Expression::Number(1.0)))),
+                start: Box::new(Expression::Number(1.0)),
+                length: Some(Box::new(Expression::Number(3.0))),
+            },
+        };
+
+        assert_eq!("$1 = substr($1, 1, 3)", statement.to_string());
     }
 }

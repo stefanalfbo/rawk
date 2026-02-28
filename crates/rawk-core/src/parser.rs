@@ -148,6 +148,7 @@ impl<'a> Parser<'a> {
             TokenKind::Printf => self.parse_printf_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::Identifier => self.parse_assignment_statement(),
+            TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
             _ => todo!(),
         }
@@ -177,6 +178,17 @@ impl<'a> Parser<'a> {
         let identifier = self.current_token.literal;
         self.next_token();
         Statement::PreIncrement { identifier }
+    }
+
+    fn parse_field_assignment_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        let field = self.parse_primary_expression();
+        if self.current_token.kind != TokenKind::Assign {
+            todo!()
+        }
+        self.next_token();
+        let value = self.parse_expression();
+        Statement::FieldAssignment { field, value }
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
@@ -358,6 +370,33 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     Expression::Length(None)
+                }
+            }
+            TokenKind::Substr => {
+                self.next_token();
+                if self.current_token.kind != TokenKind::LeftParen {
+                    todo!()
+                }
+                self.next_token();
+                let string = self.parse_expression();
+                if self.current_token.kind != TokenKind::Comma {
+                    todo!()
+                }
+                self.next_token();
+                let start = self.parse_expression();
+                let mut length = None;
+                if self.current_token.kind == TokenKind::Comma {
+                    self.next_token();
+                    length = Some(Box::new(self.parse_expression()));
+                }
+                if self.current_token.kind != TokenKind::RightParen {
+                    todo!()
+                }
+                self.next_token();
+                Expression::Substr {
+                    string: Box::new(string),
+                    start: Box::new(start),
+                    length,
                 }
             }
             _ => {
@@ -791,5 +830,14 @@ mod tests {
             r#"length($1) > max { max = length($1); name = $1 } END { print name }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_field_assignment_with_substr() {
+        let mut parser = Parser::new(Lexer::new(r#"{ $1 = substr($1, 1, 3); print }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ $1 = substr($1, 1, 3); print }"#, program.to_string());
     }
 }
