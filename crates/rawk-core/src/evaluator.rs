@@ -146,6 +146,13 @@ impl<'a> Evaluator<'a> {
         match statement {
             Statement::Print(expressions) => Some(self.eval_print(expressions, input_line)),
             Statement::Printf(expressions) => Some(self.eval_printf(expressions)),
+            Statement::Gsub {
+                pattern,
+                replacement,
+            } => {
+                self.eval_gsub(pattern, replacement);
+                None
+            }
             Statement::Assignment { identifier, value } => {
                 self.eval_assignment(identifier, value);
                 None
@@ -163,7 +170,12 @@ impl<'a> Evaluator<'a> {
 
     fn eval_print(&self, expressions: &[Expression<'_>], input_line: Option<&str>) -> String {
         if expressions.is_empty() {
-            return input_line.unwrap_or("").to_string();
+            return self
+                .current_line
+                .as_deref()
+                .or(input_line)
+                .unwrap_or("")
+                .to_string();
         }
 
         let parts = expressions
@@ -216,6 +228,21 @@ impl<'a> Evaluator<'a> {
             .unwrap_or(0.0);
         self.variables
             .insert(identifier.to_string(), (current + 1.0).to_string());
+    }
+
+    fn eval_gsub(&mut self, pattern: &Expression<'_>, replacement: &Expression<'_>) {
+        let line = match self.current_line.as_ref() {
+            Some(value) => value.clone(),
+            None => return,
+        };
+
+        let pattern = match pattern {
+            Expression::Regex(value) => value.to_string(),
+            _ => self.eval_expression(pattern),
+        };
+        let replacement = unescape_awk_string(&self.eval_expression(replacement));
+        let replaced = awk_gsub_replace_all(&line, &pattern, &replacement);
+        self.current_line = Some(replaced);
     }
 
     fn eval_expression(&self, expression: &Expression) -> String {
@@ -520,6 +547,47 @@ fn awk_regex_matches(text: &str, pattern: &str) -> bool {
         return text.ends_with(core);
     }
     text.contains(core)
+}
+
+fn awk_gsub_replace_all(text: &str, pattern: &str, replacement: &str) -> String {
+    let anchored_start = pattern.starts_with('^');
+    let anchored_end = pattern.ends_with('$');
+    let mut core = pattern;
+
+    if anchored_start {
+        core = &core[1..];
+    }
+    if anchored_end && !core.is_empty() {
+        core = &core[..core.len() - 1];
+    }
+    if core.is_empty() {
+        return text.to_string();
+    }
+
+    match (anchored_start, anchored_end) {
+        (true, true) => {
+            if text == core {
+                replacement.to_string()
+            } else {
+                text.to_string()
+            }
+        }
+        (true, false) => {
+            if let Some(suffix) = text.strip_prefix(core) {
+                format!("{replacement}{suffix}")
+            } else {
+                text.to_string()
+            }
+        }
+        (false, true) => {
+            if let Some(prefix) = text.strip_suffix(core) {
+                format!("{prefix}{replacement}")
+            } else {
+                text.to_string()
+            }
+        }
+        (false, false) => text.replace(core, replacement),
+    }
 }
 
 fn unescape_awk_string(input: &str) -> String {
@@ -952,5 +1020,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["[      USSR] [275             ]".to_string()]);
+    }
+
+    #[test]
+    fn eval_gsub_then_print_uses_updated_line() {
+        let lexer = Lexer::new(r#"{ gsub(/USA/, "United States"); print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["USA 3615 237 North America".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["United States 3615 237 North America".to_string()]);
     }
 }

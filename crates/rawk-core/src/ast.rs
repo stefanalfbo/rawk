@@ -89,6 +89,10 @@ impl<'a> fmt::Display for Program<'a> {
 pub enum Statement<'a> {
     Print(Vec<Expression<'a>>),
     Printf(Vec<Expression<'a>>),
+    Gsub {
+        pattern: Expression<'a>,
+        replacement: Expression<'a>,
+    },
     Assignment {
         identifier: &'a str,
         value: Expression<'a>,
@@ -186,6 +190,10 @@ impl<'a> fmt::Display for Statement<'a> {
                     )
                 }
             }
+            Statement::Gsub {
+                pattern,
+                replacement,
+            } => write!(f, "gsub({}, {})", pattern, replacement),
             Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
             Statement::AddAssignment { identifier, value } => {
                 write!(f, "{identifier} += {value}")
@@ -415,5 +423,15 @@ mod tests {
         };
 
         assert_eq!("{ pop += $3; ++n }", action.to_string());
+    }
+
+    #[test]
+    fn test_gsub_statement_display() {
+        let statement = Statement::Gsub {
+            pattern: Expression::Regex("USA"),
+            replacement: Expression::String("United States"),
+        };
+
+        assert_eq!(r#"gsub(/USA/, "United States")"#, statement.to_string());
     }
 }

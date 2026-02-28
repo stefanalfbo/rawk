@@ -145,6 +145,7 @@ impl<'a> Parser<'a> {
         match self.current_token.kind {
             TokenKind::Print => self.parse_print_function(),
             TokenKind::Printf => self.parse_printf_function(),
+            TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
             _ => todo!(),
@@ -187,6 +188,36 @@ impl<'a> Parser<'a> {
         let expressions = self.parse_expression_list_until_action_end(CommaBehavior::SkipComma);
 
         Statement::Printf(expressions)
+    }
+
+    fn parse_gsub_function(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+
+        self.next_token_with_regex(true);
+        let pattern = self.parse_expression();
+
+        if self.current_token.kind != TokenKind::Comma {
+            todo!()
+        }
+        self.next_token();
+        let replacement = self.parse_expression();
+
+        if self.current_token.kind == TokenKind::Comma {
+            todo!()
+        }
+
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+
+        Statement::Gsub {
+            pattern,
+            replacement,
+        }
     }
 
     fn parse_expression_list_until_action_end(
@@ -703,6 +734,18 @@ mod tests {
 
         assert_eq!(
             "END { print \"population of\", n, \"Asian countries in millions is\", pop }",
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_gsub_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"{ gsub(/USA/, "United States"); print }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ gsub(/USA/, "United States"); print }"#,
             program.to_string()
         );
     }
