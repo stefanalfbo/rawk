@@ -97,12 +97,22 @@ pub enum Statement<'a> {
         identifier: &'a str,
         value: Expression<'a>,
     },
+    ArrayAssignment {
+        identifier: &'a str,
+        index: Expression<'a>,
+        value: Expression<'a>,
+    },
     FieldAssignment {
         field: Expression<'a>,
         value: Expression<'a>,
     },
     AddAssignment {
         identifier: &'a str,
+        value: Expression<'a>,
+    },
+    ArrayAddAssignment {
+        identifier: &'a str,
+        index: Expression<'a>,
         value: Expression<'a>,
     },
     PreIncrement {
@@ -217,10 +227,20 @@ impl<'a> fmt::Display for Statement<'a> {
                 replacement,
             } => write!(f, "gsub({}, {})", pattern, replacement),
             Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
+            Statement::ArrayAssignment {
+                identifier,
+                index,
+                value,
+            } => write!(f, "{identifier}[{index}] = {value}"),
             Statement::FieldAssignment { field, value } => write!(f, "${field} = {value}"),
             Statement::AddAssignment { identifier, value } => {
                 write!(f, "{identifier} += {value}")
             }
+            Statement::ArrayAddAssignment {
+                identifier,
+                index,
+                value,
+            } => write!(f, "{identifier}[{index}] += {value}"),
             Statement::PreIncrement { identifier } => write!(f, "++{identifier}"),
             Statement::If {
                 condition,
@@ -270,6 +290,10 @@ pub enum Expression<'a> {
     Regex(&'a str),
     Field(Box<Expression<'a>>),
     Identifier(&'a str),
+    ArrayAccess {
+        identifier: &'a str,
+        index: Box<Expression<'a>>,
+    },
     Length(Option<Box<Expression<'a>>>),
     Substr {
         string: Box<Expression<'a>>,
@@ -296,6 +320,7 @@ impl<'a> fmt::Display for Expression<'a> {
             Expression::Regex(value) => write!(f, "/{}/", value),
             Expression::Field(expr) => write!(f, "${}", expr),
             Expression::Identifier(ident) => write!(f, "{}", ident),
+            Expression::ArrayAccess { identifier, index } => write!(f, "{identifier}[{index}]"),
             Expression::Length(None) => write!(f, "length"),
             Expression::Length(Some(expr)) => write!(f, "length({})", expr),
             Expression::Substr {
@@ -645,5 +670,26 @@ mod tests {
         let statement = Statement::Exit;
 
         assert_eq!("exit", statement.to_string());
+    }
+
+    #[test]
+    fn test_array_access_expression_display() {
+        let expression = Expression::ArrayAccess {
+            identifier: "pop",
+            index: Box::new(Expression::String("Asia")),
+        };
+
+        assert_eq!(r#"pop["Asia"]"#, expression.to_string());
+    }
+
+    #[test]
+    fn test_array_add_assignment_display() {
+        let statement = Statement::ArrayAddAssignment {
+            identifier: "pop",
+            index: Expression::String("Asia"),
+            value: Expression::Field(Box::new(Expression::Number(3.0))),
+        };
+
+        assert_eq!(r#"pop["Asia"] += $3"#, statement.to_string());
     }
 }

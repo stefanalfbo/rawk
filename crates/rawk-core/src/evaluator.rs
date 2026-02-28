@@ -15,6 +15,7 @@ pub struct Evaluator<'a> {
     output_field_separator: String,
     current_filename: String,
     variables: HashMap<String, String>,
+    array_variables: HashMap<String, String>,
     exited: bool,
 }
 
@@ -29,6 +30,7 @@ impl<'a> Evaluator<'a> {
             output_field_separator: " ".to_string(),
             current_filename: "onetrueawk-testdata/countries".to_string(),
             variables: HashMap::new(),
+            array_variables: HashMap::new(),
             exited: false,
         }
     }
@@ -170,12 +172,28 @@ impl<'a> Evaluator<'a> {
                 self.eval_assignment(identifier, value);
                 Vec::new()
             }
+            Statement::ArrayAssignment {
+                identifier,
+                index,
+                value,
+            } => {
+                self.eval_array_assignment(identifier, index, value);
+                Vec::new()
+            }
             Statement::FieldAssignment { field, value } => {
                 self.eval_field_assignment(field, value);
                 Vec::new()
             }
             Statement::AddAssignment { identifier, value } => {
                 self.eval_add_assignment(identifier, value);
+                Vec::new()
+            }
+            Statement::ArrayAddAssignment {
+                identifier,
+                index,
+                value,
+            } => {
+                self.eval_array_add_assignment(identifier, index, value);
                 Vec::new()
             }
             Statement::PreIncrement { identifier } => {
@@ -249,6 +267,11 @@ impl<'a> Evaluator<'a> {
             .iter()
             .map(|expr| self.eval_expression(expr))
             .collect::<Vec<String>>();
+        let last_non_empty = parts.iter().rposition(|part| !part.is_empty());
+        let parts = match last_non_empty {
+            Some(index) => &parts[..=index],
+            None => &parts[..0],
+        };
         parts.join(&self.output_field_separator)
     }
 
@@ -297,6 +320,34 @@ impl<'a> Evaluator<'a> {
         let increment = self.eval_numeric_expression(value).unwrap_or(0.0);
         self.variables
             .insert(identifier.to_string(), (current + increment).to_string());
+    }
+
+    fn eval_array_assignment(
+        &mut self,
+        identifier: &str,
+        index: &Expression<'_>,
+        value: &Expression<'_>,
+    ) {
+        let key = self.array_key(identifier, index);
+        let assigned_value = self.eval_expression(value);
+        self.array_variables.insert(key, assigned_value);
+    }
+
+    fn eval_array_add_assignment(
+        &mut self,
+        identifier: &str,
+        index: &Expression<'_>,
+        value: &Expression<'_>,
+    ) {
+        let key = self.array_key(identifier, index);
+        let current = self
+            .array_variables
+            .get(&key)
+            .and_then(|value| value.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let increment = self.eval_numeric_expression(value).unwrap_or(0.0);
+        self.array_variables
+            .insert(key, (current + increment).to_string());
     }
 
     fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
@@ -393,6 +444,11 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
+            Expression::ArrayAccess { identifier, index } => self
+                .array_variables
+                .get(&self.array_key(identifier, index))
+                .cloned()
+                .unwrap_or_default(),
             Expression::Length(expression) => self.eval_length_expression(expression.as_deref()),
             Expression::Substr {
                 string,
@@ -438,6 +494,10 @@ impl<'a> Evaluator<'a> {
                 .cloned()
                 .unwrap_or_default(),
         }
+    }
+
+    fn array_key(&self, identifier: &str, index: &Expression<'_>) -> String {
+        format!("{identifier}\u{1f}{}", self.eval_expression(index))
     }
 
     fn eval_field_expression(&self, expression: &Expression<'_>) -> String {
@@ -550,6 +610,11 @@ impl<'a> Evaluator<'a> {
                 .eval_identifier_expression(identifier)
                 .parse::<f64>()
                 .ok()
+                .or(Some(0.0)),
+            Expression::ArrayAccess { identifier, index } => self
+                .array_variables
+                .get(&self.array_key(identifier, index))
+                .and_then(|value| value.parse::<f64>().ok())
                 .or(Some(0.0)),
             Expression::Field(inner) => self.eval_field_expression(inner).parse::<f64>().ok(),
             Expression::Length(expression) => self
@@ -1384,5 +1449,25 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, Vec::<String>::new());
+    }
+
+    #[test]
+    fn eval_array_add_assignment_and_access() {
+        let lexer = Lexer::new(
+            r#"/Asia/ { pop["Asia"] += $3 } END { print pop["Asia"] }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(
+            program,
+            vec![
+                "USSR\t8649\t275\tAsia".to_string(),
+                "China\t3705\t1032\tAsia".to_string(),
+            ],
+        );
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1307".to_string()]);
     }
 }

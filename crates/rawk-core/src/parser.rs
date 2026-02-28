@@ -156,6 +156,33 @@ impl<'a> Parser<'a> {
     fn parse_assignment_statement(&mut self) -> Statement<'a> {
         let identifier = self.current_token.literal;
         self.next_token();
+        if self.current_token.kind == TokenKind::LeftSquareBracket {
+            self.next_token_with_regex(true);
+            let index = self.parse_expression();
+            if self.current_token.kind != TokenKind::RightSquareBracket {
+                todo!()
+            }
+            self.next_token();
+            if self.current_token.kind == TokenKind::Assign {
+                self.next_token();
+                let value = self.parse_expression();
+                return Statement::ArrayAssignment {
+                    identifier,
+                    index,
+                    value,
+                };
+            }
+            if self.current_token.kind == TokenKind::AddAssign {
+                self.next_token();
+                let value = self.parse_expression();
+                return Statement::ArrayAddAssignment {
+                    identifier,
+                    index,
+                    value,
+                };
+            }
+            todo!()
+        }
         if self.current_token.kind == TokenKind::Assign {
             self.next_token();
             let value = self.parse_expression();
@@ -502,7 +529,20 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier => {
                 let identifier = self.current_token.literal;
                 self.next_token();
-                Expression::Identifier(identifier)
+                if self.current_token.kind == TokenKind::LeftSquareBracket {
+                    self.next_token_with_regex(true);
+                    let index = self.parse_expression();
+                    if self.current_token.kind != TokenKind::RightSquareBracket {
+                        todo!()
+                    }
+                    self.next_token();
+                    Expression::ArrayAccess {
+                        identifier,
+                        index: Box::new(index),
+                    }
+                } else {
+                    Expression::Identifier(identifier)
+                }
             }
             TokenKind::Length => {
                 self.next_token();
@@ -1118,5 +1158,19 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"NR >= 10 { exit }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_array_add_assignment_and_access() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"/Asia/ { pop["Asia"] += $3 } END { print pop["Asia"] }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"/Asia/ { pop["Asia"] += $3 } END { print pop["Asia"] }"#,
+            program.to_string()
+        );
     }
 }
