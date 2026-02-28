@@ -450,6 +450,7 @@ impl<'a> Parser<'a> {
 
 fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
     match kind {
+        TokenKind::Assign => Some((0, 0)),
         TokenKind::Or => Some((1, 2)),
         TokenKind::And => Some((3, 4)),
         TokenKind::Equal
@@ -918,5 +919,14 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ $2 = $2 / 1000; print }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_chained_assignment() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { FS = OFS = "\t" }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"BEGIN { FS = OFS = "\t" }"#, program.to_string());
     }
 }

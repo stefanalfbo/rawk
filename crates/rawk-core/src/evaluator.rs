@@ -12,6 +12,7 @@ pub struct Evaluator<'a> {
     current_line_number: Cell<usize>,
     current_line: Option<String>,
     field_separator: String,
+    output_field_separator: String,
     current_filename: String,
     variables: HashMap<String, String>,
 }
@@ -24,6 +25,7 @@ impl<'a> Evaluator<'a> {
             current_line_number: Cell::new(0),
             current_line: None,
             field_separator: " ".to_string(),
+            output_field_separator: " ".to_string(),
             current_filename: "onetrueawk-testdata/countries".to_string(),
             variables: HashMap::new(),
         }
@@ -207,12 +209,23 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
-        let assigned_value = self.eval_expression(value);
-        if identifier == "FS" {
-            self.field_separator = unescape_awk_string(&assigned_value);
-        }
-        self.variables
-            .insert(identifier.to_string(), assigned_value);
+        let assigned_value = if let Expression::Infix {
+            left,
+            operator,
+            right,
+        } = value
+        {
+            if operator.kind == TokenKind::Assign {
+                self.eval_assignment_infix(left, right)
+            } else {
+                self.eval_expression(value)
+            }
+        } else {
+            self.eval_expression(value)
+        };
+
+        self.set_special_variable(identifier, &assigned_value);
+        self.variables.insert(identifier.to_string(), assigned_value);
     }
 
     fn eval_add_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
@@ -241,7 +254,42 @@ impl<'a> Evaluator<'a> {
             fields.push(String::new());
         }
         fields[(index - 1) as usize] = self.eval_expression(value);
-        self.current_line = Some(fields.join(" "));
+        self.current_line = Some(fields.join(&self.output_field_separator));
+    }
+
+    fn eval_assignment_infix(&mut self, left: &Expression<'_>, right: &Expression<'_>) -> String {
+        let identifier = match left {
+            Expression::Identifier(identifier) => *identifier,
+            _ => return self.eval_expression(right),
+        };
+
+        let assigned_value = if let Expression::Infix {
+            left: nested_left,
+            operator: nested_operator,
+            right: nested_right,
+        } = right
+        {
+            if nested_operator.kind == TokenKind::Assign {
+                self.eval_assignment_infix(nested_left, nested_right)
+            } else {
+                self.eval_expression(right)
+            }
+        } else {
+            self.eval_expression(right)
+        };
+
+        self.set_special_variable(identifier, &assigned_value);
+        self.variables
+            .insert(identifier.to_string(), assigned_value.clone());
+        assigned_value
+    }
+
+    fn set_special_variable(&mut self, identifier: &str, value: &str) {
+        if identifier == "FS" {
+            self.field_separator = unescape_awk_string(value);
+        } else if identifier == "OFS" {
+            self.output_field_separator = unescape_awk_string(value);
+        }
     }
 
     fn eval_pre_increment(&mut self, identifier: &str) {
@@ -1157,5 +1205,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec![" USS Can".to_string()]);
+    }
+
+    #[test]
+    fn eval_chained_assignment_sets_fs_and_ofs() {
+        let lexer = Lexer::new(r#"BEGIN { FS = OFS = "\t" } { $4 = "NA"; print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["Canada\t3852\t25\tNA".to_string()]);
     }
 }
