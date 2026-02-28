@@ -421,7 +421,52 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
-        let expressions = self.parse_expression_list_until_action_end();
+        let mut expressions = Vec::new();
+        let mut expect_more = false;
+        self.next_token();
+
+        loop {
+            if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::Eof
+                || self.current_token.kind == TokenKind::GreaterThan
+                || self.current_token.kind == TokenKind::Append
+            {
+                break;
+            }
+
+            if self.current_token.kind == TokenKind::NewLine
+                || self.current_token.kind == TokenKind::Semicolon
+            {
+                if expect_more {
+                    self.next_token();
+                    continue;
+                }
+                break;
+            }
+
+            if self.current_token.kind == TokenKind::Comma {
+                self.next_token();
+                expect_more = true;
+                continue;
+            }
+
+            let expression = self.parse_expression();
+            expressions.push(expression);
+            expect_more = false;
+        }
+
+        if self.current_token.kind == TokenKind::GreaterThan
+            || self.current_token.kind == TokenKind::Append
+        {
+            let append = self.current_token.kind == TokenKind::Append;
+            self.next_token();
+            let target = self.parse_expression();
+            return Statement::PrintRedirect {
+                expressions,
+                target,
+                append,
+            };
+        }
 
         Statement::Print(expressions)
     }
@@ -1274,5 +1319,14 @@ mod tests {
             r#"END { for (name in area) { print name ":" area[name] } }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_print_redirection() {
+        let mut parser = Parser::new(Lexer::new(r#"{ print >"tempbig" }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ print > "tempbig" }"#, program.to_string());
     }
 }

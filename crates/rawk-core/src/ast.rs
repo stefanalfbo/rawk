@@ -88,6 +88,11 @@ impl<'a> fmt::Display for Program<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'a> {
     Print(Vec<Expression<'a>>),
+    PrintRedirect {
+        expressions: Vec<Expression<'a>>,
+        target: Expression<'a>,
+        append: bool,
+    },
     Printf(Vec<Expression<'a>>),
     Gsub {
         pattern: Expression<'a>,
@@ -206,6 +211,26 @@ impl<'a> fmt::Display for Statement<'a> {
                         expressions
                             .iter()
                             .filter(|expr| *expr != &Expression::String(" "))
+                            .map(|expr| expr.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
+            }
+            Statement::PrintRedirect {
+                expressions,
+                target,
+                append,
+            } => {
+                let operator = if *append { ">>" } else { ">" };
+                if expressions.is_empty() {
+                    write!(f, "print {operator} {target}")
+                } else {
+                    write!(
+                        f,
+                        "print {} {operator} {target}",
+                        expressions
+                            .iter()
                             .map(|expr| expr.to_string())
                             .collect::<Vec<String>>()
                             .join(", ")
@@ -687,6 +712,17 @@ mod tests {
         let statement = Statement::Exit;
 
         assert_eq!("exit", statement.to_string());
+    }
+
+    #[test]
+    fn test_print_redirect_statement_display() {
+        let statement = Statement::PrintRedirect {
+            expressions: vec![],
+            target: Expression::String("tempbig"),
+            append: false,
+        };
+
+        assert_eq!(r#"print > "tempbig""#, statement.to_string());
     }
 
     #[test]

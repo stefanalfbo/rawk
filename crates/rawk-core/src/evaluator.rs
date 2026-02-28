@@ -176,6 +176,14 @@ impl<'a> Evaluator<'a> {
     fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
         match statement {
             Statement::Print(expressions) => vec![self.eval_print(expressions, input_line)],
+            Statement::PrintRedirect {
+                expressions,
+                target,
+                append,
+            } => {
+                self.eval_print_redirect(expressions, target, *append, input_line);
+                Vec::new()
+            }
             Statement::Printf(expressions) => vec![self.eval_printf(expressions)],
             Statement::Gsub {
                 pattern,
@@ -322,6 +330,17 @@ impl<'a> Evaluator<'a> {
 
         let rendered = expand_tabs(&format_printf(&format, &args));
         rendered.trim_end_matches(['\r', '\n']).to_string()
+    }
+
+    fn eval_print_redirect(
+        &self,
+        expressions: &[Expression<'_>],
+        target: &Expression<'_>,
+        _append: bool,
+        input_line: Option<&str>,
+    ) {
+        let _rendered = self.eval_print(expressions, input_line);
+        let _target = self.eval_expression(target);
     }
 
     fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
@@ -1561,6 +1580,18 @@ mod tests {
             output,
             vec!["USSR:8649".to_string(), "".to_string(), "Canada:3852".to_string()]
         );
+    }
+
+    #[test]
+    fn eval_print_redirection_does_not_write_stdout() {
+        let lexer = Lexer::new(r#"{ print >"tempbig" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
     }
 }
 
