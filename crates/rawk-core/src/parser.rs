@@ -69,7 +69,8 @@ impl<'a> Parser<'a> {
             | TokenKind::DollarSign
             | TokenKind::LeftParen
             | TokenKind::Identifier
-            | TokenKind::Length => self.parse_pattern_rule(),
+            | TokenKind::Length
+            | TokenKind::Rand => self.parse_pattern_rule(),
             _ => panic!(
                 "parse_next_rule not yet implemented, found token: {:?}",
                 self.current_token
@@ -153,6 +154,7 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
+            TokenKind::Decrement => self.parse_pre_decrement_statement(),
             _ => todo!(),
         }
     }
@@ -219,6 +221,9 @@ impl<'a> Parser<'a> {
         } else if self.current_token.kind == TokenKind::Increment {
             self.next_token();
             Statement::PostIncrement { identifier }
+        } else if self.current_token.kind == TokenKind::Decrement {
+            self.next_token();
+            Statement::PostDecrement { identifier }
         } else if self.current_token.kind == TokenKind::AddAssign {
             self.next_token();
             let value = self.parse_expression();
@@ -236,6 +241,16 @@ impl<'a> Parser<'a> {
         let identifier = self.current_token.literal;
         self.next_token();
         Statement::PreIncrement { identifier }
+    }
+
+    fn parse_pre_decrement_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::Identifier {
+            todo!()
+        }
+        let identifier = self.current_token.literal;
+        self.next_token();
+        Statement::PreDecrement { identifier }
     }
 
     fn parse_field_assignment_statement(&mut self) -> Statement<'a> {
@@ -707,6 +722,17 @@ impl<'a> Parser<'a> {
                     length,
                 }
             }
+            TokenKind::Rand => {
+                self.next_token();
+                if self.current_token.kind == TokenKind::LeftParen {
+                    self.next_token();
+                    if self.current_token.kind != TokenKind::RightParen {
+                        todo!()
+                    }
+                    self.next_token();
+                }
+                Expression::Rand
+            }
             _ => {
                 todo!()
             }
@@ -782,6 +808,7 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::LeftParen
             | TokenKind::Identifier
             | TokenKind::Length
+            | TokenKind::Rand
             | TokenKind::Substr
     )
 }
@@ -1260,6 +1287,24 @@ mod tests {
             r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_post_decrement_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"{ k-- ; n-- }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ k--; n-- }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_rand_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { print rand() }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"BEGIN { print rand() }"#, program.to_string());
     }
 
     #[test]

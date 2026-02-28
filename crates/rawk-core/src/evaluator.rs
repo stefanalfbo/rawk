@@ -19,6 +19,7 @@ pub struct Evaluator<'a> {
     array_variables: HashMap<String, String>,
     argv: Vec<String>,
     pipe_outputs: HashMap<String, Vec<String>>,
+    rng_state: Cell<u64>,
     exited: bool,
     has_output: bool,
 }
@@ -43,6 +44,7 @@ impl<'a> Evaluator<'a> {
             array_variables: HashMap::new(),
             argv: vec!["rawk".to_string(), current_filename],
             pipe_outputs: HashMap::new(),
+            rng_state: Cell::new(9),
             exited: false,
             has_output: false,
         }
@@ -242,8 +244,16 @@ impl<'a> Evaluator<'a> {
                 self.eval_pre_increment(identifier);
                 Vec::new()
             }
+            Statement::PreDecrement { identifier } => {
+                self.eval_pre_decrement(identifier);
+                Vec::new()
+            }
             Statement::PostIncrement { identifier } => {
                 self.eval_post_increment(identifier);
+                Vec::new()
+            }
+            Statement::PostDecrement { identifier } => {
+                self.eval_post_decrement(identifier);
                 Vec::new()
             }
             Statement::If {
@@ -519,6 +529,15 @@ impl<'a> Evaluator<'a> {
             .insert(identifier.to_string(), (current + 1.0).to_string());
     }
 
+    fn eval_pre_decrement(&mut self, identifier: &str) {
+        let current = self
+            .eval_identifier_expression(identifier)
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        self.variables
+            .insert(identifier.to_string(), (current - 1.0).to_string());
+    }
+
     fn eval_post_increment(&mut self, identifier: &str) {
         let current = self
             .eval_identifier_expression(identifier)
@@ -526,6 +545,15 @@ impl<'a> Evaluator<'a> {
             .unwrap_or(0.0);
         self.variables
             .insert(identifier.to_string(), (current + 1.0).to_string());
+    }
+
+    fn eval_post_decrement(&mut self, identifier: &str) {
+        let current = self
+            .eval_identifier_expression(identifier)
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        self.variables
+            .insert(identifier.to_string(), (current - 1.0).to_string());
     }
 
     fn eval_gsub(&mut self, pattern: &Expression<'_>, replacement: &Expression<'_>) {
@@ -559,6 +587,7 @@ impl<'a> Evaluator<'a> {
                 start,
                 length,
             } => self.eval_substr_expression(string, start, length.as_deref()),
+            Expression::Rand => format_awk_number(self.eval_rand()),
             Expression::Concatenation { left, right } => {
                 let mut value = self.eval_expression(left);
                 value.push_str(&self.eval_expression(right));
@@ -693,6 +722,18 @@ impl<'a> Evaluator<'a> {
         chars[start_index..end_index].iter().collect()
     }
 
+    fn eval_rand(&self) -> f64 {
+        // Deterministic LCG so tests remain stable.
+        let next = self
+            .rng_state
+            .get()
+            .wrapping_mul(1_103_515_245)
+            .wrapping_add(12_345)
+            & 0x7fff_ffff;
+        self.rng_state.set(next);
+        (next as f64) / 2_147_483_648.0
+    }
+
     fn split_fields(&self, line: &str) -> Vec<String> {
         if self.field_separator == " " {
             line.split_whitespace().map(str::to_string).collect()
@@ -749,6 +790,7 @@ impl<'a> Evaluator<'a> {
                 .eval_length_expression(expression.as_deref())
                 .parse::<f64>()
                 .ok(),
+            Expression::Rand => Some(self.eval_rand()),
             Expression::Concatenation { left, right } => {
                 let mut value = self.eval_expression(left);
                 value.push_str(&self.eval_expression(right));

@@ -127,6 +127,9 @@ pub enum Statement<'a> {
     PreIncrement {
         identifier: &'a str,
     },
+    PreDecrement {
+        identifier: &'a str,
+    },
     If {
         condition: Expression<'a>,
         then_statements: Vec<Statement<'a>>,
@@ -148,6 +151,9 @@ pub enum Statement<'a> {
     },
     Exit,
     PostIncrement {
+        identifier: &'a str,
+    },
+    PostDecrement {
         identifier: &'a str,
     },
 }
@@ -294,6 +300,7 @@ impl<'a> fmt::Display for Statement<'a> {
                 value,
             } => write!(f, "{identifier}[{index}] += {value}"),
             Statement::PreIncrement { identifier } => write!(f, "++{identifier}"),
+            Statement::PreDecrement { identifier } => write!(f, "--{identifier}"),
             Statement::If {
                 condition,
                 then_statements,
@@ -343,6 +350,7 @@ impl<'a> fmt::Display for Statement<'a> {
             }
             Statement::Exit => write!(f, "exit"),
             Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
+            Statement::PostDecrement { identifier } => write!(f, "{identifier}--"),
         }
     }
 }
@@ -364,6 +372,7 @@ pub enum Expression<'a> {
         start: Box<Expression<'a>>,
         length: Option<Box<Expression<'a>>>,
     },
+    Rand,
     Concatenation {
         left: Box<Expression<'a>>,
         right: Box<Expression<'a>>,
@@ -398,6 +407,7 @@ impl<'a> fmt::Display for Expression<'a> {
                     write!(f, "substr({}, {})", string, start)
                 }
             }
+            Expression::Rand => write!(f, "rand()"),
             Expression::Concatenation { left, right } => write!(f, "{} {}", left, right),
             Expression::Infix {
                 left,
@@ -584,6 +594,13 @@ mod tests {
     }
 
     #[test]
+    fn test_pre_decrement_statement_display() {
+        let statement = Statement::PreDecrement { identifier: "n" };
+
+        assert_eq!("--n", statement.to_string());
+    }
+
+    #[test]
     fn test_action_with_new_statements_display() {
         let action = Action {
             statements: vec![
@@ -727,6 +744,20 @@ mod tests {
         };
 
         assert_eq!("for (i = 1; i <= NF; i++) { print $i }", statement.to_string());
+    }
+
+    #[test]
+    fn test_post_decrement_statement_display() {
+        let statement = Statement::PostDecrement { identifier: "n" };
+
+        assert_eq!("n--", statement.to_string());
+    }
+
+    #[test]
+    fn test_rand_expression_display() {
+        let expression = Expression::Rand;
+
+        assert_eq!("rand()", expression.to_string());
     }
 
     #[test]
