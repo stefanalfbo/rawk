@@ -112,6 +112,13 @@ pub enum Statement<'a> {
         condition: Expression<'a>,
         then_statements: Vec<Statement<'a>>,
     },
+    While {
+        condition: Expression<'a>,
+        statements: Vec<Statement<'a>>,
+    },
+    PostIncrement {
+        identifier: &'a str,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -219,6 +226,18 @@ impl<'a> fmt::Display for Statement<'a> {
                     .join("; ");
                 write!(f, "if ({condition}) {{ {rendered} }}")
             }
+            Statement::While {
+                condition,
+                statements,
+            } => {
+                let rendered = statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                write!(f, "while ({condition}) {{ {rendered} }}")
+            }
+            Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
         }
     }
 }
@@ -560,5 +579,22 @@ mod tests {
         };
 
         assert_eq!("if (maxpop < $3) { maxpop = $3 }", statement.to_string());
+    }
+
+    #[test]
+    fn test_while_statement_display() {
+        let statement = Statement::While {
+            condition: Expression::Infix {
+                left: Box::new(Expression::Identifier("i")),
+                operator: Token::new(TokenKind::LessThanOrEqual, "<=", 0),
+                right: Box::new(Expression::Identifier("NF")),
+            },
+            statements: vec![
+                Statement::Print(vec![Expression::Field(Box::new(Expression::Identifier("i")))]),
+                Statement::PostIncrement { identifier: "i" },
+            ],
+        };
+
+        assert_eq!("while (i <= NF) { print $i; i++ }", statement.to_string());
     }
 }

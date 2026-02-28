@@ -77,7 +77,7 @@ p_test!(p35, "35");
 p_test!(p36, "36");
 p_test!(p37, "37");
 p_test!(p38, "38");
-p_test_ignored!(p39, "39");
+p_test!(p39, "39");
 p_test_ignored!(p40, "40");
 p_test_ignored!(p41, "41");
 p_test_ignored!(p42, "42");

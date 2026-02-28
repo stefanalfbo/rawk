@@ -169,6 +169,10 @@ impl<'a> Evaluator<'a> {
                 self.eval_pre_increment(identifier);
                 Vec::new()
             }
+            Statement::PostIncrement { identifier } => {
+                self.eval_post_increment(identifier);
+                Vec::new()
+            }
             Statement::If {
                 condition,
                 then_statements,
@@ -182,6 +186,18 @@ impl<'a> Evaluator<'a> {
                 } else {
                     Vec::new()
                 }
+            }
+            Statement::While {
+                condition,
+                statements,
+            } => {
+                let mut output = Vec::new();
+                while self.eval_condition(condition) {
+                    for statement in statements {
+                        output.extend(self.eval_statement(statement, input_line));
+                    }
+                }
+                output
             }
         }
     }
@@ -305,6 +321,15 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_pre_increment(&mut self, identifier: &str) {
+        let current = self
+            .eval_identifier_expression(identifier)
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        self.variables
+            .insert(identifier.to_string(), (current + 1.0).to_string());
+    }
+
+    fn eval_post_increment(&mut self, identifier: &str) {
         let current = self
             .eval_identifier_expression(identifier)
             .parse::<f64>()
@@ -1272,5 +1297,25 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["China 1032".to_string()]);
+    }
+
+    #[test]
+    fn eval_while_with_post_increment() {
+        let lexer = Lexer::new(r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec![
+                "USSR".to_string(),
+                "8649".to_string(),
+                "275".to_string(),
+                "Asia".to_string(),
+            ]
+        );
     }
 }

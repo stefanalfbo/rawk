@@ -143,6 +143,7 @@ impl<'a> Parser<'a> {
             TokenKind::Printf => self.parse_printf_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::If => self.parse_if_statement(),
+            TokenKind::While => self.parse_while_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
@@ -157,6 +158,9 @@ impl<'a> Parser<'a> {
             self.next_token();
             let value = self.parse_expression();
             Statement::Assignment { identifier, value }
+        } else if self.current_token.kind == TokenKind::Increment {
+            self.next_token();
+            Statement::PostIncrement { identifier }
         } else if self.current_token.kind == TokenKind::AddAssign {
             self.next_token();
             let value = self.parse_expression();
@@ -246,6 +250,33 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
         statements
+    }
+
+    fn parse_while_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token_with_regex(true);
+        let condition = self.parse_expression();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+        while self.current_token.kind == TokenKind::NewLine
+            || self.current_token.kind == TokenKind::Semicolon
+        {
+            self.next_token();
+        }
+        if self.current_token.kind != TokenKind::LeftCurlyBrace {
+            todo!()
+        }
+
+        let statements = self.parse_statement_block();
+        Statement::While {
+            condition,
+            statements,
+        }
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
@@ -982,6 +1013,20 @@ mod tests {
 
         assert_eq!(
             r#"{ if (maxpop < $3) { maxpop = $3; country = $1 } }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_while_with_post_increment() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#,
             program.to_string()
         );
     }
