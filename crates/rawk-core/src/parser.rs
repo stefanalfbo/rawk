@@ -156,6 +156,10 @@ impl<'a> Parser<'a> {
     fn parse_assignment_statement(&mut self) -> Statement<'a> {
         let identifier = self.current_token.literal;
         self.next_token();
+        self.parse_assignment_statement_with_identifier(identifier)
+    }
+
+    fn parse_assignment_statement_with_identifier(&mut self, identifier: &'a str) -> Statement<'a> {
         if self.current_token.kind == TokenKind::LeftSquareBracket {
             self.next_token_with_regex(true);
             let index = self.parse_expression();
@@ -320,7 +324,40 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        let init = self.parse_statement();
+        let init = if self.current_token.kind == TokenKind::Identifier {
+            let variable = self.current_token.literal;
+            self.next_token();
+            if self.current_token.kind == TokenKind::In {
+                self.next_token();
+                if self.current_token.kind != TokenKind::Identifier {
+                    todo!()
+                }
+                let array = self.current_token.literal;
+                self.next_token();
+                if self.current_token.kind != TokenKind::RightParen {
+                    todo!()
+                }
+                self.next_token();
+                while self.current_token.kind == TokenKind::NewLine
+                    || self.current_token.kind == TokenKind::Semicolon
+                {
+                    self.next_token();
+                }
+                let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
+                    self.parse_statement_block()
+                } else {
+                    vec![self.parse_statement()]
+                };
+                return Statement::ForIn {
+                    variable,
+                    array,
+                    statements,
+                };
+            }
+            self.parse_assignment_statement_with_identifier(variable)
+        } else {
+            self.parse_statement()
+        };
         if self.current_token.kind != TokenKind::Semicolon {
             todo!()
         }
@@ -1170,6 +1207,20 @@ mod tests {
 
         assert_eq!(
             r#"/Asia/ { pop["Asia"] += $3 } END { print pop["Asia"] }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_for_in_loop() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"END { for (name in area) print name ":" area[name] }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"END { for (name in area) { print name ":" area[name] } }"#,
             program.to_string()
         );
     }

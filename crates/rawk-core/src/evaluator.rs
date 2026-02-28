@@ -246,6 +246,22 @@ impl<'a> Evaluator<'a> {
                 }
                 output
             }
+            Statement::ForIn {
+                variable,
+                array,
+                statements,
+            } => {
+                let mut keys = self.array_keys(array);
+                keys.sort();
+                let mut output = Vec::new();
+                for key in keys {
+                    self.variables.insert(variable.to_string(), key);
+                    for statement in statements {
+                        output.extend(self.eval_statement(statement, input_line));
+                    }
+                }
+                output
+            }
             Statement::Exit => {
                 self.exited = true;
                 Vec::new()
@@ -498,6 +514,14 @@ impl<'a> Evaluator<'a> {
 
     fn array_key(&self, identifier: &str, index: &Expression<'_>) -> String {
         format!("{identifier}\u{1f}{}", self.eval_expression(index))
+    }
+
+    fn array_keys(&self, identifier: &str) -> Vec<String> {
+        let prefix = format!("{identifier}\u{1f}");
+        self.array_variables
+            .keys()
+            .filter_map(|key| key.strip_prefix(&prefix).map(str::to_string))
+            .collect()
     }
 
     fn eval_field_expression(&self, expression: &Expression<'_>) -> String {
@@ -1469,5 +1493,22 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["1307".to_string()]);
+    }
+
+    #[test]
+    fn eval_for_in_loop_over_array_keys() {
+        let lexer = Lexer::new(
+            r#"BEGIN { area["Asia"] = 1; area["Europe"] = 2 } END { for (name in area) print name ":" area[name] }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec!["Asia:1".to_string(), "Europe:2".to_string()]
+        );
     }
 }

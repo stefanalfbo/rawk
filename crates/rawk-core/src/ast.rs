@@ -132,6 +132,11 @@ pub enum Statement<'a> {
         update: Box<Statement<'a>>,
         statements: Vec<Statement<'a>>,
     },
+    ForIn {
+        variable: &'a str,
+        array: &'a str,
+        statements: Vec<Statement<'a>>,
+    },
     Exit,
     PostIncrement {
         identifier: &'a str,
@@ -276,6 +281,18 @@ impl<'a> fmt::Display for Statement<'a> {
                     .collect::<Vec<String>>()
                     .join("; ");
                 write!(f, "for ({init}; {condition}; {update}) {{ {rendered} }}")
+            }
+            Statement::ForIn {
+                variable,
+                array,
+                statements,
+            } => {
+                let rendered = statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                write!(f, "for ({variable} in {array}) {{ {rendered} }}")
             }
             Statement::Exit => write!(f, "exit"),
             Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
@@ -670,6 +687,23 @@ mod tests {
         let statement = Statement::Exit;
 
         assert_eq!("exit", statement.to_string());
+    }
+
+    #[test]
+    fn test_for_in_statement_display() {
+        let statement = Statement::ForIn {
+            variable: "name",
+            array: "area",
+            statements: vec![Statement::Print(vec![Expression::Concatenation {
+                left: Box::new(Expression::Identifier("name")),
+                right: Box::new(Expression::ArrayAccess {
+                    identifier: "area",
+                    index: Box::new(Expression::Identifier("name")),
+                }),
+            }])],
+        };
+
+        assert_eq!("for (name in area) { print name area[name] }", statement.to_string());
     }
 
     #[test]
