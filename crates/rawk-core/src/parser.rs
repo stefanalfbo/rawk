@@ -52,6 +52,10 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Eof => None,
             TokenKind::LeftCurlyBrace => Some(self.parse_action()),
+            TokenKind::Function => {
+                self.parse_function_definition();
+                None
+            }
             TokenKind::End => {
                 self.next_token();
                 match self.parse_action() {
@@ -150,6 +154,27 @@ impl<'a> Parser<'a> {
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
             _ => todo!(),
+        }
+    }
+
+    fn parse_function_definition(&mut self) {
+        let mut brace_depth = 0usize;
+        loop {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+            if self.current_token.kind == TokenKind::LeftCurlyBrace {
+                brace_depth += 1;
+            } else if self.current_token.kind == TokenKind::RightCurlyBrace {
+                if brace_depth == 0 {
+                    break;
+                }
+                brace_depth -= 1;
+                if brace_depth == 0 {
+                    break;
+                }
+            }
+            self.next_token_with_regex(true);
         }
     }
 
@@ -566,6 +591,10 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier => {
                 let identifier = self.current_token.literal;
                 self.next_token();
+                if self.current_token.kind == TokenKind::LeftParen {
+                    self.consume_call_arguments();
+                    return Expression::Number(0.0);
+                }
                 if self.current_token.kind == TokenKind::LeftSquareBracket {
                     self.next_token_with_regex(true);
                     let index = self.parse_expression();
@@ -647,6 +676,28 @@ impl<'a> Parser<'a> {
         }
 
         program
+    }
+
+    fn consume_call_arguments(&mut self) {
+        if self.current_token.kind != TokenKind::LeftParen {
+            return;
+        }
+        let mut depth = 0usize;
+        loop {
+            if self.current_token.kind == TokenKind::Eof {
+                break;
+            }
+            if self.current_token.kind == TokenKind::LeftParen {
+                depth += 1;
+            } else if self.current_token.kind == TokenKind::RightParen {
+                depth -= 1;
+                if depth == 0 {
+                    self.next_token();
+                    break;
+                }
+            }
+            self.next_token_with_regex(true);
+        }
     }
 }
 
