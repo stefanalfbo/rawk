@@ -122,6 +122,7 @@ pub enum Statement<'a> {
         update: Box<Statement<'a>>,
         statements: Vec<Statement<'a>>,
     },
+    Exit,
     PostIncrement {
         identifier: &'a str,
     },
@@ -256,6 +257,7 @@ impl<'a> fmt::Display for Statement<'a> {
                     .join("; ");
                 write!(f, "for ({init}; {condition}; {update}) {{ {rendered} }}")
             }
+            Statement::Exit => write!(f, "exit"),
             Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
         }
     }
@@ -636,5 +638,12 @@ mod tests {
         };
 
         assert_eq!("for (i = 1; i <= NF; i++) { print $i }", statement.to_string());
+    }
+
+    #[test]
+    fn test_exit_statement_display() {
+        let statement = Statement::Exit;
+
+        assert_eq!("exit", statement.to_string());
     }
 }

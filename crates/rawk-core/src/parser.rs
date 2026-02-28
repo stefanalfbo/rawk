@@ -145,6 +145,7 @@ impl<'a> Parser<'a> {
             TokenKind::If => self.parse_if_statement(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
+            TokenKind::Exit => self.parse_exit_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
@@ -217,15 +218,20 @@ impl<'a> Parser<'a> {
         {
             self.next_token();
         }
-        if self.current_token.kind != TokenKind::LeftCurlyBrace {
-            todo!()
-        }
-
-        let then_statements = self.parse_statement_block();
+        let then_statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            self.parse_statement_block()
+        } else {
+            vec![self.parse_statement()]
+        };
         Statement::If {
             condition,
             then_statements,
         }
+    }
+
+    fn parse_exit_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        Statement::Exit
     }
 
     fn parse_statement_block(&mut self) -> Vec<Statement<'a>> {
@@ -1089,5 +1095,28 @@ mod tests {
             r#"{ for (i = 1; i <= NF; i++) { print $i } }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_if_with_single_statement_body() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"END { if (NR < 10) print FILENAME " has only " NR " lines" }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"END { if (NR < 10) { print FILENAME " has only " NR " lines" } }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_exit_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"NR >= 10 { exit }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"NR >= 10 { exit }"#, program.to_string());
     }
 }

@@ -15,6 +15,7 @@ pub struct Evaluator<'a> {
     output_field_separator: String,
     current_filename: String,
     variables: HashMap<String, String>,
+    exited: bool,
 }
 
 impl<'a> Evaluator<'a> {
@@ -28,6 +29,7 @@ impl<'a> Evaluator<'a> {
             output_field_separator: " ".to_string(),
             current_filename: "onetrueawk-testdata/countries".to_string(),
             variables: HashMap::new(),
+            exited: false,
         }
     }
 
@@ -37,14 +39,22 @@ impl<'a> Evaluator<'a> {
         let begin_rules: Vec<Rule<'a>> = self.program.begin_blocks_iter().cloned().collect();
         for rule in begin_rules.iter() {
             output_lines.extend(self.eval_begin_rule(rule));
+            if self.exited {
+                break;
+            }
         }
 
         let rules: Vec<Rule<'a>> = self.program.rules_iter().cloned().collect();
         for rule in rules.iter() {
+            if self.exited {
+                break;
+            }
             output_lines.extend(self.eval_rule(rule));
         }
 
-        self.current_line_number.set(self.input_lines.len());
+        if !self.exited {
+            self.current_line_number.set(self.input_lines.len());
+        }
         self.current_line = None;
 
         let end_rules: Vec<Rule<'a>> = self.program.end_blocks_iter().cloned().collect();
@@ -61,6 +71,9 @@ impl<'a> Evaluator<'a> {
 
         let input_lines = self.input_lines.clone();
         for (i, input_line) in input_lines.iter().enumerate() {
+            if self.exited {
+                break;
+            }
             self.current_line_number.set(i + 1);
             self.current_line = Some(input_line.clone());
 
@@ -214,6 +227,10 @@ impl<'a> Evaluator<'a> {
                     output.extend(self.eval_statement(update, input_line));
                 }
                 output
+            }
+            Statement::Exit => {
+                self.exited = true;
+                Vec::new()
             }
         }
     }
@@ -1353,5 +1370,19 @@ mod tests {
                 "Asia".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn eval_exit_stops_processing_and_preserves_nr_for_end() {
+        let lexer = Lexer::new(
+            r#"NR >= 2 { exit } END { if (NR < 2) print FILENAME " has only " NR " lines" }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["A".to_string(), "B".to_string(), "C".to_string()]);
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, Vec::<String>::new());
     }
 }
