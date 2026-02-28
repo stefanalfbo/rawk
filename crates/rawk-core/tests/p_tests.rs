@@ -23,20 +23,6 @@ macro_rules! p_test {
     };
 }
 
-macro_rules! p_test_ignored {
-    ($name:ident, $num:literal) => {
-        #[test]
-        #[ignore = "not supported yet"]
-        fn $name() {
-            let script = include_str!(concat!("onetrueawk-testdata/p.", $num));
-            let data = include_str!("onetrueawk-testdata/countries");
-            let expected_data = include_str!(concat!("onetrueawk-testdata/p.", $num, ".expected"));
-
-            assert_script_output_matches(script, data, expected_data);
-        }
-    };
-}
-
 p_test!(p1, "1");
 p_test!(p2, "2");
 p_test!(p3, "3");
@@ -92,4 +78,4 @@ p_test!(p48b, "48b");
 p_test!(p49, "49");
 p_test!(p50, "50");
 p_test!(p51, "51");
-p_test_ignored!(p52, "52");
+p_test!(p52, "52");

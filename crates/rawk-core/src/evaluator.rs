@@ -202,7 +202,7 @@ impl<'a> Evaluator<'a> {
                 if line.is_empty() {
                     Vec::new()
                 } else {
-                    vec![line]
+                    line.split('\n').map(str::to_string).collect()
                 }
             }
             Statement::System(command) => {
