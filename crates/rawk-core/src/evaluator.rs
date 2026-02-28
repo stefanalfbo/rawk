@@ -129,22 +129,21 @@ impl<'a> Evaluator<'a> {
             operator,
             right,
         } = expression
+            && operator.kind == TokenKind::Comma
         {
-            if operator.kind == TokenKind::Comma {
-                if !*range_active {
-                    let start = self.eval_condition(left);
-                    if !start {
-                        return false;
-                    }
-                    *range_active = true;
+            if !*range_active {
+                let start = self.eval_condition(left);
+                if !start {
+                    return false;
                 }
-
-                let matched = true;
-                if self.eval_condition(right) {
-                    *range_active = false;
-                }
-                return matched;
+                *range_active = true;
             }
+
+            let matched = true;
+            if self.eval_condition(right) {
+                *range_active = false;
+            }
+            return matched;
         }
 
         self.eval_condition(expression)
