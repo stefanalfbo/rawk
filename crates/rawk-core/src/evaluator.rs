@@ -136,40 +136,52 @@ impl<'a> Evaluator<'a> {
         let mut output = Vec::new();
 
         for statement in &action.statements {
-            if let Some(line) = self.eval_statement(statement, input_line) {
-                output.push(line);
-            }
+            output.extend(self.eval_statement(statement, input_line));
         }
 
         output
     }
 
-    fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Option<String> {
+    fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
         match statement {
-            Statement::Print(expressions) => Some(self.eval_print(expressions, input_line)),
-            Statement::Printf(expressions) => Some(self.eval_printf(expressions)),
+            Statement::Print(expressions) => vec![self.eval_print(expressions, input_line)],
+            Statement::Printf(expressions) => vec![self.eval_printf(expressions)],
             Statement::Gsub {
                 pattern,
                 replacement,
             } => {
                 self.eval_gsub(pattern, replacement);
-                None
+                Vec::new()
             }
             Statement::Assignment { identifier, value } => {
                 self.eval_assignment(identifier, value);
-                None
+                Vec::new()
             }
             Statement::FieldAssignment { field, value } => {
                 self.eval_field_assignment(field, value);
-                None
+                Vec::new()
             }
             Statement::AddAssignment { identifier, value } => {
                 self.eval_add_assignment(identifier, value);
-                None
+                Vec::new()
             }
             Statement::PreIncrement { identifier } => {
                 self.eval_pre_increment(identifier);
-                None
+                Vec::new()
+            }
+            Statement::If {
+                condition,
+                then_statements,
+            } => {
+                if self.eval_condition(condition) {
+                    let mut output = Vec::new();
+                    for statement in then_statements {
+                        output.extend(self.eval_statement(statement, input_line));
+                    }
+                    output
+                } else {
+                    Vec::new()
+                }
             }
         }
     }
@@ -1240,5 +1252,25 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["Canada\t3852\t25\tNA".to_string()]);
+    }
+
+    #[test]
+    fn eval_if_statement_updates_variables() {
+        let lexer = Lexer::new(
+            r#"{ if (maxpop < $3) { maxpop = $3; country = $1 } } END { print country, maxpop }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(
+            program,
+            vec![
+                "USSR\t8649\t275\tAsia".to_string(),
+                "China\t3705\t1032\tAsia".to_string(),
+            ],
+        );
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["China 1032".to_string()]);
     }
 }

@@ -142,6 +142,7 @@ impl<'a> Parser<'a> {
             TokenKind::Print => self.parse_print_function(),
             TokenKind::Printf => self.parse_printf_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
+            TokenKind::If => self.parse_if_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
@@ -193,6 +194,58 @@ impl<'a> Parser<'a> {
             }
         };
         Statement::FieldAssignment { field, value }
+    }
+
+    fn parse_if_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token_with_regex(true);
+        let condition = self.parse_expression();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+        while self.current_token.kind == TokenKind::NewLine
+            || self.current_token.kind == TokenKind::Semicolon
+        {
+            self.next_token();
+        }
+        if self.current_token.kind != TokenKind::LeftCurlyBrace {
+            todo!()
+        }
+
+        let then_statements = self.parse_statement_block();
+        Statement::If {
+            condition,
+            then_statements,
+        }
+    }
+
+    fn parse_statement_block(&mut self) -> Vec<Statement<'a>> {
+        self.next_token(); // consume '{'
+        let mut statements = Vec::new();
+        while self.current_token.kind != TokenKind::RightCurlyBrace
+            && self.current_token.kind != TokenKind::Eof
+        {
+            while self.current_token.kind == TokenKind::NewLine
+                || self.current_token.kind == TokenKind::Semicolon
+            {
+                self.next_token();
+            }
+
+            if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::Eof
+            {
+                break;
+            }
+            statements.push(self.parse_statement());
+        }
+        if self.current_token.kind == TokenKind::RightCurlyBrace {
+            self.next_token();
+        }
+        statements
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
@@ -917,5 +970,19 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"BEGIN { FS = OFS = "\t" }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_if_statement_with_block() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ if (maxpop < $3) { maxpop = $3; country = $1 } }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ if (maxpop < $3) { maxpop = $3; country = $1 } }"#,
+            program.to_string()
+        );
     }
 }

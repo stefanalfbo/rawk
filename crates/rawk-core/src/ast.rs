@@ -108,6 +108,10 @@ pub enum Statement<'a> {
     PreIncrement {
         identifier: &'a str,
     },
+    If {
+        condition: Expression<'a>,
+        then_statements: Vec<Statement<'a>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -204,6 +208,17 @@ impl<'a> fmt::Display for Statement<'a> {
                 write!(f, "{identifier} += {value}")
             }
             Statement::PreIncrement { identifier } => write!(f, "++{identifier}"),
+            Statement::If {
+                condition,
+                then_statements,
+            } => {
+                let rendered = then_statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                write!(f, "if ({condition}) {{ {rendered} }}")
+            }
         }
     }
 }
@@ -528,5 +543,22 @@ mod tests {
         };
 
         assert_eq!("s substr($1, 1, 3)", expression.to_string());
+    }
+
+    #[test]
+    fn test_if_statement_display() {
+        let statement = Statement::If {
+            condition: Expression::Infix {
+                left: Box::new(Expression::Identifier("maxpop")),
+                operator: Token::new(TokenKind::LessThan, "<", 0),
+                right: Box::new(Expression::Field(Box::new(Expression::Number(3.0)))),
+            },
+            then_statements: vec![Statement::Assignment {
+                identifier: "maxpop",
+                value: Expression::Field(Box::new(Expression::Number(3.0))),
+            }],
+        };
+
+        assert_eq!("if (maxpop < $3) { maxpop = $3 }", statement.to_string());
     }
 }
