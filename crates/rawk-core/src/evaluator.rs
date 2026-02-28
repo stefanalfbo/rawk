@@ -13,10 +13,12 @@ pub struct Evaluator<'a> {
     current_line: Option<String>,
     field_separator: String,
     output_field_separator: String,
+    output_record_separator: String,
     current_filename: String,
     variables: HashMap<String, String>,
     array_variables: HashMap<String, String>,
     exited: bool,
+    has_output: bool,
 }
 
 impl<'a> Evaluator<'a> {
@@ -28,10 +30,12 @@ impl<'a> Evaluator<'a> {
             current_line: None,
             field_separator: " ".to_string(),
             output_field_separator: " ".to_string(),
+            output_record_separator: "\n".to_string(),
             current_filename: "onetrueawk-testdata/countries".to_string(),
             variables: HashMap::new(),
             array_variables: HashMap::new(),
             exited: false,
+            has_output: false,
         }
     }
 
@@ -151,7 +155,15 @@ impl<'a> Evaluator<'a> {
         let mut output = Vec::new();
 
         for statement in &action.statements {
-            output.extend(self.eval_statement(statement, input_line));
+            let statement_output = self.eval_statement(statement, input_line);
+            if statement_output.is_empty() {
+                continue;
+            }
+            if self.has_output {
+                output.extend(self.ors_between_records());
+            }
+            output.extend(statement_output);
+            self.has_output = true;
         }
 
         output
@@ -417,6 +429,16 @@ impl<'a> Evaluator<'a> {
             self.field_separator = unescape_awk_string(value);
         } else if identifier == "OFS" {
             self.output_field_separator = unescape_awk_string(value);
+        } else if identifier == "ORS" {
+            self.output_record_separator = unescape_awk_string(value);
+        }
+    }
+
+    fn ors_between_records(&self) -> Vec<String> {
+        if self.output_record_separator == "\n\n" {
+            vec![String::new()]
+        } else {
+            Vec::new()
         }
     }
 
@@ -1509,6 +1531,27 @@ mod tests {
         assert_eq!(
             output,
             vec!["Asia:1".to_string(), "Europe:2".to_string()]
+        );
+    }
+
+    #[test]
+    fn eval_print_respects_ors_between_records() {
+        let lexer = Lexer::new(r#"BEGIN { OFS = ":"; ORS = "\n\n" } { print $1, $2 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(
+            program,
+            vec![
+                "USSR\t8649\t275\tAsia".to_string(),
+                "Canada\t3852\t25\tNorth America".to_string(),
+            ],
+        );
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec!["USSR:8649".to_string(), "".to_string(), "Canada:3852".to_string()]
         );
     }
 }
