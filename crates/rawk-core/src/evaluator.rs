@@ -1713,5 +1713,41 @@ mod tests {
 
         assert_eq!(output, vec!["a".to_string(), "b".to_string()]);
     }
+
+    #[test]
+    fn unescape_awk_string_handles_known_escapes() {
+        let input = r#"line1\nline2\t\"x\"\\done\r"#;
+
+        let output = unescape_awk_string(input);
+
+        assert_eq!(output, "line1\nline2\t\"x\"\\done\r");
+    }
+
+    #[test]
+    fn unescape_awk_string_preserves_unknown_escape_sequences() {
+        let input = r#"a\qb\zc"#;
+
+        let output = unescape_awk_string(input);
+
+        assert_eq!(output, r#"a\qb\zc"#);
+    }
+
+    #[test]
+    fn unescape_awk_string_keeps_trailing_backslash() {
+        let input = "abc\\";
+
+        let output = unescape_awk_string(input);
+
+        assert_eq!(output, "abc\\");
+    }
+
+    #[test]
+    fn unescape_awk_string_mixes_plain_and_escaped_text() {
+        let input = r#"A\tB\nC\\D\"E\q"#;
+
+        let output = unescape_awk_string(input);
+
+        assert_eq!(output, "A\tB\nC\\D\"E\\q");
+    }
 }
 
