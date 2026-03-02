@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/stefanalfbo/rawk/compare/v0.1.0...v0.2.0) - 2026-03-02
+
+### Other
+
+- Add expected output for t.3 test case
+- Add expected output for t.2 and update test data
+- Update test cases to enable t2x and t3, replacing t_test_ignore with t_test
+- Refactor evaluator to remove unnecessary empty part handling and update expected output files for consistency
+- Enable test case for t1x and update to use t_test macro
+- Update t_tests to enable test case for t1 and add expected output for t.1
+- Add expected output for t.0a and update test case to use t_test macro
+- Add test data and test cases for onetrueawk functionality
+- Add expected output files for various test cases in onetrueawk-testdata
+- Add various test scripts from one true awk repository
+- Add SplitAssignment and IfElse statements, enhance evaluator and parser, and introduce tests for table formatting
+
 ## [0.1.0](https://github.com/stefanalfbo/rawk/compare/v0.0.8...v0.1.0) - 2026-03-01
 
 ### Other
