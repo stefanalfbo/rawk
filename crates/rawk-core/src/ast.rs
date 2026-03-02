@@ -107,6 +107,11 @@ pub enum Statement<'a> {
         identifier: &'a str,
         value: Expression<'a>,
     },
+    SplitAssignment {
+        identifier: &'a str,
+        string: Expression<'a>,
+        array: &'a str,
+    },
     ArrayAssignment {
         identifier: &'a str,
         index: Expression<'a>,
@@ -134,6 +139,11 @@ pub enum Statement<'a> {
     If {
         condition: Expression<'a>,
         then_statements: Vec<Statement<'a>>,
+    },
+    IfElse {
+        condition: Expression<'a>,
+        then_statements: Vec<Statement<'a>>,
+        else_statements: Vec<Statement<'a>>,
     },
     While {
         condition: Expression<'a>,
@@ -287,6 +297,11 @@ impl<'a> fmt::Display for Statement<'a> {
                 replacement,
             } => write!(f, "gsub({}, {})", pattern, replacement),
             Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
+            Statement::SplitAssignment {
+                identifier,
+                string,
+                array,
+            } => write!(f, "{identifier} = split({string}, {array})"),
             Statement::ArrayAssignment {
                 identifier,
                 index,
@@ -313,6 +328,26 @@ impl<'a> fmt::Display for Statement<'a> {
                     .collect::<Vec<String>>()
                     .join("; ");
                 write!(f, "if ({condition}) {{ {rendered} }}")
+            }
+            Statement::IfElse {
+                condition,
+                then_statements,
+                else_statements,
+            } => {
+                let then_rendered = then_statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                let else_rendered = else_statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                write!(
+                    f,
+                    "if ({condition}) {{ {then_rendered} }} else {{ {else_rendered} }}"
+                )
             }
             Statement::While {
                 condition,
@@ -375,6 +410,15 @@ pub enum Expression<'a> {
         length: Option<Box<Expression<'a>>>,
     },
     Rand,
+    FunctionCall {
+        name: &'a str,
+        args: Vec<Expression<'a>>,
+    },
+    Ternary {
+        condition: Box<Expression<'a>>,
+        then_expr: Box<Expression<'a>>,
+        else_expr: Box<Expression<'a>>,
+    },
     Concatenation {
         left: Box<Expression<'a>>,
         right: Box<Expression<'a>>,
@@ -410,6 +454,19 @@ impl<'a> fmt::Display for Expression<'a> {
                 }
             }
             Expression::Rand => write!(f, "rand()"),
+            Expression::FunctionCall { name, args } => write!(
+                f,
+                "{name}({})",
+                args.iter()
+                    .map(|arg| arg.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Expression::Ternary {
+                condition,
+                then_expr,
+                else_expr,
+            } => write!(f, "({condition}) ? {then_expr} : {else_expr}"),
             Expression::Concatenation { left, right } => write!(f, "{} {}", left, right),
             Expression::Infix {
                 left,

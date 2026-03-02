@@ -20,6 +20,7 @@ pub struct Evaluator<'a> {
     argv: Vec<String>,
     pipe_outputs: HashMap<String, Vec<String>>,
     rng_state: Cell<u64>,
+    printf_buffer: String,
     exited: bool,
     has_output: bool,
 }
@@ -45,6 +46,7 @@ impl<'a> Evaluator<'a> {
             argv: vec!["rawk".to_string(), current_filename],
             pipe_outputs: HashMap::new(),
             rng_state: Cell::new(9),
+            printf_buffer: String::new(),
             exited: false,
             has_output: false,
         }
@@ -77,6 +79,10 @@ impl<'a> Evaluator<'a> {
         let end_rules: Vec<Rule<'a>> = self.program.end_blocks_iter().cloned().collect();
         for rule in end_rules.iter() {
             output_lines.extend(self.eval_end_rule(rule));
+        }
+
+        if !self.printf_buffer.is_empty() {
+            output_lines.push(std::mem::take(&mut self.printf_buffer));
         }
 
         output_lines.extend(self.flush_pipe_outputs());
@@ -197,12 +203,7 @@ impl<'a> Evaluator<'a> {
                 Vec::new()
             }
             Statement::Printf(expressions) => {
-                let line = self.eval_printf(expressions);
-                if line.is_empty() {
-                    Vec::new()
-                } else {
-                    line.split('\n').map(str::to_string).collect()
-                }
+                self.eval_printf_statement(expressions)
             }
             Statement::System(command) => {
                 self.eval_system(command);
@@ -217,6 +218,14 @@ impl<'a> Evaluator<'a> {
             }
             Statement::Assignment { identifier, value } => {
                 self.eval_assignment(identifier, value);
+                Vec::new()
+            }
+            Statement::SplitAssignment {
+                identifier,
+                string,
+                array,
+            } => {
+                self.eval_split_assignment(identifier, string, array);
                 Vec::new()
             }
             Statement::ArrayAssignment {
@@ -272,6 +281,22 @@ impl<'a> Evaluator<'a> {
                 } else {
                     Vec::new()
                 }
+            }
+            Statement::IfElse {
+                condition,
+                then_statements,
+                else_statements,
+            } => {
+                let branch = if self.eval_condition(condition) {
+                    then_statements
+                } else {
+                    else_statements
+                };
+                let mut output = Vec::new();
+                for statement in branch {
+                    output.extend(self.eval_statement(statement, input_line));
+                }
+                output
             }
             Statement::While {
                 condition,
@@ -356,11 +381,24 @@ impl<'a> Evaluator<'a> {
         let args: Vec<String> = expressions
             .iter()
             .skip(1)
-            .map(|expr| self.eval_expression(expr))
+            .map(|expr| unescape_awk_string(&self.eval_expression(expr)))
             .collect();
 
-        let rendered = expand_tabs(&format_printf(&format, &args));
-        rendered.trim_end().to_string()
+        expand_tabs(&format_printf(&format, &args))
+    }
+
+    fn eval_printf_statement(&mut self, expressions: &[Expression<'_>]) -> Vec<String> {
+        let rendered = self.eval_printf(expressions);
+        if rendered.is_empty() {
+            return Vec::new();
+        }
+        self.printf_buffer.push_str(&rendered);
+        let mut output = Vec::new();
+        while let Some(index) = self.printf_buffer.find('\n') {
+            output.push(self.printf_buffer[..index].trim_end().to_string());
+            self.printf_buffer = self.printf_buffer[index + 1..].to_string();
+        }
+        output
     }
 
     fn eval_print_redirect(
@@ -386,7 +424,9 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
-        let assigned_value = if let Expression::Infix {
+        let assigned_value = if let Expression::String(value) = value {
+            unescape_awk_string(value)
+        } else if let Expression::Infix {
             left,
             operator,
             right,
@@ -443,6 +483,24 @@ impl<'a> Evaluator<'a> {
             .insert(key, (current + increment).to_string());
     }
 
+    fn eval_split_assignment(
+        &mut self,
+        identifier: &str,
+        string: &Expression<'_>,
+        array: &str,
+    ) {
+        let source = self.eval_expression(string);
+        let fields = self.split_fields(&source);
+        let prefix = format!("{array}\u{1f}");
+        self.array_variables.retain(|key, _| !key.starts_with(&prefix));
+        for (idx, value) in fields.iter().enumerate() {
+            let key = format!("{array}\u{1f}{}", idx + 1);
+            self.array_variables.insert(key, value.clone());
+        }
+        self.variables
+            .insert(identifier.to_string(), fields.len().to_string());
+    }
+
     fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
         let line = match self.current_line.as_ref() {
             Some(value) => value.clone(),
@@ -468,7 +526,9 @@ impl<'a> Evaluator<'a> {
             _ => return self.eval_expression(right),
         };
 
-        let assigned_value = if let Expression::Infix {
+        let assigned_value = if let Expression::String(value) = right {
+            unescape_awk_string(value)
+        } else if let Expression::Infix {
             left: nested_left,
             operator: nested_operator,
             right: nested_right,
@@ -595,6 +655,18 @@ impl<'a> Evaluator<'a> {
                 length,
             } => self.eval_substr_expression(string, start, length.as_deref()),
             Expression::Rand => format_awk_number(self.eval_rand()),
+            Expression::FunctionCall { name, args } => self.eval_function_call(name, args),
+            Expression::Ternary {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                if self.eval_condition(condition) {
+                    self.eval_expression(then_expr)
+                } else {
+                    self.eval_expression(else_expr)
+                }
+            }
             Expression::Concatenation { left, right } => {
                 let mut value = self.eval_expression(left);
                 value.push_str(&self.eval_expression(right));
@@ -741,6 +813,58 @@ impl<'a> Evaluator<'a> {
         (next as f64) / 2_147_483_648.0
     }
 
+    fn eval_function_call(&self, name: &str, args: &[Expression<'_>]) -> String {
+        match name {
+            "sprintf" => {
+                if args.is_empty() {
+                    return String::new();
+                }
+                let format = unescape_awk_string(&self.eval_expression(&args[0]));
+                let values: Vec<String> = args
+                    .iter()
+                    .skip(1)
+                    .map(|arg| self.eval_expression(arg))
+                    .collect();
+                format_printf(&format, &values)
+            }
+            "max" => {
+                let left = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                let right = args
+                    .get(1)
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(left.max(right))
+            }
+            "numjust" => {
+                let n = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0) as i64;
+                let s = args
+                    .get(1)
+                    .map(|arg| self.eval_expression(arg))
+                    .unwrap_or_default();
+                let index_expr = Expression::Number(n as f64);
+                let wid = self
+                    .eval_array_access("wid", &index_expr)
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                let nwid = self
+                    .eval_array_access("nwid", &index_expr)
+                    .parse::<f64>()
+                    .unwrap_or(0.0);
+                let pad = ((wid - nwid) / 2.0).trunc().max(0.0) as usize;
+                let blanks = self.eval_identifier_expression("blanks");
+                let suffix: String = blanks.chars().take(pad).collect();
+                format!("{s}{suffix}")
+            }
+            _ => "0".to_string(),
+        }
+    }
+
     fn split_fields(&self, line: &str) -> Vec<String> {
         if self.field_separator == " " {
             line.split_whitespace().map(str::to_string).collect()
@@ -798,6 +922,18 @@ impl<'a> Evaluator<'a> {
                 .parse::<f64>()
                 .ok(),
             Expression::Rand => Some(self.eval_rand()),
+            Expression::FunctionCall { name, args } => self.eval_function_call(name, args).parse().ok(),
+            Expression::Ternary {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                if self.eval_condition(condition) {
+                    self.eval_numeric_expression(then_expr)
+                } else {
+                    self.eval_numeric_expression(else_expr)
+                }
+            }
             Expression::Concatenation { left, right } => {
                 let mut value = self.eval_expression(left);
                 value.push_str(&self.eval_expression(right));

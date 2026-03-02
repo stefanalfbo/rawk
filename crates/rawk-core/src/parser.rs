@@ -217,6 +217,9 @@ impl<'a> Parser<'a> {
         }
         if self.current_token.kind == TokenKind::Assign {
             self.next_token();
+            if self.current_token.kind == TokenKind::Split {
+                return self.parse_split_assignment_statement(identifier);
+            }
             let value = self.parse_expression();
             Statement::Assignment { identifier, value }
         } else if self.current_token.kind == TokenKind::Increment {
@@ -252,6 +255,33 @@ impl<'a> Parser<'a> {
         let identifier = self.current_token.literal;
         self.next_token();
         Statement::PreDecrement { identifier }
+    }
+
+    fn parse_split_assignment_statement(&mut self, identifier: &'a str) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token_with_regex(true);
+        let string = self.parse_expression();
+        if self.current_token.kind != TokenKind::Comma {
+            todo!()
+        }
+        self.next_token();
+        if self.current_token.kind != TokenKind::Identifier {
+            todo!()
+        }
+        let array = self.current_token.literal;
+        self.next_token();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+        Statement::SplitAssignment {
+            identifier,
+            string,
+            array,
+        }
     }
 
     fn parse_field_assignment_statement(&mut self) -> Statement<'a> {
@@ -295,6 +325,32 @@ impl<'a> Parser<'a> {
         } else {
             vec![self.parse_statement()]
         };
+
+        while self.current_token.kind == TokenKind::NewLine
+            || self.current_token.kind == TokenKind::Semicolon
+        {
+            self.next_token();
+        }
+
+        if self.current_token.kind == TokenKind::Else {
+            self.next_token();
+            while self.current_token.kind == TokenKind::NewLine
+                || self.current_token.kind == TokenKind::Semicolon
+            {
+                self.next_token();
+            }
+            let else_statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
+                self.parse_statement_block()
+            } else {
+                vec![self.parse_statement()]
+            };
+            return Statement::IfElse {
+                condition,
+                then_statements,
+                else_statements,
+            };
+        }
+
         Statement::If {
             condition,
             then_statements,
@@ -494,7 +550,26 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_printf_function(&mut self) -> Statement<'a> {
-        let expressions = self.parse_expression_list_until_action_end();
+        self.next_token();
+        let expressions = if self.current_token.kind == TokenKind::LeftParen {
+            self.next_token_with_regex(true);
+            let mut expressions = Vec::new();
+            while self.current_token.kind != TokenKind::RightParen
+                && self.current_token.kind != TokenKind::Eof
+            {
+                if self.current_token.kind == TokenKind::Comma {
+                    self.next_token();
+                    continue;
+                }
+                expressions.push(self.parse_expression());
+            }
+            if self.current_token.kind == TokenKind::RightParen {
+                self.next_token();
+            }
+            expressions
+        } else {
+            self.parse_expression_list_until_action_end_from_current()
+        };
 
         Statement::Printf(expressions)
     }
@@ -543,10 +618,9 @@ impl<'a> Parser<'a> {
         Statement::System(command)
     }
 
-    fn parse_expression_list_until_action_end(&mut self) -> Vec<Expression<'a>> {
+    fn parse_expression_list_until_action_end_from_current(&mut self) -> Vec<Expression<'a>> {
         let mut expressions = Vec::new();
         let mut expect_more = false;
-        self.next_token();
 
         loop {
             if self.current_token.kind == TokenKind::RightCurlyBrace
@@ -589,6 +663,25 @@ impl<'a> Parser<'a> {
         let mut left = self.parse_primary_expression();
 
         loop {
+            if self.current_token.kind == TokenKind::QuestionMark {
+                if min_precedence > 0 {
+                    break;
+                }
+                self.next_token_with_regex(true);
+                let then_expr = self.parse_expression_with_min_precedence(0);
+                if self.current_token.kind != TokenKind::Colon {
+                    todo!()
+                }
+                self.next_token_with_regex(true);
+                let else_expr = self.parse_expression_with_min_precedence(0);
+                left = Expression::Ternary {
+                    condition: Box::new(left),
+                    then_expr: Box::new(then_expr),
+                    else_expr: Box::new(else_expr),
+                };
+                continue;
+            }
+
             if infix_operator_precedence(&self.current_token.kind).is_none()
                 && is_expression_start(&self.current_token.kind)
             {
@@ -673,8 +766,11 @@ impl<'a> Parser<'a> {
                 let identifier = self.current_token.literal;
                 self.next_token();
                 if self.current_token.kind == TokenKind::LeftParen {
-                    self.consume_call_arguments();
-                    return Expression::Number(0.0);
+                    let args = self.parse_call_arguments();
+                    return Expression::FunctionCall {
+                        name: identifier,
+                        args,
+                    };
                 }
                 if self.current_token.kind == TokenKind::LeftSquareBracket {
                     self.next_token_with_regex(true);
@@ -748,8 +844,20 @@ impl<'a> Parser<'a> {
                 }
                 Expression::Rand
             }
+            TokenKind::Sprintf | TokenKind::Split => {
+                let name = self.current_token.literal;
+                self.next_token();
+                if self.current_token.kind == TokenKind::LeftParen {
+                    let args = self.parse_call_arguments();
+                    return Expression::FunctionCall { name, args };
+                }
+                Expression::Number(0.0)
+            }
             _ => {
-                todo!()
+                panic!(
+                    "parse_primary_expression not yet implemented, found token: {:?}",
+                    self.current_token
+                )
             }
         }
     }
@@ -770,26 +878,25 @@ impl<'a> Parser<'a> {
         program
     }
 
-    fn consume_call_arguments(&mut self) {
+    fn parse_call_arguments(&mut self) -> Vec<Expression<'a>> {
         if self.current_token.kind != TokenKind::LeftParen {
-            return;
+            return vec![];
         }
-        let mut depth = 0usize;
-        loop {
-            if self.current_token.kind == TokenKind::Eof {
-                break;
+        self.next_token_with_regex(true);
+        let mut args = Vec::new();
+        while self.current_token.kind != TokenKind::RightParen
+            && self.current_token.kind != TokenKind::Eof
+        {
+            if self.current_token.kind == TokenKind::Comma {
+                self.next_token();
+                continue;
             }
-            if self.current_token.kind == TokenKind::LeftParen {
-                depth += 1;
-            } else if self.current_token.kind == TokenKind::RightParen {
-                depth -= 1;
-                if depth == 0 {
-                    self.next_token();
-                    break;
-                }
-            }
-            self.next_token_with_regex(true);
+            args.push(self.parse_expression());
         }
+        if self.current_token.kind == TokenKind::RightParen {
+            self.next_token();
+        }
+        args
     }
 }
 
@@ -824,6 +931,8 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::Identifier
             | TokenKind::Length
             | TokenKind::Rand
+            | TokenKind::Sprintf
+            | TokenKind::Split
             | TokenKind::Substr
     )
 }

@@ -79,3 +79,4 @@ p_test!(p49, "49");
 p_test!(p50, "50");
 p_test!(p51, "51");
 p_test!(p52, "52");
+p_test!(p_table, "table");
