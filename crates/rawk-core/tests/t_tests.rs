@@ -38,7 +38,7 @@ macro_rules! t_test_ignore {
 }
 
 t_test!(t0, "0");
-t_test_ignore!(t0a, "0a");
+t_test!(t0a, "0a");
 t_test_ignore!(t1, "1");
 t_test_ignore!(t1x, "1.x");
 t_test_ignore!(t2, "2");
