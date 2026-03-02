@@ -363,11 +363,6 @@ impl<'a> Evaluator<'a> {
             .iter()
             .map(|expr| self.eval_expression(expr))
             .collect::<Vec<String>>();
-        let last_non_empty = parts.iter().rposition(|part| !part.is_empty());
-        let parts = match last_non_empty {
-            Some(index) => &parts[..=index],
-            None => &parts[..0],
-        };
         parts.join(&self.output_field_separator)
     }
 
