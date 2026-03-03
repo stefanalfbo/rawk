@@ -70,7 +70,9 @@ impl<'a> Parser<'a> {
             | TokenKind::LeftParen
             | TokenKind::Identifier
             | TokenKind::Length
-            | TokenKind::Rand => self.parse_pattern_rule(),
+            | TokenKind::Rand
+            | TokenKind::Increment
+            | TokenKind::Decrement => self.parse_pattern_rule(),
             _ => panic!(
                 "parse_next_rule not yet implemented, found token: {:?}",
                 self.current_token
@@ -729,6 +731,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary_expression(&mut self) -> Expression<'a> {
+        if self.current_token.kind == TokenKind::Increment {
+            self.next_token();
+            let expression = self.parse_primary_expression();
+            return Expression::PreIncrement(Box::new(expression));
+        }
+        if self.current_token.kind == TokenKind::Decrement {
+            self.next_token();
+            let expression = self.parse_primary_expression();
+            return Expression::PreDecrement(Box::new(expression));
+        }
+
+        let mut expression = self.parse_primary_atom();
+        if self.current_token.kind == TokenKind::Increment {
+            self.next_token();
+            expression = Expression::PostIncrement(Box::new(expression));
+        } else if self.current_token.kind == TokenKind::Decrement {
+            self.next_token();
+            expression = Expression::PostDecrement(Box::new(expression));
+        }
+        expression
+    }
+
+    fn parse_primary_atom(&mut self) -> Expression<'a> {
         match self.current_token.kind {
             TokenKind::String => {
                 let expression = Expression::String(self.current_token.literal);
@@ -751,7 +776,7 @@ impl<'a> Parser<'a> {
             }
             TokenKind::DollarSign => {
                 self.next_token();
-                let expression = self.parse_primary_expression();
+                let expression = self.parse_primary_atom();
                 Expression::Field(Box::new(expression))
             }
             TokenKind::LeftParen => {
@@ -934,6 +959,8 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::Sprintf
             | TokenKind::Split
             | TokenKind::Substr
+            | TokenKind::Increment
+            | TokenKind::Decrement
     )
 }
 

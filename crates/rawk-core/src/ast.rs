@@ -414,6 +414,10 @@ pub enum Expression<'a> {
         name: &'a str,
         args: Vec<Expression<'a>>,
     },
+    PreIncrement(Box<Expression<'a>>),
+    PreDecrement(Box<Expression<'a>>),
+    PostIncrement(Box<Expression<'a>>),
+    PostDecrement(Box<Expression<'a>>),
     Ternary {
         condition: Box<Expression<'a>>,
         then_expr: Box<Expression<'a>>,
@@ -462,6 +466,10 @@ impl<'a> fmt::Display for Expression<'a> {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Expression::PreIncrement(expr) => write!(f, "++{expr}"),
+            Expression::PreDecrement(expr) => write!(f, "--{expr}"),
+            Expression::PostIncrement(expr) => write!(f, "{expr}++"),
+            Expression::PostDecrement(expr) => write!(f, "{expr}--"),
             Expression::Ternary {
                 condition,
                 then_expr,

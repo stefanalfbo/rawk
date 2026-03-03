@@ -126,7 +126,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_pattern_condition(
-        &self,
+        &mut self,
         expression: &Expression<'_>,
         range_active: &mut bool,
     ) -> bool {
@@ -349,7 +349,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_print(&self, expressions: &[Expression<'_>], input_line: Option<&str>) -> String {
+    fn eval_print(&mut self, expressions: &[Expression<'_>], input_line: Option<&str>) -> String {
         if expressions.is_empty() {
             return self
                 .current_line
@@ -366,7 +366,7 @@ impl<'a> Evaluator<'a> {
         parts.join(&self.output_field_separator)
     }
 
-    fn eval_printf(&self, expressions: &[Expression<'_>]) -> String {
+    fn eval_printf(&mut self, expressions: &[Expression<'_>]) -> String {
         if expressions.is_empty() {
             return String::new();
         }
@@ -397,7 +397,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_print_redirect(
-        &self,
+        &mut self,
         expressions: &[Expression<'_>],
         target: &Expression<'_>,
         _append: bool,
@@ -497,13 +497,22 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
+        let assigned_value = self.eval_expression(value);
+        self.assign_field(field, assigned_value);
+    }
+
+    fn assign_field(&mut self, field: &Expression<'_>, value: String) {
         let line = match self.current_line.as_ref() {
             Some(value) => value.clone(),
             None => return,
         };
 
         let index = self.eval_numeric_expression(field).unwrap_or(0.0) as i64;
-        if index <= 0 {
+        if index == 0 {
+            self.current_line = Some(value);
+            return;
+        }
+        if index < 0 {
             return;
         }
 
@@ -511,7 +520,7 @@ impl<'a> Evaluator<'a> {
         while fields.len() < index as usize {
             fields.push(String::new());
         }
-        fields[(index - 1) as usize] = self.eval_expression(value);
+        fields[(index - 1) as usize] = value;
         self.current_line = Some(fields.join(&self.output_field_separator));
     }
 
@@ -579,37 +588,25 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_pre_increment(&mut self, identifier: &str) {
-        let current = self
-            .eval_identifier_expression(identifier)
-            .parse::<f64>()
-            .unwrap_or(0.0);
+        let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
         self.variables
             .insert(identifier.to_string(), (current + 1.0).to_string());
     }
 
     fn eval_pre_decrement(&mut self, identifier: &str) {
-        let current = self
-            .eval_identifier_expression(identifier)
-            .parse::<f64>()
-            .unwrap_or(0.0);
+        let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
         self.variables
             .insert(identifier.to_string(), (current - 1.0).to_string());
     }
 
     fn eval_post_increment(&mut self, identifier: &str) {
-        let current = self
-            .eval_identifier_expression(identifier)
-            .parse::<f64>()
-            .unwrap_or(0.0);
+        let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
         self.variables
             .insert(identifier.to_string(), (current + 1.0).to_string());
     }
 
     fn eval_post_decrement(&mut self, identifier: &str) {
-        let current = self
-            .eval_identifier_expression(identifier)
-            .parse::<f64>()
-            .unwrap_or(0.0);
+        let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
         self.variables
             .insert(identifier.to_string(), (current - 1.0).to_string());
     }
@@ -629,11 +626,11 @@ impl<'a> Evaluator<'a> {
         self.current_line = Some(replaced);
     }
 
-    fn eval_system(&self, command: &Expression<'_>) {
+    fn eval_system(&mut self, command: &Expression<'_>) {
         let _command = self.eval_expression(command);
     }
 
-    fn eval_expression(&self, expression: &Expression) -> String {
+    fn eval_expression(&mut self, expression: &Expression) -> String {
         match expression {
             Expression::String(value) => value.to_string(),
             Expression::Number(value) => format_awk_number(*value),
@@ -651,6 +648,18 @@ impl<'a> Evaluator<'a> {
             } => self.eval_substr_expression(string, start, length.as_deref()),
             Expression::Rand => format_awk_number(self.eval_rand()),
             Expression::FunctionCall { name, args } => self.eval_function_call(name, args),
+            Expression::PreIncrement(target) => {
+                self.eval_increment_expression(target, 1.0, true)
+            }
+            Expression::PreDecrement(target) => {
+                self.eval_increment_expression(target, -1.0, true)
+            }
+            Expression::PostIncrement(target) => {
+                self.eval_increment_expression(target, 1.0, false)
+            }
+            Expression::PostDecrement(target) => {
+                self.eval_increment_expression(target, -1.0, false)
+            }
             Expression::Ternary {
                 condition,
                 then_expr,
@@ -675,6 +684,38 @@ impl<'a> Evaluator<'a> {
                 .eval_numeric_infix(left, operator, right)
                 .map(format_awk_number)
                 .unwrap_or_else(|| "not implemented".to_string()),
+        }
+    }
+
+    fn eval_increment_expression(
+        &mut self,
+        target: &Expression<'_>,
+        delta: f64,
+        return_new: bool,
+    ) -> String {
+        match target {
+            Expression::Identifier(identifier) => {
+                let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
+                let updated = format_awk_number(current + delta);
+                self.set_special_variable(identifier, &updated);
+                self.variables.insert(identifier.to_string(), updated.clone());
+                if return_new {
+                    updated
+                } else {
+                    format_awk_number(current)
+                }
+            }
+            Expression::Field(field) => {
+                let current = parse_awk_numeric(&self.eval_field_expression(field));
+                let updated = format_awk_number(current + delta);
+                self.assign_field(field, updated.clone());
+                if return_new {
+                    updated
+                } else {
+                    format_awk_number(current)
+                }
+            }
+            _ => "0".to_string(),
         }
     }
 
@@ -704,11 +745,11 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn array_key(&self, identifier: &str, index: &Expression<'_>) -> String {
+    fn array_key(&mut self, identifier: &str, index: &Expression<'_>) -> String {
         format!("{identifier}\u{1f}{}", self.eval_expression(index))
     }
 
-    fn eval_array_access(&self, identifier: &str, index: &Expression<'_>) -> String {
+    fn eval_array_access(&mut self, identifier: &str, index: &Expression<'_>) -> String {
         if identifier == "ARGV" {
             let idx = self.eval_numeric_expression(index).unwrap_or(0.0) as isize;
             if idx < 0 {
@@ -717,10 +758,8 @@ impl<'a> Evaluator<'a> {
             return self.argv.get(idx as usize).cloned().unwrap_or_default();
         }
 
-        self.array_variables
-            .get(&self.array_key(identifier, index))
-            .cloned()
-            .unwrap_or_default()
+        let key = self.array_key(identifier, index);
+        self.array_variables.get(&key).cloned().unwrap_or_default()
     }
 
     fn array_keys(&self, identifier: &str) -> Vec<String> {
@@ -731,14 +770,14 @@ impl<'a> Evaluator<'a> {
             .collect()
     }
 
-    fn eval_field_expression(&self, expression: &Expression<'_>) -> String {
-        let line = match self.current_line.as_deref() {
-            Some(value) => value,
+    fn eval_field_expression(&mut self, expression: &Expression<'_>) -> String {
+        let index = match self.eval_numeric_expression(expression) {
+            Some(value) => value as i64,
             None => return String::new(),
         };
 
-        let index = match self.eval_numeric_expression(expression) {
-            Some(value) => value as i64,
+        let line = match self.current_line.as_deref() {
+            Some(value) => value,
             None => return String::new(),
         };
 
@@ -756,7 +795,7 @@ impl<'a> Evaluator<'a> {
             .unwrap_or_default()
     }
 
-    fn eval_length_expression(&self, expression: Option<&Expression<'_>>) -> String {
+    fn eval_length_expression(&mut self, expression: Option<&Expression<'_>>) -> String {
         let value = match expression {
             Some(expr) => self.eval_expression(expr),
             None => self.current_line.clone().unwrap_or_default(),
@@ -765,7 +804,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_substr_expression(
-        &self,
+        &mut self,
         string: &Expression<'_>,
         start: &Expression<'_>,
         length: Option<&Expression<'_>>,
@@ -808,7 +847,7 @@ impl<'a> Evaluator<'a> {
         (next as f64) / 2_147_483_648.0
     }
 
-    fn eval_function_call(&self, name: &str, args: &[Expression<'_>]) -> String {
+    fn eval_function_call(&mut self, name: &str, args: &[Expression<'_>]) -> String {
         match name {
             "sprintf" => {
                 if args.is_empty() {
@@ -871,7 +910,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_numeric_infix(
-        &self,
+        &mut self,
         left: &Expression<'_>,
         operator: &crate::token::Token<'_>,
         right: &Expression<'_>,
@@ -898,7 +937,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_numeric_expression(&self, expression: &Expression<'_>) -> Option<f64> {
+    fn eval_numeric_expression(&mut self, expression: &Expression<'_>) -> Option<f64> {
         match expression {
             Expression::Number(value) => Some(*value),
             Expression::Identifier(identifier) => self
@@ -918,6 +957,10 @@ impl<'a> Evaluator<'a> {
                 .ok(),
             Expression::Rand => Some(self.eval_rand()),
             Expression::FunctionCall { name, args } => self.eval_function_call(name, args).parse().ok(),
+            Expression::PreIncrement(_)
+            | Expression::PreDecrement(_)
+            | Expression::PostIncrement(_)
+            | Expression::PostDecrement(_) => self.eval_expression(expression).parse::<f64>().ok(),
             Expression::Ternary {
                 condition,
                 then_expr,
@@ -943,7 +986,7 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_condition(&self, expression: &Expression<'_>) -> bool {
+    fn eval_condition(&mut self, expression: &Expression<'_>) -> bool {
         if let Expression::Regex(pattern) = expression {
             return self
                 .current_line
@@ -977,7 +1020,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_comparison(
-        &self,
+        &mut self,
         left: &Expression<'_>,
         operator: TokenKind,
         right: &Expression<'_>,
@@ -1024,7 +1067,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_regex_match(
-        &self,
+        &mut self,
         left: &Expression<'_>,
         operator: TokenKind,
         right: &Expression<'_>,
@@ -1048,7 +1091,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_logical(
-        &self,
+        &mut self,
         left: &Expression<'_>,
         operator: TokenKind,
         right: &Expression<'_>,
@@ -1323,6 +1366,41 @@ fn expand_tabs_with_tabstop(input: &str, tabstop: usize) -> String {
     }
 
     output
+}
+
+fn parse_awk_numeric(input: &str) -> f64 {
+    let s = input.trim_start();
+    if s.is_empty() {
+        return 0.0;
+    }
+
+    let mut end = 0usize;
+    let mut seen_digit = false;
+    let mut seen_dot = false;
+
+    for (idx, ch) in s.char_indices() {
+        if ch.is_ascii_digit() {
+            seen_digit = true;
+            end = idx + ch.len_utf8();
+            continue;
+        }
+        if (ch == '+' || ch == '-') && idx == 0 {
+            end = idx + ch.len_utf8();
+            continue;
+        }
+        if ch == '.' && !seen_dot {
+            seen_dot = true;
+            end = idx + ch.len_utf8();
+            continue;
+        }
+        break;
+    }
+
+    if !seen_digit {
+        return 0.0;
+    }
+
+    s[..end].parse::<f64>().unwrap_or(0.0)
 }
 
 fn format_awk_number(value: f64) -> String {
