@@ -1042,17 +1042,13 @@ impl<'a> Evaluator<'a> {
     fn eval_numeric_expression(&mut self, expression: &Expression<'_>) -> Option<f64> {
         match expression {
             Expression::Number(value) => Some(*value),
-            Expression::Identifier(identifier) => self
-                .eval_identifier_expression(identifier)
-                .parse::<f64>()
-                .ok()
-                .or(Some(0.0)),
-            Expression::ArrayAccess { identifier, index } => self
-                .eval_array_access(identifier, index)
-                .parse::<f64>()
-                .ok()
-                .or(Some(0.0)),
-            Expression::Field(inner) => self.eval_field_expression(inner).parse::<f64>().ok(),
+            Expression::Identifier(identifier) => {
+                Some(parse_awk_numeric(&self.eval_identifier_expression(identifier)))
+            }
+            Expression::ArrayAccess { identifier, index } => {
+                Some(parse_awk_numeric(&self.eval_array_access(identifier, index)))
+            }
+            Expression::Field(inner) => Some(parse_awk_numeric(&self.eval_field_expression(inner))),
             Expression::Length(expression) => self
                 .eval_length_expression(expression.as_deref())
                 .parse::<f64>()
