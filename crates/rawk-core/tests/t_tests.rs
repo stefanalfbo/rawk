@@ -45,7 +45,7 @@ t_test!(t2, "2");
 t_test!(t2x, "2.x");
 t_test!(t3, "3");
 t_test_ignore!(t3x, "3.x");
-t_test_ignore!(t4, "4");
+t_test!(t4, "4");
 t_test_ignore!(t4x, "4.x");
 t_test_ignore!(t5x, "5.x");
 t_test_ignore!(t6, "6");
