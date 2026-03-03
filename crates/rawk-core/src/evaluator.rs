@@ -3,6 +3,7 @@ use crate::{
     ast::{Expression, Statement},
     token::TokenKind,
 };
+use regex::Regex;
 use std::collections::HashMap;
 use std::cell::Cell;
 
@@ -1179,12 +1180,13 @@ impl<'a> Evaluator<'a> {
         }
 
         let haystack = self.eval_expression(left);
-        let needle = match right {
-            Expression::Regex(pattern) => pattern.to_string(),
-            _ => self.eval_expression(right),
+        let matches = match right {
+            Expression::Regex(pattern) => awk_regex_matches(&haystack, pattern),
+            _ => {
+                let needle = self.eval_expression(right);
+                awk_regex_matches_legacy(&haystack, &needle)
+            }
         };
-
-        let matches = awk_regex_matches(&haystack, &needle);
         Some(if operator == TokenKind::NoMatch {
             !matches
         } else {
@@ -1219,6 +1221,14 @@ impl<'a> Evaluator<'a> {
 }
 
 fn awk_regex_matches(text: &str, pattern: &str) -> bool {
+    if let Ok(re) = Regex::new(pattern) {
+        return re.is_match(text);
+    }
+
+    awk_regex_matches_legacy(text, pattern)
+}
+
+fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
     let anchored_start = pattern.starts_with('^');
     let anchored_end = pattern.ends_with('$');
     let mut core = pattern;
