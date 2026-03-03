@@ -145,7 +145,7 @@ t_test_ignore!(tmod, "mod");
 t_test_ignore!(tmonotone, "monotone");
 t_test_ignore!(tnameval, "nameval");
 t_test_ignore!(tnext, "next");
-t_test_ignore!(tnf, "NF");
+t_test!(tnf, "NF");
 t_test_ignore!(tnot, "not");
 t_test_ignore!(tnull0, "null0");
 t_test_ignore!(tofmt, "ofmt");

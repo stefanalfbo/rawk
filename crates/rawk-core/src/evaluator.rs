@@ -79,6 +79,7 @@ impl<'a> Evaluator<'a> {
                 // Rules are evaluated against the original record text for this
                 // interpreter's current semantics.
                 self.current_line = Some(input_line.clone());
+                self.variables.remove("NF");
                 output_lines.extend(self.eval_rule_for_line(
                     rule,
                     input_line,
@@ -543,11 +544,13 @@ impl<'a> Evaluator<'a> {
             return;
         }
 
-        let mut fields = self.split_fields(&line);
+        let mut fields = self.split_line_into_fields(&line);
         while fields.len() < index as usize {
             fields.push(String::new());
         }
         fields[(index - 1) as usize] = value;
+        self.variables
+            .insert("NF".to_string(), fields.len().to_string());
         self.current_line = Some(fields.join(&self.output_field_separator));
     }
 
@@ -587,7 +590,30 @@ impl<'a> Evaluator<'a> {
             self.output_field_separator = unescape_awk_string(value);
         } else if identifier == "ORS" {
             self.output_record_separator = unescape_awk_string(value);
+        } else if identifier == "NF" {
+            self.set_number_of_fields(value);
         }
+    }
+
+    fn set_number_of_fields(&mut self, value: &str) {
+        let line = match self.current_line.as_ref() {
+            Some(value) => value.clone(),
+            None => return,
+        };
+
+        let target_nf = parse_awk_numeric(value).trunc().max(0.0) as usize;
+        let mut fields = self.split_fields(&line);
+        if fields.len() > target_nf {
+            fields.truncate(target_nf);
+        } else {
+            while fields.len() < target_nf {
+                fields.push(String::new());
+            }
+        }
+
+        self.current_line = Some(fields.join(&self.output_field_separator));
+        self.variables
+            .insert("NF".to_string(), target_nf.to_string());
     }
 
     fn ors_between_records(&self) -> Vec<String> {
@@ -749,12 +775,15 @@ impl<'a> Evaluator<'a> {
     fn eval_identifier_expression(&self, identifier: &str) -> String {
         match identifier {
             "NF" => {
+                if let Some(value) = self.variables.get("NF") {
+                    return value.clone();
+                }
                 let line = match self.current_line.as_deref() {
                     Some(value) => value,
                     None => return "0".to_string(),
                 };
 
-                let field_count = self.split_fields(line).len();
+                let field_count = self.split_line_into_fields(line).len();
                 field_count.to_string()
             }
             "NR" => match self.current_line.as_ref() {
@@ -816,7 +845,7 @@ impl<'a> Evaluator<'a> {
             return String::new();
         }
 
-        self.split_fields(line)
+        self.split_line_into_fields(line)
             .into_iter()
             .nth((index - 1) as usize)
             .unwrap_or_default()
@@ -934,6 +963,19 @@ impl<'a> Evaluator<'a> {
                 .map(str::to_string)
                 .collect()
         }
+    }
+
+    fn split_line_into_fields(&self, line: &str) -> Vec<String> {
+        if self.variables.contains_key("NF")
+            && !self.output_field_separator.is_empty()
+            && line.contains(&self.output_field_separator)
+        {
+            return line
+                .split(&self.output_field_separator)
+                .map(str::to_string)
+                .collect();
+        }
+        self.split_fields(line)
     }
 
     fn eval_numeric_infix(
