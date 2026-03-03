@@ -470,10 +470,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_add_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
-        let current = self
-            .eval_identifier_expression(identifier)
-            .parse::<f64>()
-            .unwrap_or(0.0);
+        let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
         let increment = self.eval_numeric_expression(value).unwrap_or(0.0);
         self.variables
             .insert(identifier.to_string(), (current + increment).to_string());
@@ -500,7 +497,7 @@ impl<'a> Evaluator<'a> {
         let current = self
             .array_variables
             .get(&key)
-            .and_then(|value| value.parse::<f64>().ok())
+            .map(|value| parse_awk_numeric(value))
             .unwrap_or(0.0);
         let increment = self.eval_numeric_expression(value).unwrap_or(0.0);
         self.array_variables
@@ -951,6 +948,13 @@ impl<'a> Evaluator<'a> {
                 let blanks = self.eval_identifier_expression("blanks");
                 let suffix: String = blanks.chars().take(pad).collect();
                 format!("{s}{suffix}")
+            }
+            "sqrt" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(value.sqrt())
             }
             _ => "0".to_string(),
         }

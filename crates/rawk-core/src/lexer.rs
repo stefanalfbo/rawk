@@ -65,7 +65,16 @@ impl<'a> Lexer<'a> {
                 }
             }
             Some(b'*') => {
-                if self.peek_char() == Some(b'=') {
+                if self.peek_char() == Some(b'*') {
+                    if self.peek_next_char() == Some(b'=') {
+                        self.read_char();
+                        self.read_char();
+                        Token::new(TokenKind::PowerAssign, "**=", start)
+                    } else {
+                        self.read_char();
+                        Token::new(TokenKind::Caret, "**", start)
+                    }
+                } else if self.peek_char() == Some(b'=') {
                     self.read_char();
                     Token::new(TokenKind::MultiplyAssign, "*=", start)
                 } else {
@@ -607,7 +616,7 @@ mod tests {
 
     #[test]
     fn next_two_character_token() {
-        let input = "+= -= *= /= %= ^= || && !~ == <= >= != ++ -- >>";
+        let input = "+= -= *= /= %= ^= **= ** || && !~ == <= >= != ++ -- >>";
         let mut lexer = Lexer::new(input);
 
         let expected_tokens = vec![
@@ -617,6 +626,8 @@ mod tests {
             (TokenKind::DivideAssign, "/="),
             (TokenKind::ModuloAssign, "%="),
             (TokenKind::PowerAssign, "^="),
+            (TokenKind::PowerAssign, "**="),
+            (TokenKind::Caret, "**"),
             (TokenKind::Or, "||"),
             (TokenKind::And, "&&"),
             (TokenKind::NoMatch, "!~"),

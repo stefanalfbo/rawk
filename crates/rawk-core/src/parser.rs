@@ -915,7 +915,7 @@ impl<'a> Parser<'a> {
                 }
                 Expression::Rand
             }
-            TokenKind::Sprintf | TokenKind::Split => {
+            TokenKind::Sprintf | TokenKind::Split | TokenKind::Sqrt => {
                 let name = self.current_token.literal;
                 self.next_token();
                 if self.current_token.kind == TokenKind::LeftParen {
@@ -1010,6 +1010,7 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::Rand
             | TokenKind::Sprintf
             | TokenKind::Split
+            | TokenKind::Sqrt
             | TokenKind::Substr
             | TokenKind::Increment
             | TokenKind::Decrement

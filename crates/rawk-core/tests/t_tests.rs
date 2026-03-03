@@ -55,7 +55,7 @@ t_test!(t6b, "6b");
 t_test!(t8x, "8.x");
 t_test!(t8y, "8.y");
 t_test!(ta, "a");
-t_test_ignore!(taddops, "addops");
+t_test!(taddops, "addops");
 t_test_ignore!(taeiou, "aeiou");
 t_test_ignore!(taeiouy, "aeiouy");
 t_test_ignore!(tarith, "arith");
