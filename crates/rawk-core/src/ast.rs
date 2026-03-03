@@ -87,6 +87,7 @@ impl<'a> fmt::Display for Program<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'a> {
+    Empty,
     Print(Vec<Expression<'a>>),
     PrintRedirect {
         expressions: Vec<Expression<'a>>,
@@ -222,6 +223,7 @@ impl<'a> fmt::Display for Action<'a> {
 impl<'a> fmt::Display for Statement<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Statement::Empty => write!(f, ""),
             Statement::Print(expressions) => {
                 if expressions.is_empty() {
                     write!(f, "print")

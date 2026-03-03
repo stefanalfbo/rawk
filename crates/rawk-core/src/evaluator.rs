@@ -204,6 +204,7 @@ impl<'a> Evaluator<'a> {
 
     fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
         match statement {
+            Statement::Empty => Vec::new(),
             Statement::Print(expressions) => vec![self.eval_print(expressions, input_line)],
             Statement::PrintPipe { expressions, target } => {
                 self.eval_print_pipe(expressions, target, input_line);
@@ -984,6 +985,38 @@ impl<'a> Evaluator<'a> {
         operator: &crate::token::Token<'_>,
         right: &Expression<'_>,
     ) -> Option<f64> {
+        if matches!(
+            operator.kind,
+            TokenKind::Assign
+                | TokenKind::AddAssign
+                | TokenKind::SubtractAssign
+                | TokenKind::MultiplyAssign
+                | TokenKind::DivideAssign
+                | TokenKind::ModuloAssign
+                | TokenKind::PowerAssign
+        ) {
+            let identifier = match left {
+                Expression::Identifier(identifier) => *identifier,
+                _ => return None,
+            };
+            let right_value = self.eval_numeric_expression(right).unwrap_or(0.0);
+            let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
+            let updated = match operator.kind {
+                TokenKind::Assign => right_value,
+                TokenKind::AddAssign => current + right_value,
+                TokenKind::SubtractAssign => current - right_value,
+                TokenKind::MultiplyAssign => current * right_value,
+                TokenKind::DivideAssign => current / right_value,
+                TokenKind::ModuloAssign => current % right_value,
+                TokenKind::PowerAssign => current.powf(right_value),
+                _ => unreachable!(),
+            };
+            let rendered = format_awk_number(updated);
+            self.set_special_variable(identifier, &rendered);
+            self.variables.insert(identifier.to_string(), rendered);
+            return Some(updated);
+        }
+
         let left_value = self.eval_numeric_expression(left)?;
         let right_value = self.eval_numeric_expression(right)?;
 
@@ -1258,6 +1291,15 @@ fn awk_regex_matches(text: &str, pattern: &str) -> bool {
         return core[1..core.len() - 1]
             .split('|')
             .any(|alt| match (anchored_start, anchored_end) {
+            (true, true) => text == alt,
+            (true, false) => text.starts_with(alt),
+            (false, true) => text.ends_with(alt),
+            (false, false) => text.contains(alt),
+        });
+    }
+
+    if core.contains('|') {
+        return core.split('|').any(|alt| match (anchored_start, anchored_end) {
             (true, true) => text == alt,
             (true, false) => text.starts_with(alt),
             (false, true) => text.ends_with(alt),

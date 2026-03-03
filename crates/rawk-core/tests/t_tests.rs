@@ -51,7 +51,7 @@ t_test!(t5x, "5.x");
 t_test_ignore!(t6, "6");
 t_test!(t6x, "6.x");
 t_test_ignore!(t6a, "6a");
-t_test_ignore!(t6b, "6b");
+t_test!(t6b, "6b");
 t_test!(t8x, "8.x");
 t_test!(t8y, "8.y");
 t_test_ignore!(ta, "a");

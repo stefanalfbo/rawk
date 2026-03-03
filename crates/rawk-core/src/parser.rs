@@ -445,7 +445,9 @@ impl<'a> Parser<'a> {
         }
         self.next_token();
 
-        let init = if self.current_token.kind == TokenKind::Identifier {
+        let init = if self.current_token.kind == TokenKind::Semicolon {
+            Statement::Empty
+        } else if self.current_token.kind == TokenKind::Identifier {
             let variable = self.current_token.literal;
             self.next_token();
             if self.current_token.kind == TokenKind::In {
@@ -484,13 +486,21 @@ impl<'a> Parser<'a> {
         }
         self.next_token_with_regex(true);
 
-        let condition = self.parse_expression();
+        let condition = if self.current_token.kind == TokenKind::Semicolon {
+            Expression::Number(1.0)
+        } else {
+            self.parse_expression()
+        };
         if self.current_token.kind != TokenKind::Semicolon {
             todo!()
         }
         self.next_token();
 
-        let update = self.parse_statement();
+        let update = if self.current_token.kind == TokenKind::RightParen {
+            Statement::Empty
+        } else {
+            self.parse_statement()
+        };
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
@@ -963,7 +973,13 @@ impl<'a> Parser<'a> {
 
 fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
     match kind {
-        TokenKind::Assign => Some((0, 0)),
+        TokenKind::Assign
+        | TokenKind::AddAssign
+        | TokenKind::SubtractAssign
+        | TokenKind::MultiplyAssign
+        | TokenKind::DivideAssign
+        | TokenKind::ModuloAssign
+        | TokenKind::PowerAssign => Some((0, 0)),
         TokenKind::Or => Some((1, 2)),
         TokenKind::And => Some((3, 4)),
         TokenKind::Equal
