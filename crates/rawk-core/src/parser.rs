@@ -750,6 +750,20 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary_expression(&mut self) -> Expression<'a> {
+        if self.current_token.kind == TokenKind::Minus {
+            let operator = self.current_token.clone();
+            self.next_token();
+            let right = self.parse_primary_expression();
+            return Expression::Infix {
+                left: Box::new(Expression::Number(0.0)),
+                operator,
+                right: Box::new(right),
+            };
+        }
+        if self.current_token.kind == TokenKind::Plus {
+            self.next_token();
+            return self.parse_primary_expression();
+        }
         if self.current_token.kind == TokenKind::Increment {
             self.next_token();
             let expression = self.parse_primary_expression();
