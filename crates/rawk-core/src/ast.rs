@@ -100,6 +100,10 @@ pub enum Statement<'a> {
     },
     Printf(Vec<Expression<'a>>),
     System(Expression<'a>),
+    Split {
+        string: Expression<'a>,
+        array: &'a str,
+    },
     Gsub {
         pattern: Expression<'a>,
         replacement: Expression<'a>,
@@ -294,6 +298,7 @@ impl<'a> fmt::Display for Statement<'a> {
                 }
             }
             Statement::System(command) => write!(f, "system({command})"),
+            Statement::Split { string, array } => write!(f, "split({string}, {array})"),
             Statement::Gsub {
                 pattern,
                 replacement,

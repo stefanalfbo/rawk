@@ -59,7 +59,7 @@ t_test!(taddops, "addops");
 t_test!(taeiou, "aeiou");
 t_test!(taeiouy, "aeiouy");
 t_test_ignore!(tarith, "arith");
-t_test_ignore!(tarray, "array");
+t_test!(tarray, "array");
 t_test_ignore!(tarray1, "array1");
 t_test_ignore!(tarray2, "array2");
 t_test_ignore!(tassert, "assert");

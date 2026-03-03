@@ -152,6 +152,7 @@ impl<'a> Parser<'a> {
             TokenKind::Print => self.parse_print_function(),
             TokenKind::Printf => self.parse_printf_function(),
             TokenKind::System => self.parse_system_function(),
+            TokenKind::Split => self.parse_split_statement(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::While => self.parse_while_statement(),
@@ -306,6 +307,29 @@ impl<'a> Parser<'a> {
             string,
             array,
         }
+    }
+
+    fn parse_split_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token_with_regex(true);
+        let string = self.parse_expression();
+        if self.current_token.kind != TokenKind::Comma {
+            todo!()
+        }
+        self.next_token();
+        if self.current_token.kind != TokenKind::Identifier {
+            todo!()
+        }
+        let array = self.current_token.literal;
+        self.next_token();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+        Statement::Split { string, array }
     }
 
     fn parse_field_assignment_statement(&mut self) -> Statement<'a> {

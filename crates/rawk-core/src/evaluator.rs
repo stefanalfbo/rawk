@@ -226,6 +226,10 @@ impl<'a> Evaluator<'a> {
                 self.eval_system(command);
                 Vec::new()
             }
+            Statement::Split { string, array } => {
+                self.eval_split(string, array);
+                Vec::new()
+            }
             Statement::Gsub {
                 pattern,
                 replacement,
@@ -511,6 +515,11 @@ impl<'a> Evaluator<'a> {
         string: &Expression<'_>,
         array: &str,
     ) {
+        let count = self.eval_split(string, array);
+        self.variables.insert(identifier.to_string(), count.to_string());
+    }
+
+    fn eval_split(&mut self, string: &Expression<'_>, array: &str) -> usize {
         let source = self.eval_expression(string);
         let fields = self.split_fields(&source);
         let prefix = format!("{array}\u{1f}");
@@ -519,8 +528,7 @@ impl<'a> Evaluator<'a> {
             let key = format!("{array}\u{1f}{}", idx + 1);
             self.array_variables.insert(key, value.clone());
         }
-        self.variables
-            .insert(identifier.to_string(), fields.len().to_string());
+        fields.len()
     }
 
     fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
