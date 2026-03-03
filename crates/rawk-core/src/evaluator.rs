@@ -376,10 +376,23 @@ impl<'a> Evaluator<'a> {
         let args: Vec<String> = expressions
             .iter()
             .skip(1)
-            .map(|expr| unescape_awk_string(&self.eval_expression(expr)))
+            .map(|expr| unescape_awk_string(&self.eval_printf_argument(expr)))
             .collect();
 
         expand_tabs(&format_printf(&format, &args))
+    }
+
+    fn eval_printf_argument(&mut self, expression: &Expression<'_>) -> String {
+        match expression {
+            Expression::Number(_)
+            | Expression::Infix { .. }
+            | Expression::Rand
+            | Expression::Length(_) => self
+                .eval_numeric_expression(expression)
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| self.eval_expression(expression)),
+            _ => self.eval_expression(expression),
+        }
     }
 
     fn eval_printf_statement(&mut self, expressions: &[Expression<'_>]) -> Vec<String> {
@@ -857,7 +870,7 @@ impl<'a> Evaluator<'a> {
                 let values: Vec<String> = args
                     .iter()
                     .skip(1)
-                    .map(|arg| self.eval_expression(arg))
+                    .map(|arg| self.eval_printf_argument(arg))
                     .collect();
                 format_printf(&format, &values)
             }

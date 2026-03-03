@@ -234,6 +234,25 @@ impl<'a> Parser<'a> {
             self.next_token();
             let value = self.parse_expression();
             Statement::AddAssignment { identifier, value }
+        } else if matches!(
+            self.current_token.kind,
+            TokenKind::SubtractAssign
+                | TokenKind::MultiplyAssign
+                | TokenKind::DivideAssign
+                | TokenKind::ModuloAssign
+                | TokenKind::PowerAssign
+        ) {
+            let assign_token = self.current_token.clone();
+            self.next_token();
+            let right_value = self.parse_expression();
+            Statement::Assignment {
+                identifier,
+                value: Expression::Infix {
+                    left: Box::new(Expression::Identifier(identifier)),
+                    operator: compound_assign_operator(&assign_token),
+                    right: Box::new(right_value),
+                },
+            }
         } else {
             todo!()
         }

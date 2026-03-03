@@ -198,7 +198,7 @@ t_test_ignore!(tsub2, "sub2");
 t_test_ignore!(tsub3, "sub3");
 t_test_ignore!(tsubstr, "substr");
 t_test_ignore!(tsubstr1, "substr1");
-t_test_ignore!(ttime, "time");
+t_test!(ttime, "time");
 t_test_ignore!(tvf, "vf");
 t_test!(tvf1, "vf1");
 t_test!(tvf2, "vf2");
