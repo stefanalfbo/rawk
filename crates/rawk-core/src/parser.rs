@@ -71,6 +71,9 @@ impl<'a> Parser<'a> {
             | TokenKind::Identifier
             | TokenKind::Length
             | TokenKind::Rand
+            | TokenKind::Sprintf
+            | TokenKind::Split
+            | TokenKind::Substr
             | TokenKind::Increment
             | TokenKind::Decrement => self.parse_pattern_rule(),
             _ => panic!(

@@ -64,11 +64,27 @@ impl<'a> Evaluator<'a> {
         }
 
         let rules: Vec<Rule<'a>> = self.program.rules_iter().cloned().collect();
-        for rule in rules.iter() {
+        let mut range_state = vec![false; rules.len()];
+        let input_lines = self.input_lines.clone();
+        for (i, input_line) in input_lines.iter().enumerate() {
             if self.exited {
                 break;
             }
-            output_lines.extend(self.eval_rule(rule));
+            self.current_line_number.set(i + 1);
+
+            for (rule_idx, rule) in rules.iter().enumerate() {
+                if self.exited {
+                    break;
+                }
+                // Rules are evaluated against the original record text for this
+                // interpreter's current semantics.
+                self.current_line = Some(input_line.clone());
+                output_lines.extend(self.eval_rule_for_line(
+                    rule,
+                    input_line,
+                    &mut range_state[rule_idx],
+                ));
+            }
         }
 
         if !self.exited {
@@ -90,39 +106,37 @@ impl<'a> Evaluator<'a> {
         output_lines
     }
 
-    fn eval_rule(&mut self, rule: &Rule) -> Vec<String> {
-        let mut output_lines = Vec::new();
-        let mut range_active = false;
-
-        let input_lines = self.input_lines.clone();
-        for (i, input_line) in input_lines.iter().enumerate() {
-            if self.exited {
-                break;
-            }
-            self.current_line_number.set(i + 1);
-            self.current_line = Some(input_line.clone());
-
-            match rule {
-                Rule::Action(action) => output_lines.extend(self.eval_action(action, Some(input_line))),
-                Rule::PatternAction { pattern, action } => {
-                    let matches = match pattern.as_ref() {
-                        Some(expr) => self.eval_pattern_condition(expr, &mut range_active),
-                        None => true,
-                    };
-                    if matches {
-                        if let Some(action) = action {
-                            output_lines.extend(self.eval_action(action, Some(input_line)));
-                        } else {
-                            output_lines.push(input_line.clone());
-                        }
-                    }
+    fn eval_rule_for_line(
+        &mut self,
+        rule: &Rule,
+        input_line: &str,
+        range_active: &mut bool,
+    ) -> Vec<String> {
+        match rule {
+            Rule::Action(action) => self.eval_action(action, Some(input_line)),
+            Rule::PatternAction { pattern, action } => {
+                let matches = match pattern.as_ref() {
+                    Some(expr) => self.eval_pattern_condition(expr, range_active),
+                    None => true,
+                };
+                if !matches {
+                    return Vec::new();
                 }
-                _ => {}
-            }
-        }
 
-        self.current_line = None;
-        output_lines
+                if let Some(action) = action {
+                    self.eval_action(action, Some(input_line))
+                } else {
+                    let mut output = Vec::new();
+                    if self.has_output {
+                        output.extend(self.ors_between_records());
+                    }
+                    output.push(input_line.to_string());
+                    self.has_output = true;
+                    output
+                }
+            }
+            _ => Vec::new(),
+        }
     }
 
     fn eval_pattern_condition(
@@ -1153,6 +1167,48 @@ fn awk_regex_matches(text: &str, pattern: &str) -> bool {
                 .last()
                 .is_some_and(|c| c.is_ascii_digit()),
             (false, false) => text.chars().any(|c| c.is_ascii_digit()),
+        };
+    }
+
+    if core == "." {
+        return match (anchored_start, anchored_end) {
+            (true, true) => text.chars().count() == 1,
+            (true, false) => !text.is_empty(),
+            (false, true) => !text.is_empty(),
+            (false, false) => !text.is_empty(),
+        };
+    }
+
+    if core.starts_with('[') && core.ends_with(']') && core.len() >= 3 {
+        let class = &core[1..core.len() - 1];
+        let class_matches = |ch: char| -> bool {
+            let mut chars = class.chars().peekable();
+            while let Some(start) = chars.next() {
+                if chars.peek() == Some(&'-') {
+                    chars.next();
+                    if let Some(end) = chars.next() {
+                        if start <= ch && ch <= end {
+                            return true;
+                        }
+                        continue;
+                    }
+                    if start == ch || '-' == ch {
+                        return true;
+                    }
+                    break;
+                }
+                if start == ch {
+                    return true;
+                }
+            }
+            false
+        };
+
+        return match (anchored_start, anchored_end) {
+            (true, true) => text.chars().count() == 1 && text.chars().next().is_some_and(class_matches),
+            (true, false) => text.chars().next().is_some_and(class_matches),
+            (false, true) => text.chars().last().is_some_and(class_matches),
+            (false, false) => text.chars().any(class_matches),
         };
     }
 
