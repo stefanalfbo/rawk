@@ -106,7 +106,7 @@ t_test!(tf2, "f2");
 t_test!(tf3, "f3");
 t_test!(tf4, "f4");
 t_test!(tfor, "for");
-t_test_ignore!(tfor1, "for1");
+t_test!(tfor1, "for1");
 t_test_ignore!(tfor2, "for2");
 t_test_ignore!(tfor3, "for3");
 t_test_ignore!(tformat4, "format4");

@@ -165,6 +165,7 @@ pub enum Statement<'a> {
         array: &'a str,
         statements: Vec<Statement<'a>>,
     },
+    Next,
     Exit,
     PostIncrement {
         identifier: &'a str,
@@ -392,6 +393,7 @@ impl<'a> fmt::Display for Statement<'a> {
                     .join("; ");
                 write!(f, "for ({variable} in {array}) {{ {rendered} }}")
             }
+            Statement::Next => write!(f, "next"),
             Statement::Exit => write!(f, "exit"),
             Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
             Statement::PostDecrement { identifier } => write!(f, "{identifier}--"),

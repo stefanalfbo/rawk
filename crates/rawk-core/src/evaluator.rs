@@ -23,6 +23,7 @@ pub struct Evaluator<'a> {
     rng_state: Cell<u64>,
     printf_buffer: String,
     exited: bool,
+    next_record: bool,
     has_output: bool,
 }
 
@@ -49,6 +50,7 @@ impl<'a> Evaluator<'a> {
             rng_state: Cell::new(9),
             printf_buffer: String::new(),
             exited: false,
+            next_record: false,
             has_output: false,
         }
     }
@@ -86,6 +88,10 @@ impl<'a> Evaluator<'a> {
                     input_line,
                     &mut range_state[rule_idx],
                 ));
+                if self.next_record {
+                    self.next_record = false;
+                    break;
+                }
             }
         }
 
@@ -191,6 +197,9 @@ impl<'a> Evaluator<'a> {
         for statement in &action.statements {
             let statement_output = self.eval_statement(statement, input_line);
             if statement_output.is_empty() {
+                if self.exited || self.next_record {
+                    break;
+                }
                 continue;
             }
             if self.has_output {
@@ -198,6 +207,9 @@ impl<'a> Evaluator<'a> {
             }
             output.extend(statement_output);
             self.has_output = true;
+            if self.exited || self.next_record {
+                break;
+            }
         }
 
         output
@@ -297,6 +309,9 @@ impl<'a> Evaluator<'a> {
                     let mut output = Vec::new();
                     for statement in then_statements {
                         output.extend(self.eval_statement(statement, input_line));
+                        if self.exited || self.next_record {
+                            break;
+                        }
                     }
                     output
                 } else {
@@ -316,6 +331,9 @@ impl<'a> Evaluator<'a> {
                 let mut output = Vec::new();
                 for statement in branch {
                     output.extend(self.eval_statement(statement, input_line));
+                    if self.exited || self.next_record {
+                        break;
+                    }
                 }
                 output
             }
@@ -327,6 +345,12 @@ impl<'a> Evaluator<'a> {
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
+                        if self.exited || self.next_record {
+                            break;
+                        }
+                    }
+                    if self.exited || self.next_record {
+                        break;
                     }
                 }
                 output
@@ -339,11 +363,23 @@ impl<'a> Evaluator<'a> {
             } => {
                 let mut output = Vec::new();
                 output.extend(self.eval_statement(init, input_line));
+                if self.exited || self.next_record {
+                    return output;
+                }
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
+                        if self.exited || self.next_record {
+                            break;
+                        }
+                    }
+                    if self.exited || self.next_record {
+                        break;
                     }
                     output.extend(self.eval_statement(update, input_line));
+                    if self.exited || self.next_record {
+                        break;
+                    }
                 }
                 output
             }
@@ -359,9 +395,19 @@ impl<'a> Evaluator<'a> {
                     self.variables.insert(variable.to_string(), key);
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
+                        if self.exited || self.next_record {
+                            break;
+                        }
+                    }
+                    if self.exited || self.next_record {
+                        break;
                     }
                 }
                 output
+            }
+            Statement::Next => {
+                self.next_record = true;
+                Vec::new()
             }
             Statement::Exit => {
                 self.exited = true;

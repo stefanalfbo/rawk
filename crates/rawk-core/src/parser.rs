@@ -157,6 +157,7 @@ impl<'a> Parser<'a> {
             TokenKind::If => self.parse_if_statement(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
+            TokenKind::Next => self.parse_next_statement(),
             TokenKind::Exit => self.parse_exit_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
@@ -408,6 +409,11 @@ impl<'a> Parser<'a> {
     fn parse_exit_statement(&mut self) -> Statement<'a> {
         self.next_token();
         Statement::Exit
+    }
+
+    fn parse_next_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        Statement::Next
     }
 
     fn parse_statement_block(&mut self) -> Vec<Statement<'a>> {
