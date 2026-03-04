@@ -474,6 +474,9 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
 
         let init = if self.current_token.kind == TokenKind::Semicolon {
             Statement::Empty
@@ -511,26 +514,41 @@ impl<'a> Parser<'a> {
         } else {
             self.parse_statement()
         };
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
         if self.current_token.kind != TokenKind::Semicolon {
             todo!()
         }
         self.next_token_with_regex(true);
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token_with_regex(true);
+        }
 
         let condition = if self.current_token.kind == TokenKind::Semicolon {
             Expression::Number(1.0)
         } else {
             self.parse_expression()
         };
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
         if self.current_token.kind != TokenKind::Semicolon {
             todo!()
         }
-        self.next_token();
+        self.next_token_with_regex(true);
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token_with_regex(true);
+        }
 
         let update = if self.current_token.kind == TokenKind::RightParen {
             Statement::Empty
         } else {
             self.parse_statement()
         };
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
