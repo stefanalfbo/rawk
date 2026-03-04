@@ -109,7 +109,7 @@ t_test!(tfor, "for");
 t_test!(tfor1, "for1");
 t_test!(tfor2, "for2");
 t_test!(tfor3, "for3");
-t_test_ignore!(tformat4, "format4");
+t_test!(tformat4, "format4");
 t_test_ignore!(tfun, "fun");
 t_test_ignore!(tfun0, "fun0");
 t_test_ignore!(tfun1, "fun1");
