@@ -242,6 +242,13 @@ impl<'a> Evaluator<'a> {
                 self.eval_split(string, array);
                 Vec::new()
             }
+            Statement::Sub {
+                pattern,
+                replacement,
+            } => {
+                self.eval_sub(pattern, replacement);
+                Vec::new()
+            }
             Statement::Gsub {
                 pattern,
                 replacement,
@@ -729,6 +736,21 @@ impl<'a> Evaluator<'a> {
         };
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
         let replaced = awk_gsub_replace_all(&line, &pattern, &replacement);
+        self.current_line = Some(replaced);
+    }
+
+    fn eval_sub(&mut self, pattern: &Expression<'_>, replacement: &Expression<'_>) {
+        let line = match self.current_line.as_ref() {
+            Some(value) => value.clone(),
+            None => return,
+        };
+
+        let pattern = match pattern {
+            Expression::Regex(value) => value.to_string(),
+            _ => self.eval_expression(pattern),
+        };
+        let replacement = unescape_awk_string(&self.eval_expression(replacement));
+        let replaced = awk_sub_replace_first(&line, &pattern, &replacement);
         self.current_line = Some(replaced);
     }
 
@@ -1384,6 +1406,30 @@ fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
 }
 
 fn awk_gsub_replace_all(text: &str, pattern: &str, replacement: &str) -> String {
+    if let Ok(re) = Regex::new(pattern) {
+        let mut out = String::new();
+        let mut last = 0usize;
+        for m in re.find_iter(text) {
+            out.push_str(&text[last..m.start()]);
+            out.push_str(&awk_subst_replacement(
+                replacement,
+                &text[m.start()..m.end()],
+            ));
+            last = m.end();
+            if m.start() == m.end() {
+                if let Some((next_idx, ch)) = text[last..].char_indices().next() {
+                    let char_end = last + next_idx + ch.len_utf8();
+                    out.push_str(&text[last..char_end]);
+                    last = char_end;
+                } else {
+                    break;
+                }
+            }
+        }
+        out.push_str(&text[last..]);
+        return out;
+    }
+
     let anchored_start = pattern.starts_with('^');
     let anchored_end = pattern.ends_with('$');
     let mut core = pattern;
@@ -1422,6 +1468,70 @@ fn awk_gsub_replace_all(text: &str, pattern: &str, replacement: &str) -> String 
         }
         (false, false) => text.replace(core, replacement),
     }
+}
+
+fn awk_sub_replace_first(text: &str, pattern: &str, replacement: &str) -> String {
+    if let Ok(re) = Regex::new(pattern)
+        && let Some(m) = re.find(text)
+    {
+        let mut out = String::new();
+        out.push_str(&text[..m.start()]);
+        out.push_str(&awk_subst_replacement(
+            replacement,
+            &text[m.start()..m.end()],
+        ));
+        out.push_str(&text[m.end()..]);
+        return out;
+    }
+
+    let replaced = awk_gsub_replace_all(text, pattern, replacement);
+    if replaced == text {
+        return text.to_string();
+    }
+
+    // Legacy fallback replaces all; emulate single replacement by finding first change boundary.
+    // Keep this simple for non-regex fallback patterns used by existing tests.
+    if let Some(pos) = text.find(pattern) {
+        let mut out = String::new();
+        out.push_str(&text[..pos]);
+        out.push_str(replacement);
+        out.push_str(&text[pos + pattern.len()..]);
+        return out;
+    }
+
+    replaced
+}
+
+fn awk_subst_replacement(replacement: &str, matched: &str) -> String {
+    let mut out = String::new();
+    let mut chars = replacement.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.peek().copied() {
+                Some('&') => {
+                    chars.next();
+                    out.push('&');
+                }
+                Some('\\') => {
+                    chars.next();
+                    out.push('\\');
+                }
+                Some(next) => {
+                    out.push('\\');
+                    out.push(next);
+                    chars.next();
+                }
+                None => out.push('\\'),
+            }
+            continue;
+        }
+        if ch == '&' {
+            out.push_str(matched);
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 fn unescape_awk_string(input: &str) -> String {

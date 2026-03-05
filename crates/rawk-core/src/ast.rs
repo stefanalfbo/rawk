@@ -104,6 +104,10 @@ pub enum Statement<'a> {
         string: Expression<'a>,
         array: &'a str,
     },
+    Sub {
+        pattern: Expression<'a>,
+        replacement: Expression<'a>,
+    },
     Gsub {
         pattern: Expression<'a>,
         replacement: Expression<'a>,
@@ -300,6 +304,10 @@ impl<'a> fmt::Display for Statement<'a> {
             }
             Statement::System(command) => write!(f, "system({command})"),
             Statement::Split { string, array } => write!(f, "split({string}, {array})"),
+            Statement::Sub {
+                pattern,
+                replacement,
+            } => write!(f, "sub({}, {})", pattern, replacement),
             Statement::Gsub {
                 pattern,
                 replacement,

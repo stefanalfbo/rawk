@@ -153,6 +153,7 @@ impl<'a> Parser<'a> {
             TokenKind::Printf => self.parse_printf_function(),
             TokenKind::System => self.parse_system_function(),
             TokenKind::Split => self.parse_split_statement(),
+            TokenKind::Sub => self.parse_sub_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::While => self.parse_while_statement(),
@@ -681,6 +682,36 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         Statement::Gsub {
+            pattern,
+            replacement,
+        }
+    }
+
+    fn parse_sub_function(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+
+        self.next_token_with_regex(true);
+        let pattern = self.parse_expression();
+
+        if self.current_token.kind != TokenKind::Comma {
+            todo!()
+        }
+        self.next_token();
+        let replacement = self.parse_expression();
+
+        if self.current_token.kind == TokenKind::Comma {
+            todo!()
+        }
+
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+
+        Statement::Sub {
             pattern,
             replacement,
         }

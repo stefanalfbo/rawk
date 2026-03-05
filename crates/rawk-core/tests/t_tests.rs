@@ -193,7 +193,7 @@ t_test_ignore!(tstrcmp, "strcmp");
 t_test_ignore!(tstrcmp1, "strcmp1");
 t_test_ignore!(tstrnum, "strnum");
 t_test_ignore!(tsub0, "sub0");
-t_test_ignore!(tsub1, "sub1");
+t_test!(tsub1, "sub1");
 t_test_ignore!(tsub2, "sub2");
 t_test_ignore!(tsub3, "sub3");
 t_test!(tsubstr, "substr");
