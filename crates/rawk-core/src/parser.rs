@@ -156,6 +156,7 @@ impl<'a> Parser<'a> {
             TokenKind::Sub => self.parse_sub_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::If => self.parse_if_statement(),
+            TokenKind::Do => self.parse_do_statement(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
             TokenKind::Next => self.parse_next_statement(),
@@ -467,6 +468,38 @@ impl<'a> Parser<'a> {
             condition,
             statements,
         }
+    }
+
+    fn parse_do_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        while self.current_token.kind == TokenKind::NewLine || self.current_token.kind == TokenKind::Semicolon {
+            self.next_token();
+        }
+
+        let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            self.parse_statement_block()
+        } else {
+            vec![self.parse_statement()]
+        };
+
+        while self.current_token.kind == TokenKind::NewLine || self.current_token.kind == TokenKind::Semicolon {
+            self.next_token();
+        }
+
+        if self.current_token.kind != TokenKind::While {
+            todo!()
+        }
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token_with_regex(true);
+        let condition = self.parse_expression();
+        if self.current_token.kind != TokenKind::RightParen {
+            todo!()
+        }
+        self.next_token();
+        Statement::DoWhile { condition, statements }
     }
 
     fn parse_for_statement(&mut self) -> Statement<'a> {
@@ -1577,6 +1610,18 @@ mod tests {
 
         assert_eq!(
             r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_do_while_with_post_increment() {
+        let mut parser = Parser::new(Lexer::new(r#"{ i = 1; do { print $i; i++ } while (i <= NF) }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ i = 1; do { print $i; i++ } while (i <= NF) }"#,
             program.to_string()
         );
     }

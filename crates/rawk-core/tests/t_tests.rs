@@ -93,7 +93,7 @@ t_test_ignore!(tdelete0, "delete0");
 t_test_ignore!(tdelete1, "delete1");
 t_test_ignore!(tdelete2, "delete2");
 t_test_ignore!(tdelete3, "delete3");
-t_test_ignore!(tdo, "do");
+t_test!(tdo, "do");
 t_test_ignore!(te, "e");
 t_test!(telse, "else");
 t_test_ignore!(texit, "exit");

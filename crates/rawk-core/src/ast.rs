@@ -158,6 +158,10 @@ pub enum Statement<'a> {
         condition: Expression<'a>,
         statements: Vec<Statement<'a>>,
     },
+    DoWhile {
+        condition: Expression<'a>,
+        statements: Vec<Statement<'a>>,
+    },
     For {
         init: Box<Statement<'a>>,
         condition: Expression<'a>,
@@ -375,6 +379,17 @@ impl<'a> fmt::Display for Statement<'a> {
                     .collect::<Vec<String>>()
                     .join("; ");
                 write!(f, "while ({condition}) {{ {rendered} }}")
+            }
+            Statement::DoWhile {
+                condition,
+                statements,
+            } => {
+                let rendered = statements
+                    .iter()
+                    .map(|stmt| stmt.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                write!(f, "do {{ {rendered} }} while ({condition})")
             }
             Statement::For {
                 init,
@@ -817,6 +832,23 @@ mod tests {
         };
 
         assert_eq!("while (i <= NF) { print $i; i++ }", statement.to_string());
+    }
+
+    #[test]
+    fn test_do_while_statement_display() {
+        let statement = Statement::DoWhile {
+            condition: Expression::Infix {
+                left: Box::new(Expression::Identifier("i")),
+                operator: Token::new(TokenKind::LessThanOrEqual, "<=", 0),
+                right: Box::new(Expression::Identifier("NF")),
+            },
+            statements: vec![
+                Statement::Print(vec![Expression::Field(Box::new(Expression::Identifier("i")))]),
+                Statement::PostIncrement { identifier: "i" },
+            ],
+        };
+
+        assert_eq!("do { print $i; i++ } while (i <= NF)", statement.to_string());
     }
 
     #[test]
