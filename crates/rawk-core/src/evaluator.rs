@@ -252,8 +252,9 @@ impl<'a> Evaluator<'a> {
             Statement::Gsub {
                 pattern,
                 replacement,
+                target,
             } => {
-                self.eval_gsub(pattern, replacement);
+                self.eval_gsub(pattern, replacement, target.as_ref());
                 Vec::new()
             }
             Statement::Assignment { identifier, value } => {
@@ -742,19 +743,41 @@ impl<'a> Evaluator<'a> {
             .insert(identifier.to_string(), (current - 1.0).to_string());
     }
 
-    fn eval_gsub(&mut self, pattern: &Expression<'_>, replacement: &Expression<'_>) {
-        let line = match self.current_line.as_ref() {
-            Some(value) => value.clone(),
-            None => return,
-        };
-
+    fn eval_gsub(
+        &mut self,
+        pattern: &Expression<'_>,
+        replacement: &Expression<'_>,
+        target: Option<&Expression<'_>>,
+    ) {
         let pattern = match pattern {
             Expression::Regex(value) => value.to_string(),
             _ => self.eval_expression(pattern),
         };
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
-        let replaced = awk_gsub_replace_all(&line, &pattern, &replacement);
-        self.current_line = Some(replaced);
+        match target {
+            Some(Expression::Identifier(identifier)) => {
+                let value = self.eval_identifier_expression(identifier);
+                let replaced = awk_gsub_replace_all(&value, &pattern, &replacement);
+                self.variables.insert((*identifier).to_string(), replaced);
+            }
+            Some(Expression::Field(inner)) => {
+                let line = self.eval_field_expression(inner);
+                let replaced = awk_gsub_replace_all(&line, &pattern, &replacement);
+                self.assign_field(inner, replaced);
+            }
+            Some(other) => {
+                let value = self.eval_expression(other);
+                let _ = awk_gsub_replace_all(&value, &pattern, &replacement);
+            }
+            None => {
+                let line = match self.current_line.as_ref() {
+                    Some(value) => value.clone(),
+                    None => return,
+                };
+                let replaced = awk_gsub_replace_all(&line, &pattern, &replacement);
+                self.current_line = Some(replaced);
+            }
+        }
     }
 
     fn eval_sub(&mut self, pattern: &Expression<'_>, replacement: &Expression<'_>) {
@@ -2052,6 +2075,18 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["United States 3615 237 North America".to_string()]);
+    }
+
+    #[test]
+    fn eval_gsub_with_target_variable_updates_variable_only() {
+        let lexer = Lexer::new(r#"{ t = $0; gsub(/[ \t]+/, "", t); print t; print $0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["a b\tc".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["abc".to_string(), "a b\tc".to_string()]);
     }
 
     #[test]

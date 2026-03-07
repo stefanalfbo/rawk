@@ -705,9 +705,12 @@ impl<'a> Parser<'a> {
         self.next_token();
         let replacement = self.parse_expression();
 
-        if self.current_token.kind == TokenKind::Comma {
-            todo!()
-        }
+        let target = if self.current_token.kind == TokenKind::Comma {
+            self.next_token();
+            Some(self.parse_expression())
+        } else {
+            None
+        };
 
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
@@ -717,6 +720,7 @@ impl<'a> Parser<'a> {
         Statement::Gsub {
             pattern,
             replacement,
+            target,
         }
     }
 
@@ -1514,6 +1518,15 @@ mod tests {
             r#"{ gsub(/USA/, "United States"); print }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_gsub_statement_with_target() {
+        let mut parser = Parser::new(Lexer::new(r#"{ gsub(/[ \t]+/, "", t) }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ gsub(/[ \t]+/, "", t) }"#, program.to_string());
     }
 
     #[test]

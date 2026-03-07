@@ -4,6 +4,7 @@
 # Rust/Cargo
 /target/
 **/target/
+target*/
 
 # Generated files
 crates/rawk-core/tests/temp*

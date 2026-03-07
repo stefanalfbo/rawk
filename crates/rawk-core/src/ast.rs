@@ -111,6 +111,7 @@ pub enum Statement<'a> {
     Gsub {
         pattern: Expression<'a>,
         replacement: Expression<'a>,
+        target: Option<Expression<'a>>,
     },
     Assignment {
         identifier: &'a str,
@@ -315,7 +316,14 @@ impl<'a> fmt::Display for Statement<'a> {
             Statement::Gsub {
                 pattern,
                 replacement,
-            } => write!(f, "gsub({}, {})", pattern, replacement),
+                target,
+            } => {
+                write!(f, "gsub({}, {}", pattern, replacement)?;
+                if let Some(target) = target {
+                    write!(f, ", {target}")?;
+                }
+                write!(f, ")")
+            }
             Statement::Assignment { identifier, value } => write!(f, "{identifier} = {value}"),
             Statement::SplitAssignment {
                 identifier,
@@ -719,6 +727,7 @@ mod tests {
         let statement = Statement::Gsub {
             pattern: Expression::Regex("USA"),
             replacement: Expression::String("United States"),
+            target: None,
         };
 
         assert_eq!(r#"gsub(/USA/, "United States")"#, statement.to_string());
