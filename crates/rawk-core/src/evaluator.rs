@@ -313,6 +313,18 @@ impl<'a> Evaluator<'a> {
                 self.eval_array_add_assignment(identifier, index, value);
                 Vec::new()
             }
+            Statement::ArrayPostIncrement { identifier, index } => {
+                self.eval_array_post_increment(identifier, index, 1.0);
+                Vec::new()
+            }
+            Statement::ArrayPostDecrement { identifier, index } => {
+                self.eval_array_post_increment(identifier, index, -1.0);
+                Vec::new()
+            }
+            Statement::Delete { identifier, index } => {
+                self.eval_delete(identifier, index.as_ref());
+                Vec::new()
+            }
             Statement::PreIncrement { identifier } => {
                 self.eval_pre_increment(identifier);
                 Vec::new()
@@ -635,6 +647,28 @@ impl<'a> Evaluator<'a> {
         fields.len()
     }
 
+    fn eval_array_post_increment(&mut self, identifier: &str, index: &Expression<'_>, delta: f64) {
+        let key = self.array_key(identifier, index);
+        let current = self
+            .array_variables
+            .get(&key)
+            .map(|value| parse_awk_numeric(value))
+            .unwrap_or(0.0);
+        self.array_variables
+            .insert(key, format_awk_number(current + delta));
+    }
+
+    fn eval_delete(&mut self, identifier: &str, index: Option<&Expression<'_>>) {
+        if let Some(index) = index {
+            let key = self.array_key(identifier, index);
+            self.array_variables.remove(&key);
+            return;
+        }
+
+        let prefix = format!("{identifier}\u{1f}");
+        self.array_variables.retain(|key, _| !key.starts_with(&prefix));
+    }
+
     fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
         let assigned_value = self.eval_expression(value);
         self.assign_field(field, assigned_value);
@@ -950,7 +984,23 @@ impl<'a> Evaluator<'a> {
     }
 
     fn array_key(&mut self, identifier: &str, index: &Expression<'_>) -> String {
-        format!("{identifier}\u{1f}{}", self.eval_expression(index))
+        format!("{identifier}\u{1f}{}", self.eval_array_subscript(index))
+    }
+
+    fn eval_array_subscript(&mut self, index: &Expression<'_>) -> String {
+        match index {
+            Expression::Infix {
+                left,
+                operator,
+                right,
+            } if operator.kind == TokenKind::Comma => {
+                let mut value = self.eval_array_subscript(left);
+                value.push('\u{1c}');
+                value.push_str(&self.eval_array_subscript(right));
+                value
+            }
+            _ => self.eval_expression(index),
+        }
     }
 
     fn eval_array_access(&mut self, identifier: &str, index: &Expression<'_>) -> String {
@@ -2367,6 +2417,18 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["1307".to_string()]);
+    }
+
+    #[test]
+    fn eval_delete_removes_array_entry_from_for_in() {
+        let lexer = Lexer::new(r#"BEGIN { x[1] = "a"; x[2] = "b"; delete x[1]; for (i in x) print i }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["2".to_string()]);
     }
 
     #[test]

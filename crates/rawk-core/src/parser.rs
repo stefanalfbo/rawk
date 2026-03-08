@@ -46,6 +46,21 @@ impl<'a> Parser<'a> {
         )
     }
 
+    fn parse_array_index_expression(&mut self) -> Expression<'a> {
+        let mut index = self.parse_expression();
+        while self.current_token.kind == TokenKind::Comma {
+            let operator = self.current_token.clone();
+            self.next_token_with_regex(true);
+            let right = self.parse_expression();
+            index = Expression::Infix {
+                left: Box::new(index),
+                operator,
+                right: Box::new(right),
+            };
+        }
+        index
+    }
+
     fn parse_next_rule(&mut self) -> Option<Rule<'a>> {
         match &self.current_token.kind {
             TokenKind::Begin => {
@@ -164,6 +179,7 @@ impl<'a> Parser<'a> {
             TokenKind::Split => self.parse_split_statement(),
             TokenKind::Sub => self.parse_sub_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
+            TokenKind::Delete => self.parse_delete_statement(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::Do => self.parse_do_statement(),
             TokenKind::While => self.parse_while_statement(),
@@ -255,7 +271,7 @@ impl<'a> Parser<'a> {
         }
         if self.current_token.kind == TokenKind::LeftSquareBracket {
             self.next_token_with_regex(true);
-            let index = self.parse_expression();
+            let index = self.parse_array_index_expression();
             if self.current_token.kind != TokenKind::RightSquareBracket {
                 todo!()
             }
@@ -277,6 +293,14 @@ impl<'a> Parser<'a> {
                     index,
                     value,
                 };
+            }
+            if self.current_token.kind == TokenKind::Increment {
+                self.next_token();
+                return Statement::ArrayPostIncrement { identifier, index };
+            }
+            if self.current_token.kind == TokenKind::Decrement {
+                self.next_token();
+                return Statement::ArrayPostDecrement { identifier, index };
             }
             todo!()
         }
@@ -318,6 +342,32 @@ impl<'a> Parser<'a> {
             }
         } else {
             todo!()
+        }
+    }
+
+    fn parse_delete_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        if self.current_token.kind != TokenKind::Identifier {
+            todo!()
+        }
+        let identifier = self.current_token.literal;
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftSquareBracket {
+            return Statement::Delete {
+                identifier,
+                index: None,
+            };
+        }
+
+        self.next_token_with_regex(true);
+        let index = self.parse_array_index_expression();
+        if self.current_token.kind != TokenKind::RightSquareBracket {
+            todo!()
+        }
+        self.next_token();
+        Statement::Delete {
+            identifier,
+            index: Some(index),
         }
     }
 
@@ -1032,7 +1082,7 @@ impl<'a> Parser<'a> {
                 }
                 if self.current_token.kind == TokenKind::LeftSquareBracket {
                     self.next_token_with_regex(true);
-                    let index = self.parse_expression();
+                    let index = self.parse_array_index_expression();
                     if self.current_token.kind != TokenKind::RightSquareBracket {
                         todo!()
                     }
@@ -1791,6 +1841,15 @@ mod tests {
             .expect("expected function definition");
         assert_eq!(definition.parameters, vec!["n"]);
         assert_eq!(definition.statements.len(), 1);
+    }
+
+    #[test]
+    fn parse_delete_array_element_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"{ delete x[i, j] }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ delete x[i, j] }"#, program.to_string());
     }
 
     #[test]

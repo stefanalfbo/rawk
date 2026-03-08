@@ -151,6 +151,18 @@ pub enum Statement<'a> {
         index: Expression<'a>,
         value: Expression<'a>,
     },
+    ArrayPostIncrement {
+        identifier: &'a str,
+        index: Expression<'a>,
+    },
+    ArrayPostDecrement {
+        identifier: &'a str,
+        index: Expression<'a>,
+    },
+    Delete {
+        identifier: &'a str,
+        index: Option<Expression<'a>>,
+    },
     PreIncrement {
         identifier: &'a str,
     },
@@ -364,6 +376,19 @@ impl<'a> fmt::Display for Statement<'a> {
                 index,
                 value,
             } => write!(f, "{identifier}[{index}] += {value}"),
+            Statement::ArrayPostIncrement { identifier, index } => {
+                write!(f, "{identifier}[{index}]++")
+            }
+            Statement::ArrayPostDecrement { identifier, index } => {
+                write!(f, "{identifier}[{index}]--")
+            }
+            Statement::Delete { identifier, index } => {
+                if let Some(index) = index {
+                    write!(f, "delete {identifier}[{index}]")
+                } else {
+                    write!(f, "delete {identifier}")
+                }
+            }
             Statement::PreIncrement { identifier } => write!(f, "++{identifier}"),
             Statement::PreDecrement { identifier } => write!(f, "--{identifier}"),
             Statement::If {
@@ -544,7 +569,11 @@ impl<'a> fmt::Display for Expression<'a> {
                 operator,
                 right,
             } => {
-                write!(f, "{} {} {}", left, operator.literal, right)
+                if operator.kind == crate::token::TokenKind::Comma {
+                    write!(f, "{left}, {right}")
+                } else {
+                    write!(f, "{} {} {}", left, operator.literal, right)
+                }
             }
         }
     }
