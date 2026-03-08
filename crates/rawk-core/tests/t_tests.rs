@@ -67,7 +67,7 @@ t_test!(tavg, "avg");
 t_test!(tbx, "b.x");
 t_test!(tbe, "be");
 t_test!(tbeginexit, "beginexit");
-t_test_ignore!(tbeginnext, "beginnext");
+t_test!(tbeginnext, "beginnext");
 t_test!(tbreak, "break");
 t_test!(tbreak1, "break1");
 t_test!(tbreak2, "break2");
