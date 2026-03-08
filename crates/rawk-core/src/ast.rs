@@ -676,6 +676,24 @@ mod tests {
     }
 
     #[test]
+    fn test_begin_rule_display() {
+        let rule = Rule::Begin(Action {
+            statements: vec![Statement::Print(vec![])],
+        });
+
+        assert_eq!("BEGIN { print }", rule.to_string());
+    }
+
+    #[test]
+    fn test_end_rule_display() {
+        let rule = Rule::End(Action {
+            statements: vec![Statement::Print(vec![])],
+        });
+
+        assert_eq!("END { print }", rule.to_string());
+    }
+
+    #[test]
     fn test_action_without_pattern_program_creation() {
         let expected_string = "{ print }";
         let program = Program {
