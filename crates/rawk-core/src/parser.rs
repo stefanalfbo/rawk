@@ -179,6 +179,7 @@ impl<'a> Parser<'a> {
             TokenKind::Split => self.parse_split_statement(),
             TokenKind::Sub => self.parse_sub_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
+            TokenKind::Break => self.parse_break_statement(),
             TokenKind::Delete => self.parse_delete_statement(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::Do => self.parse_do_statement(),
@@ -369,6 +370,11 @@ impl<'a> Parser<'a> {
             identifier,
             index: Some(index),
         }
+    }
+
+    fn parse_break_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        Statement::Break
     }
 
     fn parse_pre_increment_statement(&mut self) -> Statement<'a> {

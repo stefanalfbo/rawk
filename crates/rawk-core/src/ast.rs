@@ -197,6 +197,7 @@ pub enum Statement<'a> {
         array: &'a str,
         statements: Vec<Statement<'a>>,
     },
+    Break,
     Return(Option<Expression<'a>>),
     Next,
     Exit(Option<Expression<'a>>),
@@ -469,6 +470,7 @@ impl<'a> fmt::Display for Statement<'a> {
                     .join("; ");
                 write!(f, "for ({variable} in {array}) {{ {rendered} }}")
             }
+            Statement::Break => write!(f, "break"),
             Statement::Return(None) => write!(f, "return"),
             Statement::Return(Some(value)) => write!(f, "return {value}"),
             Statement::Next => write!(f, "next"),
