@@ -23,10 +23,12 @@ pub struct Evaluator<'a> {
     current_filename: String,
     variables: HashMap<String, String>,
     array_variables: HashMap<String, String>,
+    array_aliases: HashMap<String, String>,
     argv: Vec<String>,
     pipe_outputs: HashMap<String, Vec<String>>,
     rng_state: Cell<u64>,
     printf_buffer: String,
+    expression_output: Vec<String>,
     exited: bool,
     next_record: bool,
     break_loop: bool,
@@ -52,10 +54,12 @@ impl<'a> Evaluator<'a> {
             current_filename: current_filename.clone(),
             variables: HashMap::new(),
             array_variables: HashMap::new(),
+            array_aliases: HashMap::new(),
             argv: vec!["rawk".to_string(), current_filename],
             pipe_outputs: HashMap::new(),
             rng_state: Cell::new(9),
             printf_buffer: String::new(),
+            expression_output: Vec::new(),
             exited: false,
             next_record: false,
             break_loop: false,
@@ -229,7 +233,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
-        match statement {
+        let output = match statement {
             Statement::Empty => Vec::new(),
             Statement::Expression(expression) => match expression {
                 Expression::FunctionCall { name, args } => {
@@ -240,7 +244,7 @@ impl<'a> Evaluator<'a> {
                     Vec::new()
                 }
             },
-            Statement::Print(expressions) => vec![self.eval_print(expressions, input_line)],
+            Statement::Print(expressions) => self.eval_print_statement(expressions, input_line),
             Statement::PrintPipe { expressions, target } => {
                 self.eval_print_pipe(expressions, target, input_line);
                 Vec::new()
@@ -501,7 +505,11 @@ impl<'a> Evaluator<'a> {
                 self.exited = true;
                 Vec::new()
             }
-        }
+        };
+
+        let mut expression_output = self.take_expression_output();
+        expression_output.extend(output);
+        expression_output
     }
 
     fn eval_print(&mut self, expressions: &[Expression<'_>], input_line: Option<&str>) -> String {
@@ -519,6 +527,34 @@ impl<'a> Evaluator<'a> {
             .map(|expr| self.eval_expression(expr))
             .collect::<Vec<String>>();
         parts.join(&self.output_field_separator)
+    }
+
+    fn eval_print_statement(
+        &mut self,
+        expressions: &[Expression<'_>],
+        input_line: Option<&str>,
+    ) -> Vec<String> {
+        if expressions.is_empty() {
+            return vec![self
+                .current_line
+                .as_deref()
+                .or(input_line)
+                .unwrap_or("")
+                .to_string()];
+        }
+
+        let mut output = Vec::new();
+        let mut parts = Vec::new();
+        for expression in expressions {
+            parts.push(self.eval_expression(expression));
+            output.extend(self.take_expression_output());
+        }
+        output.push(parts.join(&self.output_field_separator));
+        output
+    }
+
+    fn take_expression_output(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.expression_output)
     }
 
     fn eval_printf(&mut self, expressions: &[Expression<'_>]) -> String {
@@ -655,6 +691,7 @@ impl<'a> Evaluator<'a> {
 
     fn eval_split(&mut self, string: &Expression<'_>, array: &str) -> usize {
         let source = self.eval_expression(string);
+        let array = self.resolve_array_identifier(array).to_string();
         let fields = self.split_fields(&source);
         let prefix = format!("{array}\u{1f}");
         self.array_variables.retain(|key, _| !key.starts_with(&prefix));
@@ -683,6 +720,7 @@ impl<'a> Evaluator<'a> {
             return;
         }
 
+        let identifier = self.resolve_array_identifier(identifier);
         let prefix = format!("{identifier}\u{1f}");
         self.array_variables.retain(|key, _| !key.starts_with(&prefix));
     }
@@ -900,7 +938,11 @@ impl<'a> Evaluator<'a> {
                 length,
             } => self.eval_substr_expression(string, start, length.as_deref()),
             Expression::Rand => format_awk_number(self.eval_rand()),
-            Expression::FunctionCall { name, args } => self.eval_function_call(name, args),
+            Expression::FunctionCall { name, args } => {
+                let result = self.eval_user_defined_function_call(name, args);
+                self.expression_output.extend(result.output);
+                result.value
+            }
             Expression::Not(expression) => {
                 if self.eval_condition(expression) {
                     "0".to_string()
@@ -1018,7 +1060,15 @@ impl<'a> Evaluator<'a> {
     }
 
     fn array_key(&mut self, identifier: &str, index: &Expression<'_>) -> String {
+        let identifier = self.resolve_array_identifier(identifier).to_string();
         format!("{identifier}\u{1f}{}", self.eval_array_subscript(index))
+    }
+
+    fn resolve_array_identifier<'b>(&'b self, identifier: &'b str) -> &'b str {
+        self.array_aliases
+            .get(identifier)
+            .map(|alias| alias.as_str())
+            .unwrap_or(identifier)
     }
 
     fn eval_array_subscript(&mut self, index: &Expression<'_>) -> String {
@@ -1051,6 +1101,7 @@ impl<'a> Evaluator<'a> {
     }
 
     fn array_keys(&self, identifier: &str) -> Vec<String> {
+        let identifier = self.resolve_array_identifier(identifier);
         let prefix = format!("{identifier}\u{1f}");
         self.array_variables
             .keys()
@@ -1148,6 +1199,15 @@ impl<'a> Evaluator<'a> {
                     .map(|arg| self.eval_printf_argument(arg))
                     .collect();
                 format_printf(&format, &values)
+            }
+            "split" => {
+                let count = match (args.first(), args.get(1)) {
+                    (Some(string), Some(Expression::Identifier(array))) => {
+                        self.eval_split(string, array)
+                    }
+                    _ => 0,
+                };
+                format_awk_number(count as f64)
             }
             "max" => {
                 let left = args
@@ -1258,16 +1318,27 @@ impl<'a> Evaluator<'a> {
             .collect();
 
         let mut saved_values = Vec::new();
+        let mut saved_array_aliases = Vec::new();
         for parameter in &definition.parameters {
             saved_values.push((
                 *parameter,
                 self.variables.get(*parameter).cloned(),
+            ));
+            saved_array_aliases.push((
+                *parameter,
+                self.array_aliases.get(*parameter).cloned(),
             ));
         }
 
         for (index, parameter) in definition.parameters.iter().enumerate() {
             let value = argument_values.get(index).cloned().unwrap_or_default();
             self.variables.insert((*parameter).to_string(), value);
+            if let Some(Expression::Identifier(identifier)) = args.get(index) {
+                self.array_aliases
+                    .insert((*parameter).to_string(), (*identifier).to_string());
+            } else {
+                self.array_aliases.remove(*parameter);
+            }
         }
 
         let saved_return_value = self.return_value.take();
@@ -1287,6 +1358,13 @@ impl<'a> Evaluator<'a> {
                 self.variables.insert(parameter.to_string(), value);
             } else {
                 self.variables.remove(parameter);
+            }
+        }
+        for (parameter, prior_alias) in saved_array_aliases {
+            if let Some(alias) = prior_alias {
+                self.array_aliases.insert(parameter.to_string(), alias);
+            } else {
+                self.array_aliases.remove(parameter);
             }
         }
 
@@ -2567,6 +2645,23 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn eval_split_function_call_updates_array_and_returns_count() {
+        let lexer = Lexer::new(
+            r#"function f(a) { return split($0, a) } { print f(x); print x[1]; print x[2] }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["hello world".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec!["2".to_string(), "hello".to_string(), "world".to_string()]
+        );
     }
 
     #[test]

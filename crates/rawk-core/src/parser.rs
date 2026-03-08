@@ -593,11 +593,12 @@ impl<'a> Parser<'a> {
         {
             self.next_token();
         }
-        if self.current_token.kind != TokenKind::LeftCurlyBrace {
-            todo!()
-        }
 
-        let statements = self.parse_statement_block();
+        let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            self.parse_statement_block()
+        } else {
+            vec![self.parse_statement()]
+        };
         Statement::While {
             condition,
             statements,
@@ -1811,6 +1812,20 @@ mod tests {
 
         assert_eq!(
             r#"{ i = 1; while (i <= NF) { print $i; i++ } }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_while_with_single_body_statement() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ while (n > 1) print n }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ while (n > 1) { print n } }"#,
             program.to_string()
         );
     }
