@@ -981,6 +981,9 @@ impl<'a> Evaluator<'a> {
 
     fn eval_identifier_expression(&self, identifier: &str) -> String {
         match identifier {
+            "FS" => self.field_separator.clone(),
+            "OFS" => self.output_field_separator.clone(),
+            "ORS" => self.output_record_separator.clone(),
             "NF" => {
                 if let Some(value) = self.variables.get("NF") {
                     return value.clone();
