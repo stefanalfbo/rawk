@@ -893,6 +893,24 @@ mod tests {
     }
 
     #[test]
+    fn test_expression_display_for_not_increment_decrement_and_ternary() {
+        let statement = Statement::Print(vec![
+            Expression::Not(Box::new(Expression::Identifier("x"))),
+            Expression::PreIncrement(Box::new(Expression::Identifier("x"))),
+            Expression::PreDecrement(Box::new(Expression::Identifier("x"))),
+            Expression::PostIncrement(Box::new(Expression::Identifier("x"))),
+            Expression::PostDecrement(Box::new(Expression::Identifier("x"))),
+            Expression::Ternary {
+                condition: Box::new(Expression::Identifier("x")),
+                then_expr: Box::new(Expression::Identifier("y")),
+                else_expr: Box::new(Expression::Identifier("z")),
+            },
+        ]);
+
+        assert_eq!("print !x, ++x, --x, x++, x--, (x) ? y : z", statement.to_string());
+    }
+
+    #[test]
     fn test_if_statement_display() {
         let statement = Statement::If {
             condition: Expression::Infix {
