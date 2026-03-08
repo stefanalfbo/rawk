@@ -883,6 +883,13 @@ impl<'a> Evaluator<'a> {
             } => self.eval_substr_expression(string, start, length.as_deref()),
             Expression::Rand => format_awk_number(self.eval_rand()),
             Expression::FunctionCall { name, args } => self.eval_function_call(name, args),
+            Expression::Not(expression) => {
+                if self.eval_condition(expression) {
+                    "0".to_string()
+                } else {
+                    "1".to_string()
+                }
+            }
             Expression::PreIncrement(target) => {
                 self.eval_increment_expression(target, 1.0, true)
             }
@@ -1325,6 +1332,7 @@ impl<'a> Evaluator<'a> {
                 .ok(),
             Expression::Rand => Some(self.eval_rand()),
             Expression::FunctionCall { name, args } => self.eval_function_call(name, args).parse().ok(),
+            Expression::Not(expression) => Some(if self.eval_condition(expression) { 0.0 } else { 1.0 }),
             Expression::PreIncrement(_)
             | Expression::PreDecrement(_)
             | Expression::PostIncrement(_)
@@ -1355,6 +1363,10 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_condition(&mut self, expression: &Expression<'_>) -> bool {
+        if let Expression::Not(inner) = expression {
+            return !self.eval_condition(inner);
+        }
+
         if let Expression::Regex(pattern) = expression {
             return self
                 .current_line

@@ -1045,6 +1045,11 @@ impl<'a> Parser<'a> {
             self.next_token();
             return self.parse_primary_expression();
         }
+        if self.current_token.kind == TokenKind::ExclamationMark {
+            self.next_token_with_regex(true);
+            let expression = self.parse_primary_expression();
+            return Expression::Not(Box::new(expression));
+        }
         if self.current_token.kind == TokenKind::Increment {
             self.next_token();
             let expression = self.parse_primary_expression();
