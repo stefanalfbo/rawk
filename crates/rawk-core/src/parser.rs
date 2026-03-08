@@ -1,6 +1,6 @@
 use crate::{
     Lexer, Program,
-    ast::{Action, Expression, Rule, Statement},
+    ast::{Action, Expression, FunctionDefinition, Rule, Statement},
     token::{Token, TokenKind},
 };
 
@@ -8,6 +8,7 @@ use crate::{
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token<'a>,
+    function_definitions: Vec<FunctionDefinition<'a>>,
 }
 
 impl<'a> Parser<'a> {
@@ -20,6 +21,7 @@ impl<'a> Parser<'a> {
         Parser {
             lexer,
             current_token,
+            function_definitions: Vec::new(),
         }
     }
 
@@ -35,6 +37,13 @@ impl<'a> Parser<'a> {
 
     fn is_eof(&self) -> bool {
         self.current_token.kind == TokenKind::Eof
+    }
+
+    fn is_statement_terminator(&self) -> bool {
+        matches!(
+            self.current_token.kind,
+            TokenKind::Semicolon | TokenKind::NewLine | TokenKind::RightCurlyBrace | TokenKind::Eof
+        )
     }
 
     fn parse_next_rule(&mut self) -> Option<Rule<'a>> {
@@ -159,6 +168,7 @@ impl<'a> Parser<'a> {
             TokenKind::Do => self.parse_do_statement(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
+            TokenKind::Return => self.parse_return_statement(),
             TokenKind::Next => self.parse_next_statement(),
             TokenKind::Exit => self.parse_exit_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
@@ -170,24 +180,63 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function_definition(&mut self) {
-        let mut brace_depth = 0usize;
-        loop {
-            if self.current_token.kind == TokenKind::Eof {
+        self.next_token();
+        if self.current_token.kind != TokenKind::Identifier {
+            todo!()
+        }
+        let name = self.current_token.literal;
+        self.next_token();
+        if self.current_token.kind != TokenKind::LeftParen {
+            todo!()
+        }
+        self.next_token();
+
+        let mut parameters = Vec::new();
+        while self.current_token.kind != TokenKind::RightParen {
+            if self.current_token.kind != TokenKind::Identifier {
+                todo!()
+            }
+            parameters.push(self.current_token.literal);
+            self.next_token();
+            if self.current_token.kind == TokenKind::Comma {
+                self.next_token();
+            } else if self.current_token.kind != TokenKind::RightParen {
+                todo!()
+            }
+        }
+
+        self.next_token();
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
+        if self.current_token.kind != TokenKind::LeftCurlyBrace {
+            todo!()
+        }
+
+        let mut statements = Vec::new();
+        self.next_token(); // consume '{'
+        while self.current_token.kind != TokenKind::RightCurlyBrace
+            && self.current_token.kind != TokenKind::Eof
+        {
+            while self.current_token.kind == TokenKind::NewLine
+                || self.current_token.kind == TokenKind::Semicolon
+            {
+                self.next_token();
+            }
+
+            if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::Eof
+            {
                 break;
             }
-            if self.current_token.kind == TokenKind::LeftCurlyBrace {
-                brace_depth += 1;
-            } else if self.current_token.kind == TokenKind::RightCurlyBrace {
-                if brace_depth == 0 {
-                    break;
-                }
-                brace_depth -= 1;
-                if brace_depth == 0 {
-                    break;
-                }
-            }
-            self.next_token_with_regex(true);
+
+            statements.push(self.parse_statement());
         }
+        self.function_definitions.push(FunctionDefinition {
+            name,
+            parameters,
+            statements,
+        });
     }
 
     fn parse_assignment_statement(&mut self) -> Statement<'a> {
@@ -197,6 +246,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assignment_statement_with_identifier(&mut self, identifier: &'a str) -> Statement<'a> {
+        if self.current_token.kind == TokenKind::LeftParen {
+            let args = self.parse_call_arguments();
+            return Statement::Expression(Expression::FunctionCall {
+                name: identifier,
+                args,
+            });
+        }
         if self.current_token.kind == TokenKind::LeftSquareBracket {
             self.next_token_with_regex(true);
             let index = self.parse_expression();
@@ -410,7 +466,22 @@ impl<'a> Parser<'a> {
 
     fn parse_exit_statement(&mut self) -> Statement<'a> {
         self.next_token();
-        Statement::Exit
+        let status = if self.is_statement_terminator() {
+            None
+        } else {
+            Some(self.parse_expression())
+        };
+        Statement::Exit(status)
+    }
+
+    fn parse_return_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        let value = if self.is_statement_terminator() {
+            None
+        } else {
+            Some(self.parse_expression())
+        };
+        Statement::Return(value)
     }
 
     fn parse_next_statement(&mut self) -> Statement<'a> {
@@ -1031,7 +1102,7 @@ impl<'a> Parser<'a> {
                 }
                 Expression::Rand
             }
-            TokenKind::Sprintf | TokenKind::Split | TokenKind::Sqrt => {
+            TokenKind::Int | TokenKind::Sprintf | TokenKind::Split | TokenKind::Sqrt => {
                 let name = self.current_token.literal;
                 self.next_token();
                 if self.current_token.kind == TokenKind::LeftParen {
@@ -1060,6 +1131,10 @@ impl<'a> Parser<'a> {
                 None => {}
             }
             self.next_token_with_regex(true);
+        }
+
+        for definition in self.function_definitions.drain(..) {
+            program.add_function_definition(definition);
         }
 
         program
@@ -1692,6 +1767,30 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"NR >= 10 { exit }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_exit_statement_with_status() {
+        let mut parser = Parser::new(Lexer::new(r#"$1 < 5000 { exit NR }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"$1 < 5000 { exit NR }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_user_defined_function_call_statement() {
+        let mut parser = Parser::new(Lexer::new(
+            "BEGIN { myabort(1) }\nfunction myabort(n) { exit n }",
+        ));
+
+        let program = parser.parse_program();
+
+        let definition = program
+            .function_definition("myabort")
+            .expect("expected function definition");
+        assert_eq!(definition.parameters, vec!["n"]);
+        assert_eq!(definition.statements.len(), 1);
     }
 
     #[test]

@@ -7,6 +7,7 @@ pub struct Program<'a> {
     begin_blocks: Vec<Rule<'a>>,
     rules: Vec<Rule<'a>>,
     end_blocks: Vec<Rule<'a>>,
+    function_definitions: Vec<FunctionDefinition<'a>>,
 }
 
 impl<'a> Program<'a> {
@@ -15,6 +16,7 @@ impl<'a> Program<'a> {
             begin_blocks: vec![],
             rules: vec![],
             end_blocks: vec![],
+            function_definitions: vec![],
         }
     }
 
@@ -38,6 +40,10 @@ impl<'a> Program<'a> {
         self.rules.push(rule);
     }
 
+    pub fn add_function_definition(&mut self, definition: FunctionDefinition<'a>) {
+        self.function_definitions.push(definition);
+    }
+
     pub fn begin_blocks_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
         self.begin_blocks.iter()
     }
@@ -48,6 +54,10 @@ impl<'a> Program<'a> {
 
     pub fn rules_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
         self.rules.iter()
+    }
+
+    pub fn function_definition(&self, name: &str) -> Option<&FunctionDefinition<'a>> {
+        self.function_definitions.iter().find(|definition| definition.name == name)
     }
 }
 
@@ -88,6 +98,7 @@ impl<'a> fmt::Display for Program<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement<'a> {
     Empty,
+    Expression(Expression<'a>),
     Print(Vec<Expression<'a>>),
     PrintRedirect {
         expressions: Vec<Expression<'a>>,
@@ -174,8 +185,9 @@ pub enum Statement<'a> {
         array: &'a str,
         statements: Vec<Statement<'a>>,
     },
+    Return(Option<Expression<'a>>),
     Next,
-    Exit,
+    Exit(Option<Expression<'a>>),
     PostIncrement {
         identifier: &'a str,
     },
@@ -186,6 +198,13 @@ pub enum Statement<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Action<'a> {
+    pub statements: Vec<Statement<'a>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionDefinition<'a> {
+    pub name: &'a str,
+    pub parameters: Vec<&'a str>,
     pub statements: Vec<Statement<'a>>,
 }
 
@@ -238,6 +257,7 @@ impl<'a> fmt::Display for Statement<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Statement::Empty => write!(f, ""),
+            Statement::Expression(expression) => write!(f, "{expression}"),
             Statement::Print(expressions) => {
                 if expressions.is_empty() {
                     write!(f, "print")
@@ -424,8 +444,11 @@ impl<'a> fmt::Display for Statement<'a> {
                     .join("; ");
                 write!(f, "for ({variable} in {array}) {{ {rendered} }}")
             }
+            Statement::Return(None) => write!(f, "return"),
+            Statement::Return(Some(value)) => write!(f, "return {value}"),
             Statement::Next => write!(f, "next"),
-            Statement::Exit => write!(f, "exit"),
+            Statement::Exit(None) => write!(f, "exit"),
+            Statement::Exit(Some(status)) => write!(f, "exit {status}"),
             Statement::PostIncrement { identifier } => write!(f, "{identifier}++"),
             Statement::PostDecrement { identifier } => write!(f, "{identifier}--"),
         }
@@ -577,6 +600,7 @@ mod tests {
                 action: None,
             }],
             end_blocks: vec![],
+            function_definitions: vec![],
         };
 
         assert_eq!(expected_string, program.to_string());
@@ -591,6 +615,7 @@ mod tests {
             })],
             rules: vec![],
             end_blocks: vec![],
+            function_definitions: vec![],
         };
 
         assert!(program.len() == 1);
@@ -606,6 +631,7 @@ mod tests {
             end_blocks: vec![Rule::End(Action {
                 statements: vec![Statement::Print(vec![])],
             })],
+            function_definitions: vec![],
         };
 
         assert!(program.len() == 1);
@@ -624,6 +650,7 @@ mod tests {
                 }),
             }],
             end_blocks: vec![],
+            function_definitions: vec![],
         };
 
         assert!(program.len() == 1);
@@ -657,6 +684,7 @@ mod tests {
             end_blocks: vec![Rule::End(Action {
                 statements: vec![Statement::Print(vec![Expression::String("hello".into())])],
             })],
+            function_definitions: vec![],
         };
 
         assert_eq!(expected_string, program.to_string());
@@ -897,9 +925,16 @@ mod tests {
 
     #[test]
     fn test_exit_statement_display() {
-        let statement = Statement::Exit;
+        let statement = Statement::Exit(None);
 
         assert_eq!("exit", statement.to_string());
+    }
+
+    #[test]
+    fn test_exit_statement_with_status_display() {
+        let statement = Statement::Exit(Some(Expression::Identifier("NR")));
+
+        assert_eq!("exit NR", statement.to_string());
     }
 
     #[test]

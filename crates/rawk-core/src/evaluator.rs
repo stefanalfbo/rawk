@@ -7,6 +7,11 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::cell::Cell;
 
+struct FunctionCallResult {
+    value: String,
+    output: Vec<String>,
+}
+
 pub struct Evaluator<'a> {
     program: Program<'a>,
     input_lines: Vec<String>,
@@ -24,6 +29,7 @@ pub struct Evaluator<'a> {
     printf_buffer: String,
     exited: bool,
     next_record: bool,
+    return_value: Option<String>,
     has_output: bool,
 }
 
@@ -51,6 +57,7 @@ impl<'a> Evaluator<'a> {
             printf_buffer: String::new(),
             exited: false,
             next_record: false,
+            return_value: None,
             has_output: false,
         }
     }
@@ -101,8 +108,12 @@ impl<'a> Evaluator<'a> {
         self.current_line = None;
 
         let end_rules: Vec<Rule<'a>> = self.program.end_blocks_iter().cloned().collect();
+        self.exited = false;
         for rule in end_rules.iter() {
             output_lines.extend(self.eval_end_rule(rule));
+            if self.exited {
+                break;
+            }
         }
 
         if !self.printf_buffer.is_empty() {
@@ -197,7 +208,7 @@ impl<'a> Evaluator<'a> {
         for statement in &action.statements {
             let statement_output = self.eval_statement(statement, input_line);
             if statement_output.is_empty() {
-                if self.exited || self.next_record {
+                if self.exited || self.next_record || self.return_value.is_some() {
                     break;
                 }
                 continue;
@@ -207,7 +218,7 @@ impl<'a> Evaluator<'a> {
             }
             output.extend(statement_output);
             self.has_output = true;
-            if self.exited || self.next_record {
+            if self.exited || self.next_record || self.return_value.is_some() {
                 break;
             }
         }
@@ -218,6 +229,15 @@ impl<'a> Evaluator<'a> {
     fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
         match statement {
             Statement::Empty => Vec::new(),
+            Statement::Expression(expression) => match expression {
+                Expression::FunctionCall { name, args } => {
+                    self.eval_user_defined_function_call(name, args).output
+                }
+                _ => {
+                    let _ = self.eval_expression(expression);
+                    Vec::new()
+                }
+            },
             Statement::Print(expressions) => vec![self.eval_print(expressions, input_line)],
             Statement::PrintPipe { expressions, target } => {
                 self.eval_print_pipe(expressions, target, input_line);
@@ -317,7 +337,7 @@ impl<'a> Evaluator<'a> {
                     let mut output = Vec::new();
                     for statement in then_statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record {
+                        if self.exited || self.next_record || self.return_value.is_some() {
                             break;
                         }
                     }
@@ -339,7 +359,7 @@ impl<'a> Evaluator<'a> {
                 let mut output = Vec::new();
                 for statement in branch {
                     output.extend(self.eval_statement(statement, input_line));
-                    if self.exited || self.next_record {
+                    if self.exited || self.next_record || self.return_value.is_some() {
                         break;
                     }
                 }
@@ -353,11 +373,11 @@ impl<'a> Evaluator<'a> {
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record {
+                        if self.exited || self.next_record || self.return_value.is_some() {
                             break;
                         }
                     }
-                    if self.exited || self.next_record {
+                    if self.exited || self.next_record || self.return_value.is_some() {
                         break;
                     }
                 }
@@ -371,11 +391,11 @@ impl<'a> Evaluator<'a> {
                 loop {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record {
+                        if self.exited || self.next_record || self.return_value.is_some() {
                             break;
                         }
                     }
-                    if self.exited || self.next_record || !self.eval_condition(condition) {
+                    if self.exited || self.next_record || self.return_value.is_some() || !self.eval_condition(condition) {
                         break;
                     }
                 }
@@ -389,21 +409,21 @@ impl<'a> Evaluator<'a> {
             } => {
                 let mut output = Vec::new();
                 output.extend(self.eval_statement(init, input_line));
-                if self.exited || self.next_record {
+                if self.exited || self.next_record || self.return_value.is_some() {
                     return output;
                 }
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record {
+                        if self.exited || self.next_record || self.return_value.is_some() {
                             break;
                         }
                     }
-                    if self.exited || self.next_record {
+                    if self.exited || self.next_record || self.return_value.is_some() {
                         break;
                     }
                     output.extend(self.eval_statement(update, input_line));
-                    if self.exited || self.next_record {
+                    if self.exited || self.next_record || self.return_value.is_some() {
                         break;
                     }
                 }
@@ -421,21 +441,33 @@ impl<'a> Evaluator<'a> {
                     self.variables.insert(variable.to_string(), key);
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record {
+                        if self.exited || self.next_record || self.return_value.is_some() {
                             break;
                         }
                     }
-                    if self.exited || self.next_record {
+                    if self.exited || self.next_record || self.return_value.is_some() {
                         break;
                     }
                 }
                 output
             }
+            Statement::Return(value) => {
+                self.return_value = Some(
+                    value
+                        .as_ref()
+                        .map(|value| self.eval_expression(value))
+                        .unwrap_or_default(),
+                );
+                Vec::new()
+            }
             Statement::Next => {
                 self.next_record = true;
                 Vec::new()
             }
-            Statement::Exit => {
+            Statement::Exit(status) => {
+                if let Some(status) = status {
+                    let _ = self.eval_expression(status);
+                }
                 self.exited = true;
                 Vec::new()
             }
@@ -1074,7 +1106,73 @@ impl<'a> Evaluator<'a> {
                     .unwrap_or(0.0);
                 format_awk_number(value.sqrt())
             }
+            "int" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(value.trunc())
+            }
+            _ if self.program.function_definition(name).is_some() => {
+                self.eval_user_defined_function_call(name, args).value
+            }
             _ => "0".to_string(),
+        }
+    }
+
+    fn eval_user_defined_function_call(
+        &mut self,
+        name: &str,
+        args: &[Expression<'_>],
+    ) -> FunctionCallResult {
+        let Some(definition) = self.program.function_definition(name).cloned() else {
+            return FunctionCallResult {
+                value: self.eval_function_call(name, args),
+                output: Vec::new(),
+            };
+        };
+
+        let argument_values: Vec<String> = args
+            .iter()
+            .map(|arg| self.eval_expression(arg))
+            .collect();
+
+        let mut saved_values = Vec::new();
+        for parameter in &definition.parameters {
+            saved_values.push((
+                *parameter,
+                self.variables.get(*parameter).cloned(),
+            ));
+        }
+
+        for (index, parameter) in definition.parameters.iter().enumerate() {
+            let value = argument_values.get(index).cloned().unwrap_or_default();
+            self.variables.insert((*parameter).to_string(), value);
+        }
+
+        let saved_return_value = self.return_value.take();
+        let mut output = Vec::new();
+        for statement in &definition.statements {
+            output.extend(self.eval_statement(statement, None));
+            if self.exited || self.next_record || self.return_value.is_some() {
+                break;
+            }
+        }
+
+        let return_value = self.return_value.take().unwrap_or_default();
+        self.return_value = saved_return_value;
+
+        for (parameter, prior_value) in saved_values {
+            if let Some(value) = prior_value {
+                self.variables.insert(parameter.to_string(), value);
+            } else {
+                self.variables.remove(parameter);
+            }
+        }
+
+        FunctionCallResult {
+            value: return_value,
+            output,
         }
     }
 
@@ -2231,6 +2329,23 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, Vec::<String>::new());
+    }
+
+    #[test]
+    fn eval_user_defined_function_call_can_exit() {
+        let lexer = Lexer::new(
+            r#"BEGIN { print "before"; myabort(1); print "after" } function myabort(n) { print "exit", n; exit n } END { print "end" }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["A".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec!["before".to_string(), "exit 1".to_string(), "end".to_string()]
+        );
     }
 
     #[test]
