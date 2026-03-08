@@ -79,7 +79,7 @@ t_test!(tcat1, "cat1");
 t_test!(tcat2, "cat2");
 t_test!(tcmp, "cmp");
 t_test!(tcoerce, "coerce");
-t_test_ignore!(tcoerce2, "coerce2");
+t_test!(tcoerce2, "coerce2");
 t_test!(tcomment, "comment");
 t_test!(tcomment1, "comment1");
 t_test_ignore!(tconcat, "concat");

@@ -89,6 +89,7 @@ impl<'a> Parser<'a> {
             | TokenKind::Identifier
             | TokenKind::Cos
             | TokenKind::Exp
+            | TokenKind::Index
             | TokenKind::Int
             | TokenKind::Length
             | TokenKind::Log
@@ -1198,6 +1199,7 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Cos
             | TokenKind::Exp
+            | TokenKind::Index
             | TokenKind::Int
             | TokenKind::Log
             | TokenKind::Sin
@@ -1279,6 +1281,7 @@ fn infix_operator_precedence(kind: &TokenKind) -> Option<(u8, u8)> {
         | TokenKind::NotEqual
         | TokenKind::GreaterThan
         | TokenKind::GreaterThanOrEqual
+        | TokenKind::In
         | TokenKind::LessThan
         | TokenKind::LessThanOrEqual
         | TokenKind::Tilde
@@ -1301,6 +1304,7 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::Identifier
             | TokenKind::Cos
             | TokenKind::Exp
+            | TokenKind::Index
             | TokenKind::Int
             | TokenKind::Length
             | TokenKind::Log
@@ -1866,6 +1870,24 @@ mod tests {
             r#"{ print log($1), sqrt($1), int(sqrt($1)), exp($1 % 10) }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    fn parse_index_builtin_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"{ print index(1, $1) }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ print index(1, $1) }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_in_membership_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"{ print 1 in x }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ print 1 in x }"#, program.to_string());
     }
 
     #[test]

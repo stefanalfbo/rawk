@@ -989,10 +989,19 @@ impl<'a> Evaluator<'a> {
                 left,
                 operator,
                 right,
-            } => self
-                .eval_numeric_infix(left, operator, right)
-                .map(format_awk_number)
-                .unwrap_or_else(|| "not implemented".to_string()),
+            } => {
+                if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
+                    format_awk_number(if value { 1.0 } else { 0.0 })
+                } else if let Some(value) =
+                    self.eval_membership(left, operator.kind.clone(), right)
+                {
+                    format_awk_number(if value { 1.0 } else { 0.0 })
+                } else {
+                    self.eval_numeric_infix(left, operator, right)
+                        .map(format_awk_number)
+                        .unwrap_or_else(|| "not implemented".to_string())
+                }
+            }
         }
     }
 
@@ -1225,6 +1234,20 @@ impl<'a> Evaluator<'a> {
                     _ => 0,
                 };
                 format_awk_number(count as f64)
+            }
+            "index" => {
+                let string = args
+                    .first()
+                    .map(|arg| self.eval_expression(arg))
+                    .unwrap_or_default();
+                let search = args
+                    .get(1)
+                    .map(|arg| self.eval_expression(arg))
+                    .unwrap_or_default();
+                match string.find(&search) {
+                    Some(index) => format_awk_number((index + 1) as f64),
+                    None => "0".to_string(),
+                }
             }
             "max" => {
                 let left = args
@@ -1544,6 +1567,9 @@ impl<'a> Evaluator<'a> {
             if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
                 return value;
             }
+            if let Some(value) = self.eval_membership(left, operator.kind.clone(), right) {
+                return value;
+            }
             if let Some(value) = self.eval_comparison(left, operator.kind.clone(), right) {
                 return value;
             }
@@ -1652,6 +1678,24 @@ impl<'a> Evaluator<'a> {
             }
             _ => None,
         }
+    }
+
+    fn eval_membership(
+        &mut self,
+        left: &Expression<'_>,
+        operator: TokenKind,
+        right: &Expression<'_>,
+    ) -> Option<bool> {
+        if operator != TokenKind::In {
+            return None;
+        }
+
+        let identifier = match right {
+            Expression::Identifier(identifier) => *identifier,
+            _ => return Some(false),
+        };
+        let key = self.array_key(identifier, left);
+        Some(self.array_variables.contains_key(&key))
     }
 }
 
