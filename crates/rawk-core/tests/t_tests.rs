@@ -63,7 +63,7 @@ t_test!(tarray, "array");
 t_test!(tarray1, "array1");
 t_test!(tarray2, "array2");
 t_test!(tassert, "assert");
-t_test_ignore!(tavg, "avg");
+t_test!(tavg, "avg");
 t_test!(tbx, "b.x");
 t_test_ignore!(tbe, "be");
 t_test_ignore!(tbeginexit, "beginexit");
