@@ -980,7 +980,13 @@ impl<'a> Evaluator<'a> {
                 None => self.current_line_number.get().to_string(),
             },
             "FNR" => self.current_line_number.get().to_string(),
-            "FILENAME" => self.current_filename.clone(),
+            "FILENAME" => {
+                if self.current_line.is_none() && self.current_line_number.get() == 0 {
+                    String::new()
+                } else {
+                    self.current_filename.clone()
+                }
+            }
             "ARGC" => self.argv.len().to_string(),
             _ => self
                 .variables
