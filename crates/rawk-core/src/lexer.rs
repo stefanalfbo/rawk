@@ -6,7 +6,6 @@ pub struct Lexer<'a> {
     position: usize,
     read_position: usize,
     ch: Option<u8>,
-    allow_regex: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -16,18 +15,21 @@ impl<'a> Lexer<'a> {
             position: 0,
             read_position: 0,
             ch: None,
-            allow_regex: false,
         };
 
         lexer.read_char();
         lexer
     }
 
-    pub fn set_allow_regex(&mut self, allow: bool) {
-        self.allow_regex = allow;
+    pub fn next_token(&mut self) -> Token<'a> {
+        self.next_token_impl(false)
     }
 
-    pub fn next_token(&mut self) -> Token<'a> {
+    pub fn next_token_regex_aware(&mut self) -> Token<'a> {
+        self.next_token_impl(true)
+    }
+
+    fn next_token_impl(&mut self, allow_regex: bool) -> Token<'a> {
         self.skip_whitespace();
         self.skip_comment();
 
@@ -148,7 +150,7 @@ impl<'a> Lexer<'a> {
                 }
             }
             Some(b'/') => {
-                if self.allow_regex {
+                if allow_regex {
                     self.read_regex()
                 } else if self.peek_char() == Some(b'=') {
                     self.read_char();
@@ -737,9 +739,8 @@ mod tests {
     fn read_regex_token_when_allowed() {
         let input = r"/foo\//";
         let mut lexer = Lexer::new(input);
-        lexer.set_allow_regex(true);
 
-        let token = lexer.next_token();
+        let token = lexer.next_token_regex_aware();
 
         assert_token(token, TokenKind::Regex, r"foo\/");
     }
