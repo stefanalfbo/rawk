@@ -40,6 +40,10 @@ impl<'a> Parser<'a> {
         )
     }
 
+    fn token_is_immediately_after(&self, previous: &Token<'a>) -> bool {
+        self.current_token.span.start == previous.span.start + previous.literal.len()
+    }
+
     fn parse_array_index_expression(&mut self) -> Expression<'a> {
         let mut index = self.parse_expression();
         while self.current_token.kind == TokenKind::Comma {
@@ -259,16 +263,18 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assignment_statement(&mut self) -> Statement<'a> {
-        let identifier = self.current_token.literal;
+        let identifier = self.current_token.clone();
         self.next_token();
         self.parse_assignment_statement_with_identifier(identifier)
     }
 
-    fn parse_assignment_statement_with_identifier(&mut self, identifier: &'a str) -> Statement<'a> {
-        if self.current_token.kind == TokenKind::LeftParen {
+    fn parse_assignment_statement_with_identifier(&mut self, identifier: Token<'a>) -> Statement<'a> {
+        if self.current_token.kind == TokenKind::LeftParen
+            && self.token_is_immediately_after(&identifier)
+        {
             let args = self.parse_call_arguments();
             return Statement::Expression(Expression::FunctionCall {
-                name: identifier,
+                name: identifier.literal,
                 args,
             });
         }
@@ -283,7 +289,7 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 let value = self.parse_expression();
                 return Statement::ArrayAssignment {
-                    identifier,
+                    identifier: identifier.literal,
                     index,
                     value,
                 };
@@ -292,38 +298,54 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 let value = self.parse_expression();
                 return Statement::ArrayAddAssignment {
-                    identifier,
+                    identifier: identifier.literal,
                     index,
                     value,
                 };
             }
             if self.current_token.kind == TokenKind::Increment {
                 self.next_token();
-                return Statement::ArrayPostIncrement { identifier, index };
+                return Statement::ArrayPostIncrement {
+                    identifier: identifier.literal,
+                    index,
+                };
             }
             if self.current_token.kind == TokenKind::Decrement {
                 self.next_token();
-                return Statement::ArrayPostDecrement { identifier, index };
+                return Statement::ArrayPostDecrement {
+                    identifier: identifier.literal,
+                    index,
+                };
             }
             todo!()
         }
         if self.current_token.kind == TokenKind::Assign {
             self.next_token();
             if self.current_token.kind == TokenKind::Split {
-                return self.parse_split_assignment_statement(identifier);
+                return self.parse_split_assignment_statement(identifier.literal);
             }
             let value = self.parse_expression();
-            Statement::Assignment { identifier, value }
+            Statement::Assignment {
+                identifier: identifier.literal,
+                value,
+            }
         } else if self.current_token.kind == TokenKind::Increment {
             self.next_token();
-            Statement::PostIncrement { identifier }
+            Statement::PostIncrement {
+                identifier: identifier.literal,
+            }
         } else if self.current_token.kind == TokenKind::Decrement {
             self.next_token();
-            Statement::PostDecrement { identifier }
+            Statement::PostDecrement {
+                identifier: identifier.literal,
+            }
         } else if self.current_token.kind == TokenKind::AddAssign {
             self.next_token();
             let value = self.parse_expression();
-            Statement::AddAssignment { identifier, value }
+            Statement::AddAssignment {
+                identifier: identifier.literal,
+                value,
+            }
         } else if matches!(
             self.current_token.kind,
             TokenKind::SubtractAssign
@@ -336,9 +358,9 @@ impl<'a> Parser<'a> {
             self.next_token();
             let right_value = self.parse_expression();
             Statement::Assignment {
-                identifier,
+                identifier: identifier.literal,
                 value: Expression::Infix {
-                    left: Box::new(Expression::Identifier(identifier)),
+                    left: Box::new(Expression::Identifier(identifier.literal)),
                     operator: compound_assign_operator(&assign_token),
                     right: Box::new(right_value),
                 },
@@ -652,7 +674,7 @@ impl<'a> Parser<'a> {
         let init = if self.current_token.kind == TokenKind::Semicolon {
             Statement::Empty
         } else if self.current_token.kind == TokenKind::Identifier {
-            let variable = self.current_token.literal;
+            let variable = self.current_token.clone();
             self.next_token();
             if self.current_token.kind == TokenKind::In {
                 self.next_token();
@@ -676,7 +698,7 @@ impl<'a> Parser<'a> {
                     vec![self.parse_statement()]
                 };
                 return Statement::ForIn {
-                    variable,
+                    variable: variable.literal,
                     array,
                     statements,
                 };
@@ -1126,12 +1148,14 @@ impl<'a> Parser<'a> {
                 expression
             }
             TokenKind::Identifier => {
-                let identifier = self.current_token.literal;
+                let identifier = self.current_token.clone();
                 self.next_token();
-                if self.current_token.kind == TokenKind::LeftParen {
+                if self.current_token.kind == TokenKind::LeftParen
+                    && self.token_is_immediately_after(&identifier)
+                {
                     let args = self.parse_call_arguments();
                     return Expression::FunctionCall {
-                        name: identifier,
+                        name: identifier.literal,
                         args,
                     };
                 }
@@ -1143,11 +1167,11 @@ impl<'a> Parser<'a> {
                     }
                     self.next_token();
                     Expression::ArrayAccess {
-                        identifier,
+                        identifier: identifier.literal,
                         index: Box::new(index),
                     }
                 } else {
-                    Expression::Identifier(identifier)
+                    Expression::Identifier(identifier.literal)
                 }
             }
             TokenKind::Length => {
@@ -1584,6 +1608,34 @@ mod tests {
             Expression::Concatenation { left, right } => {
                 assert!(matches!(**left, Expression::String("Value:")));
                 assert!(matches!(**right, Expression::Number(42.0)));
+            }
+            _ => panic!("expected concatenation expression"),
+        }
+    }
+
+    #[test]
+    fn parse_identifier_followed_by_spaced_parentheses_as_concatenation() {
+        let mut parser = Parser::new(Lexer::new(r#"{ x = $1; print x (++i) }"#));
+
+        let program = parser.parse_program();
+        let mut rules = program.rules_iter();
+        let rule = rules.next().expect("expected rule");
+
+        let statements = match rule {
+            Rule::Action(Action { statements }) => statements,
+            _ => panic!("expected action rule"),
+        };
+
+        let exprs = match &statements[1] {
+            Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
+        };
+
+        assert_eq!(exprs.len(), 1);
+        match &exprs[0] {
+            Expression::Concatenation { left, right } => {
+                assert!(matches!(**left, Expression::Identifier("x")));
+                assert!(matches!(**right, Expression::PreIncrement(_)));
             }
             _ => panic!("expected concatenation expression"),
         }

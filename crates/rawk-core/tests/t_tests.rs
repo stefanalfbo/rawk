@@ -82,7 +82,7 @@ t_test!(tcoerce, "coerce");
 t_test!(tcoerce2, "coerce2");
 t_test!(tcomment, "comment");
 t_test!(tcomment1, "comment1");
-t_test_ignore!(tconcat, "concat");
+t_test!(tconcat, "concat");
 t_test!(tcond, "cond");
 t_test_ignore!(tcontin, "contin");
 t_test!(tcount, "count");
