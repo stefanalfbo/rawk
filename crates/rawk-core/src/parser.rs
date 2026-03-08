@@ -93,10 +93,17 @@ impl<'a> Parser<'a> {
             | TokenKind::DollarSign
             | TokenKind::LeftParen
             | TokenKind::Identifier
+            | TokenKind::Cos
+            | TokenKind::Exp
+            | TokenKind::Int
             | TokenKind::Length
+            | TokenKind::Log
             | TokenKind::Rand
+            | TokenKind::Sin
             | TokenKind::Sprintf
             | TokenKind::Split
+            | TokenKind::Sqrt
+            | TokenKind::Srand
             | TokenKind::Substr
             | TokenKind::Increment
             | TokenKind::Decrement => self.parse_pattern_rule(),
@@ -1194,7 +1201,15 @@ impl<'a> Parser<'a> {
                 }
                 Expression::Rand
             }
-            TokenKind::Int | TokenKind::Sprintf | TokenKind::Split | TokenKind::Sqrt => {
+            TokenKind::Cos
+            | TokenKind::Exp
+            | TokenKind::Int
+            | TokenKind::Log
+            | TokenKind::Sin
+            | TokenKind::Sprintf
+            | TokenKind::Split
+            | TokenKind::Sqrt
+            | TokenKind::Srand => {
                 let name = self.current_token.literal;
                 self.next_token();
                 if self.current_token.kind == TokenKind::LeftParen {
@@ -1289,11 +1304,17 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::DollarSign
             | TokenKind::LeftParen
             | TokenKind::Identifier
+            | TokenKind::Cos
+            | TokenKind::Exp
+            | TokenKind::Int
             | TokenKind::Length
+            | TokenKind::Log
             | TokenKind::Rand
+            | TokenKind::Sin
             | TokenKind::Sprintf
             | TokenKind::Split
             | TokenKind::Sqrt
+            | TokenKind::Srand
             | TokenKind::Substr
             | TokenKind::Increment
             | TokenKind::Decrement
@@ -1822,6 +1843,20 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"BEGIN { print rand() }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_math_builtin_expressions() {
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ print log($1), sqrt($1), int(sqrt($1)), exp($1 % 10) }"#,
+        ));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ print log($1), sqrt($1), int(sqrt($1)), exp($1 % 10) }"#,
+            program.to_string()
+        );
     }
 
     #[test]

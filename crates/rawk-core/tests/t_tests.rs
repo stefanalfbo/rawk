@@ -73,7 +73,7 @@ t_test!(tbreak1, "break1");
 t_test!(tbreak2, "break2");
 t_test!(tbreak3, "break3");
 t_test!(tbug1, "bug1");
-t_test_ignore!(tbuiltins, "builtins");
+t_test!(tbuiltins, "builtins");
 t_test!(tcat, "cat");
 t_test!(tcat1, "cat1");
 t_test!(tcat2, "cat2");

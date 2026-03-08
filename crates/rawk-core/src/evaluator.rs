@@ -1190,12 +1190,48 @@ impl<'a> Evaluator<'a> {
                     .unwrap_or(0.0);
                 format_awk_number(value.sqrt())
             }
+            "log" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(value.ln())
+            }
+            "exp" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(value.exp())
+            }
+            "sin" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(value.sin())
+            }
+            "cos" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                format_awk_number(value.cos())
+            }
             "int" => {
                 let value = args
                     .first()
                     .and_then(|arg| self.eval_numeric_expression(arg))
                     .unwrap_or(0.0);
                 format_awk_number(value.trunc())
+            }
+            "srand" => {
+                let seed = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(1.0) as u64;
+                self.rng_state.set(seed);
+                format_awk_number(seed as f64)
             }
             _ if self.program.function_definition(name).is_some() => {
                 self.eval_user_defined_function_call(name, args).value
