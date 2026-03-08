@@ -765,6 +765,36 @@ mod tests {
     }
 
     #[test]
+    fn unsupported_character_is_illegal() {
+        let input = "@";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+    }
+
+    #[test]
+    fn unterminated_regex_token_is_illegal() {
+        let input = r"/foo";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token_regex_aware();
+
+        assert_token(token, TokenKind::Illegal, "foo");
+    }
+
+    #[test]
+    fn bare_dot_is_illegal() {
+        let input = ".";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+    }
+
+    #[test]
     fn built_in_functions() {
         let input = "atan2 close cos exp gsub index int length log match rand sin split sprintf sqrt srand sub substr system tolower toupper";
         let mut lexer = Lexer::new(input);
