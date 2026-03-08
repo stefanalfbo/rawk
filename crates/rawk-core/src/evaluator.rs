@@ -15,6 +15,7 @@ struct FunctionCallResult {
 pub struct Evaluator<'a> {
     program: Program<'a>,
     input_lines: Vec<String>,
+    input_cursor: usize,
     current_line_number: Cell<usize>,
     current_line: Option<String>,
     field_separator: String,
@@ -46,6 +47,7 @@ impl<'a> Evaluator<'a> {
         Self {
             program,
             input_lines,
+            input_cursor: 0,
             current_line_number: Cell::new(0),
             current_line: None,
             field_separator: " ".to_string(),
@@ -81,12 +83,10 @@ impl<'a> Evaluator<'a> {
 
         let rules: Vec<Rule<'a>> = self.program.rules_iter().cloned().collect();
         let mut range_state = vec![false; rules.len()];
-        let input_lines = self.input_lines.clone();
-        for (i, input_line) in input_lines.iter().enumerate() {
+        while let Some(input_line) = self.read_next_input_record() {
             if self.exited {
                 break;
             }
-            self.current_line_number.set(i + 1);
 
             for (rule_idx, rule) in rules.iter().enumerate() {
                 if self.exited {
@@ -94,11 +94,9 @@ impl<'a> Evaluator<'a> {
                 }
                 // Rules are evaluated against the original record text for this
                 // interpreter's current semantics.
-                self.current_line = Some(input_line.clone());
-                self.variables.remove("NF");
                 output_lines.extend(self.eval_rule_for_line(
                     rule,
-                    input_line,
+                    &input_line,
                     &mut range_state[rule_idx],
                 ));
                 if self.next_record {
@@ -129,6 +127,15 @@ impl<'a> Evaluator<'a> {
         output_lines.extend(self.flush_pipe_outputs());
 
         output_lines
+    }
+
+    fn read_next_input_record(&mut self) -> Option<String> {
+        let input_line = self.input_lines.get(self.input_cursor)?.clone();
+        self.input_cursor += 1;
+        self.current_line_number.set(self.input_cursor);
+        self.current_line = Some(input_line.clone());
+        self.variables.remove("NF");
+        Some(input_line)
     }
 
     fn eval_rule_for_line(
@@ -1021,8 +1028,9 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn eval_identifier_expression(&self, identifier: &str) -> String {
+    fn eval_identifier_expression(&mut self, identifier: &str) -> String {
         match identifier {
+            "getline" => self.eval_getline(),
             "FS" => self.field_separator.clone(),
             "OFS" => self.output_field_separator.clone(),
             "ORS" => self.output_record_separator.clone(),
@@ -1056,6 +1064,15 @@ impl<'a> Evaluator<'a> {
                 .get(identifier)
                 .cloned()
                 .unwrap_or_default(),
+        }
+    }
+
+    fn eval_getline(&mut self) -> String {
+        if self.read_next_input_record().is_some() {
+            "1".to_string()
+        } else {
+            self.current_line = None;
+            "0".to_string()
         }
     }
 
@@ -2661,6 +2678,27 @@ mod tests {
         assert_eq!(
             output,
             vec!["2".to_string(), "hello".to_string(), "world".to_string()]
+        );
+    }
+
+    #[test]
+    fn eval_getline_in_begin_consumes_input_records() {
+        let lexer = Lexer::new(
+            r#"BEGIN { while (getline && NR < 3) print } { print }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(
+            program,
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            "-",
+        );
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec!["A".to_string(), "B".to_string()]
         );
     }
 

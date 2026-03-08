@@ -66,7 +66,7 @@ t_test!(tassert, "assert");
 t_test!(tavg, "avg");
 t_test!(tbx, "b.x");
 t_test!(tbe, "be");
-t_test_ignore!(tbeginexit, "beginexit");
+t_test!(tbeginexit, "beginexit");
 t_test_ignore!(tbeginnext, "beginnext");
 t_test!(tbreak, "break");
 t_test!(tbreak1, "break1");
