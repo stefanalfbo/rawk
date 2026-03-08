@@ -790,7 +790,7 @@ impl<'a> Evaluator<'a> {
         }
         fields[(index - 1) as usize] = value;
         self.variables
-            .insert("NF".to_string(), fields.len().to_string());
+        .insert("NF".to_string(), fields.len().to_string());
         self.current_line = Some(fields.join(&self.output_field_separator));
     }
 
@@ -914,6 +914,10 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             _ => self.eval_expression(pattern),
         };
+        if Regex::new(&pattern).is_err() {
+            self.exited = true;
+            return;
+        }
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
         match target {
             Some(Expression::Identifier(identifier)) => {
@@ -951,6 +955,10 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             _ => self.eval_expression(pattern),
         };
+        if Regex::new(&pattern).is_err() {
+            self.exited = true;
+            return;
+        }
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
         let replaced = awk_sub_replace_first(&line, &pattern, &replacement);
         self.current_line = Some(replaced);
@@ -1077,7 +1085,6 @@ impl<'a> Evaluator<'a> {
                     Some(value) => value,
                     None => return "0".to_string(),
                 };
-
                 let field_count = self.split_line_into_fields(line).len();
                 field_count.to_string()
             }
@@ -1872,26 +1879,37 @@ fn awk_gsub_replace_all(text: &str, pattern: &str, replacement: &str) -> String 
     match (anchored_start, anchored_end) {
         (true, true) => {
             if text == core {
-                replacement.to_string()
+                awk_subst_replacement(replacement, core)
             } else {
                 text.to_string()
             }
         }
         (true, false) => {
             if let Some(suffix) = text.strip_prefix(core) {
-                format!("{replacement}{suffix}")
+                format!("{}{}", awk_subst_replacement(replacement, core), suffix)
             } else {
                 text.to_string()
             }
         }
         (false, true) => {
             if let Some(prefix) = text.strip_suffix(core) {
-                format!("{prefix}{replacement}")
+                format!("{prefix}{}", awk_subst_replacement(replacement, core))
             } else {
                 text.to_string()
             }
         }
-        (false, false) => text.replace(core, replacement),
+        (false, false) => {
+            let mut out = String::new();
+            let mut last = 0usize;
+            while let Some(relative_pos) = text[last..].find(core) {
+                let start = last + relative_pos;
+                out.push_str(&text[last..start]);
+                out.push_str(&awk_subst_replacement(replacement, core));
+                last = start + core.len();
+            }
+            out.push_str(&text[last..]);
+            out
+        }
     }
 }
 
@@ -2476,6 +2494,19 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["abc".to_string(), "a b\tc".to_string()]);
+    }
+
+    #[test]
+    fn eval_gsub_string_pattern_uses_awk_replacement_semantics() {
+        let lexer =
+            Lexer::new(r#"{ gsub("[" $1 "]", "(&)"); print } { gsub("[" $1 "]", "(\\&)"); print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["abc\txyz".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["(a)(b)(c)\txyz".to_string(), "(&)(&)(&)(&)(&)(&)(&)(&)(&)\txyz".to_string()]);
     }
 
     #[test]
