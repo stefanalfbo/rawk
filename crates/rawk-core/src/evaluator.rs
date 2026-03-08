@@ -1440,6 +1440,10 @@ impl<'a> Evaluator<'a> {
     }
 
     fn split_fields(&self, line: &str) -> Vec<String> {
+        if line.is_empty() {
+            return Vec::new();
+        }
+
         if self.field_separator == " " {
             line.split_whitespace().map(str::to_string).collect()
         } else {
@@ -2507,6 +2511,19 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["(a)(b)(c)\txyz".to_string(), "(&)(&)(&)(&)(&)(&)(&)(&)(&)\txyz".to_string()]);
+    }
+
+    #[test]
+    fn eval_nf_with_non_space_fs_counts_empty_record_as_zero_fields() {
+        let lexer = Lexer::new("BEGIN { FS=\":\"; OFS=\":\" } { print NF \"	\", $0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator =
+            Evaluator::new(program, vec![String::new(), "/dev/rrp3:".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["0\t:".to_string(), "2\t:/dev/rrp3:".to_string()]);
     }
 
     #[test]

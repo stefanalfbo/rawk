@@ -88,7 +88,7 @@ t_test!(tcontin, "contin");
 t_test!(tcount, "count");
 t_test!(tcrlf, "crlf");
 t_test!(tcum, "cum");
-t_test_ignore!(tdx, "d.x");
+t_test!(tdx, "d.x");
 t_test!(tdelete0, "delete0");
 t_test!(tdelete1, "delete1");
 t_test!(tdelete2, "delete2");
