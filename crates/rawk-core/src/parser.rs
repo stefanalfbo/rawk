@@ -736,6 +736,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::RightParen
                 || self.current_token.kind == TokenKind::Eof
                 || self.current_token.kind == TokenKind::GreaterThan
                 || self.current_token.kind == TokenKind::Append
@@ -760,9 +761,23 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            let started_with_left_paren = self.current_token.kind == TokenKind::LeftParen;
             let expression = self.parse_expression();
             expressions.push(expression);
+            if started_with_left_paren && self.current_token.kind == TokenKind::Comma {
+                while self.current_token.kind == TokenKind::Comma {
+                    self.next_token();
+                    expressions.push(self.parse_expression());
+                }
+                if self.current_token.kind != TokenKind::RightParen {
+                    todo!()
+                }
+                self.next_token();
+            }
             expect_more = false;
+        }
+        if self.current_token.kind == TokenKind::RightParen {
+            self.next_token();
         }
 
         if self.current_token.kind == TokenKind::GreaterThan
@@ -895,6 +910,7 @@ impl<'a> Parser<'a> {
 
         loop {
             if self.current_token.kind == TokenKind::RightCurlyBrace
+                || self.current_token.kind == TokenKind::RightParen
                 || self.current_token.kind == TokenKind::Eof
             {
                 break;
@@ -916,9 +932,24 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
+            let started_with_left_paren = self.current_token.kind == TokenKind::LeftParen;
             let expression = self.parse_expression();
             expressions.push(expression);
+            if started_with_left_paren && self.current_token.kind == TokenKind::Comma {
+                while self.current_token.kind == TokenKind::Comma {
+                    self.next_token();
+                    expressions.push(self.parse_expression());
+                }
+                if self.current_token.kind != TokenKind::RightParen {
+                    todo!()
+                }
+                self.next_token();
+            }
             expect_more = false;
+        }
+
+        if self.current_token.kind == TokenKind::RightParen {
+            self.next_token();
         }
 
         expressions
