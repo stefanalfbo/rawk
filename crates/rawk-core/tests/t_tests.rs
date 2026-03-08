@@ -84,7 +84,7 @@ t_test!(tcomment, "comment");
 t_test!(tcomment1, "comment1");
 t_test!(tconcat, "concat");
 t_test!(tcond, "cond");
-t_test_ignore!(tcontin, "contin");
+t_test!(tcontin, "contin");
 t_test!(tcount, "count");
 t_test!(tcrlf, "crlf");
 t_test!(tcum, "cum");

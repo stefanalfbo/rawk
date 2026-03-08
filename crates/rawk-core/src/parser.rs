@@ -186,6 +186,7 @@ impl<'a> Parser<'a> {
             TokenKind::Sub => self.parse_sub_function(),
             TokenKind::Gsub => self.parse_gsub_function(),
             TokenKind::Break => self.parse_break_statement(),
+            TokenKind::Continue => self.parse_continue_statement(),
             TokenKind::Delete => self.parse_delete_statement(),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::Do => self.parse_do_statement(),
@@ -399,6 +400,11 @@ impl<'a> Parser<'a> {
     fn parse_break_statement(&mut self) -> Statement<'a> {
         self.next_token();
         Statement::Break
+    }
+
+    fn parse_continue_statement(&mut self) -> Statement<'a> {
+        self.next_token();
+        Statement::Continue
     }
 
     fn parse_pre_increment_statement(&mut self) -> Statement<'a> {
@@ -1611,6 +1617,22 @@ mod tests {
             }
             _ => panic!("expected concatenation expression"),
         }
+    }
+
+    #[test]
+    fn parse_continue_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"{ continue }"#));
+
+        let program = parser.parse_program();
+        let mut rules = program.rules_iter();
+        let rule = rules.next().expect("expected rule");
+
+        let statements = match rule {
+            Rule::Action(Action { statements }) => statements,
+            _ => panic!("expected action rule"),
+        };
+
+        assert!(matches!(statements[0], Statement::Continue));
     }
 
     #[test]

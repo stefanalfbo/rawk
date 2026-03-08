@@ -33,6 +33,7 @@ pub struct Evaluator<'a> {
     exited: bool,
     next_record: bool,
     break_loop: bool,
+    continue_loop: bool,
     return_value: Option<String>,
     has_output: bool,
 }
@@ -65,6 +66,7 @@ impl<'a> Evaluator<'a> {
             exited: false,
             next_record: false,
             break_loop: false,
+            continue_loop: false,
             return_value: None,
             has_output: false,
         }
@@ -201,14 +203,29 @@ impl<'a> Evaluator<'a> {
         self.eval_condition(expression)
     }
 
+    fn should_break_statement_sequence(&self) -> bool {
+        self.exited
+            || self.next_record
+            || self.break_loop
+            || self.continue_loop
+            || self.return_value.is_some()
+    }
+
+    fn should_break_loop_iteration(&self) -> bool {
+        self.exited || self.next_record || self.break_loop || self.return_value.is_some()
+    }
+
+    fn should_break_function_body(&self) -> bool {
+        self.exited || self.next_record || self.return_value.is_some()
+    }
+
     fn eval_action(&mut self, action: &Action, input_line: Option<&str>) -> Vec<String> {
         let mut output = Vec::new();
 
         for statement in &action.statements {
             let statement_output = self.eval_statement(statement, input_line);
             if statement_output.is_empty() {
-                if self.exited || self.next_record || self.break_loop || self.return_value.is_some()
-                {
+                if self.should_break_statement_sequence() {
                     break;
                 }
                 continue;
@@ -218,7 +235,7 @@ impl<'a> Evaluator<'a> {
             }
             output.extend(statement_output);
             self.has_output = true;
-            if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+            if self.should_break_statement_sequence() {
                 break;
             }
         }
@@ -354,11 +371,7 @@ impl<'a> Evaluator<'a> {
                     let mut output = Vec::new();
                     for statement in then_statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited
-                            || self.next_record
-                            || self.break_loop
-                            || self.return_value.is_some()
-                        {
+                        if self.should_break_statement_sequence() {
                             break;
                         }
                     }
@@ -380,11 +393,7 @@ impl<'a> Evaluator<'a> {
                 let mut output = Vec::new();
                 for statement in branch {
                     output.extend(self.eval_statement(statement, input_line));
-                    if self.exited
-                        || self.next_record
-                        || self.break_loop
-                        || self.return_value.is_some()
-                    {
+                    if self.should_break_statement_sequence() {
                         break;
                     }
                 }
@@ -398,24 +407,19 @@ impl<'a> Evaluator<'a> {
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited
-                            || self.next_record
-                            || self.break_loop
-                            || self.return_value.is_some()
-                        {
+                        if self.should_break_statement_sequence() {
                             break;
                         }
                     }
-                    if self.exited
-                        || self.next_record
-                        || self.break_loop
-                        || self.return_value.is_some()
-                    {
+                    if self.should_break_statement_sequence() {
                         break;
                     }
                 }
                 if self.break_loop {
                     self.break_loop = false;
+                }
+                if self.continue_loop {
+                    self.continue_loop = false;
                 }
                 output
             }
@@ -427,25 +431,19 @@ impl<'a> Evaluator<'a> {
                 loop {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited
-                            || self.next_record
-                            || self.break_loop
-                            || self.return_value.is_some()
-                        {
+                        if self.should_break_statement_sequence() {
                             break;
                         }
                     }
-                    if self.exited
-                        || self.next_record
-                        || self.break_loop
-                        || self.return_value.is_some()
-                        || !self.eval_condition(condition)
-                    {
+                    if self.should_break_statement_sequence() || !self.eval_condition(condition) {
                         break;
                     }
                 }
                 if self.break_loop {
                     self.break_loop = false;
+                }
+                if self.continue_loop {
+                    self.continue_loop = false;
                 }
                 output
             }
@@ -457,39 +455,32 @@ impl<'a> Evaluator<'a> {
             } => {
                 let mut output = Vec::new();
                 output.extend(self.eval_statement(init, input_line));
-                if self.exited || self.next_record || self.break_loop || self.return_value.is_some()
-                {
+                if self.should_break_statement_sequence() {
                     return output;
                 }
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited
-                            || self.next_record
-                            || self.break_loop
-                            || self.return_value.is_some()
-                        {
+                        if self.should_break_statement_sequence() {
                             break;
                         }
                     }
-                    if self.exited
-                        || self.next_record
-                        || self.break_loop
-                        || self.return_value.is_some()
-                    {
+                    if self.should_break_loop_iteration() {
                         break;
                     }
                     output.extend(self.eval_statement(update, input_line));
-                    if self.exited
-                        || self.next_record
-                        || self.break_loop
-                        || self.return_value.is_some()
-                    {
+                    if self.continue_loop {
+                        self.continue_loop = false;
+                    }
+                    if self.should_break_loop_iteration() {
                         break;
                     }
                 }
                 if self.break_loop {
                     self.break_loop = false;
+                }
+                if self.continue_loop {
+                    self.continue_loop = false;
                 }
                 output
             }
@@ -505,29 +496,32 @@ impl<'a> Evaluator<'a> {
                     self.variables.insert(variable.to_string(), key);
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited
-                            || self.next_record
-                            || self.break_loop
-                            || self.return_value.is_some()
-                        {
+                        if self.should_break_statement_sequence() {
                             break;
                         }
                     }
-                    if self.exited
-                        || self.next_record
-                        || self.break_loop
-                        || self.return_value.is_some()
-                    {
+                    if self.should_break_loop_iteration() {
                         break;
+                    }
+                    if self.continue_loop {
+                        self.continue_loop = false;
+                        continue;
                     }
                 }
                 if self.break_loop {
                     self.break_loop = false;
                 }
+                if self.continue_loop {
+                    self.continue_loop = false;
+                }
                 output
             }
             Statement::Break => {
                 self.break_loop = true;
+                Vec::new()
+            }
+            Statement::Continue => {
+                self.continue_loop = true;
                 Vec::new()
             }
             Statement::Return(value) => {
@@ -1409,7 +1403,7 @@ impl<'a> Evaluator<'a> {
         let mut output = Vec::new();
         for statement in &definition.statements {
             output.extend(self.eval_statement(statement, None));
-            if self.exited || self.next_record || self.return_value.is_some() {
+            if self.should_break_function_body() {
                 break;
             }
         }
@@ -2618,6 +2612,18 @@ mod tests {
                 "Asia".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn eval_continue_skips_to_next_for_iteration() {
+        let lexer = Lexer::new(r#"{ for (i = 1; i <= NF; i++) { if ($i ~ /^[0-9]+$/) continue; print $i } }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["abc 123 def 456".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["abc".to_string(), "def".to_string()]);
     }
 
     #[test]
