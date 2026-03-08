@@ -602,7 +602,9 @@ impl<'a> Parser<'a> {
 
     fn parse_do_statement(&mut self) -> Statement<'a> {
         self.next_token();
-        while self.current_token.kind == TokenKind::NewLine || self.current_token.kind == TokenKind::Semicolon {
+        while self.current_token.kind == TokenKind::NewLine
+            || self.current_token.kind == TokenKind::Semicolon
+        {
             self.next_token();
         }
 
@@ -612,7 +614,9 @@ impl<'a> Parser<'a> {
             vec![self.parse_statement()]
         };
 
-        while self.current_token.kind == TokenKind::NewLine || self.current_token.kind == TokenKind::Semicolon {
+        while self.current_token.kind == TokenKind::NewLine
+            || self.current_token.kind == TokenKind::Semicolon
+        {
             self.next_token();
         }
 
@@ -629,7 +633,10 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        Statement::DoWhile { condition, statements }
+        Statement::DoWhile {
+            condition,
+            statements,
+        }
     }
 
     fn parse_for_statement(&mut self) -> Statement<'a> {
@@ -804,7 +811,10 @@ impl<'a> Parser<'a> {
         if self.current_token.kind == TokenKind::Pipe {
             self.next_token();
             let target = self.parse_expression();
-            return Statement::PrintPipe { expressions, target };
+            return Statement::PrintPipe {
+                expressions,
+                target,
+            };
         }
 
         Statement::Print(expressions)
@@ -1229,8 +1239,8 @@ impl<'a> Parser<'a> {
 
         while !self.is_eof() {
             match self.parse_next_rule() {
-                Some(Rule::Begin(action)) => program.add_begin_block(Rule::Begin(action)),
-                Some(Rule::End(action)) => program.add_end_block(Rule::End(action)),
+                Some(Rule::Begin(action)) => program.add_begin_block(action),
+                Some(Rule::End(action)) => program.add_end_block(action),
                 Some(rule) => program.add_rule(rule),
                 None => {}
             }
@@ -1412,12 +1422,7 @@ mod tests {
 
         let program = parser.parse_program();
         let mut begin_blocks = program.begin_blocks_iter();
-        let rule = begin_blocks.next().expect("expected begin block");
-
-        let statements = match rule {
-            Rule::Begin(Action { statements }) => statements,
-            _ => panic!("expected begin rule"),
-        };
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
@@ -1444,12 +1449,7 @@ mod tests {
 
         let program = parser.parse_program();
         let mut begin_blocks = program.begin_blocks_iter();
-        let rule = begin_blocks.next().expect("expected begin block");
-
-        let statements = match rule {
-            Rule::Begin(Action { statements }) => statements,
-            _ => panic!("expected begin rule"),
-        };
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
@@ -1476,12 +1476,7 @@ mod tests {
 
         let program = parser.parse_program();
         let mut begin_blocks = program.begin_blocks_iter();
-        let rule = begin_blocks.next().expect("expected begin block");
-
-        let statements = match rule {
-            Rule::Begin(Action { statements }) => statements,
-            _ => panic!("expected begin rule"),
-        };
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
@@ -1513,12 +1508,7 @@ mod tests {
 
         let program = parser.parse_program();
         let mut begin_blocks = program.begin_blocks_iter();
-        let rule = begin_blocks.next().expect("expected begin block");
-
-        let statements = match rule {
-            Rule::Begin(Action { statements }) => statements,
-            _ => panic!("expected begin rule"),
-        };
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
@@ -1550,12 +1540,7 @@ mod tests {
 
         let program = parser.parse_program();
         let mut begin_blocks = program.begin_blocks_iter();
-        let rule = begin_blocks.next().expect("expected begin block");
-
-        let statements = match rule {
-            Rule::Begin(Action { statements }) => statements,
-            _ => panic!("expected begin rule"),
-        };
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
@@ -1587,12 +1572,7 @@ mod tests {
 
         let program = parser.parse_program();
         let mut begin_blocks = program.begin_blocks_iter();
-        let rule = begin_blocks.next().expect("expected begin block");
-
-        let statements = match rule {
-            Rule::Begin(Action { statements }) => statements,
-            _ => panic!("expected begin rule"),
-        };
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
 
         let exprs = match &statements[0] {
             Statement::Print(expressions) => expressions,
@@ -1759,9 +1739,7 @@ mod tests {
 
     #[test]
     fn parse_assignment_with_concatenation_and_substr() {
-        let mut parser = Parser::new(Lexer::new(
-            r#"{ s = s " " substr($1, 1, 3) }"#,
-        ));
+        let mut parser = Parser::new(Lexer::new(r#"{ s = s " " substr($1, 1, 3) }"#));
 
         let program = parser.parse_program();
 
@@ -1816,21 +1794,18 @@ mod tests {
 
     #[test]
     fn parse_while_with_single_body_statement() {
-        let mut parser = Parser::new(Lexer::new(
-            r#"{ while (n > 1) print n }"#,
-        ));
+        let mut parser = Parser::new(Lexer::new(r#"{ while (n > 1) print n }"#));
 
         let program = parser.parse_program();
 
-        assert_eq!(
-            r#"{ while (n > 1) { print n } }"#,
-            program.to_string()
-        );
+        assert_eq!(r#"{ while (n > 1) { print n } }"#, program.to_string());
     }
 
     #[test]
     fn parse_do_while_with_post_increment() {
-        let mut parser = Parser::new(Lexer::new(r#"{ i = 1; do { print $i; i++ } while (i <= NF) }"#));
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ i = 1; do { print $i; i++ } while (i <= NF) }"#,
+        ));
 
         let program = parser.parse_program();
 
@@ -1892,9 +1867,7 @@ mod tests {
 
     #[test]
     fn parse_for_loop_with_single_body_statement() {
-        let mut parser = Parser::new(Lexer::new(
-            r#"{ for (i = 1; i <= NF; i++) print $i }"#,
-        ));
+        let mut parser = Parser::new(Lexer::new(r#"{ for (i = 1; i <= NF; i++) print $i }"#));
 
         let program = parser.parse_program();
 

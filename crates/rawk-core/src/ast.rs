@@ -4,9 +4,9 @@ use crate::token::Token;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program<'a> {
-    begin_blocks: Vec<Rule<'a>>,
+    begin_blocks: Vec<Action<'a>>,
     rules: Vec<Rule<'a>>,
-    end_blocks: Vec<Rule<'a>>,
+    end_blocks: Vec<Action<'a>>,
     function_definitions: Vec<FunctionDefinition<'a>>,
 }
 
@@ -28,12 +28,12 @@ impl<'a> Program<'a> {
         self.rules.is_empty()
     }
 
-    pub fn add_begin_block(&mut self, rule: Rule<'a>) {
-        self.begin_blocks.push(rule);
+    pub fn add_begin_block(&mut self, action: Action<'a>) {
+        self.begin_blocks.push(action);
     }
 
-    pub fn add_end_block(&mut self, rule: Rule<'a>) {
-        self.end_blocks.push(rule);
+    pub fn add_end_block(&mut self, action: Action<'a>) {
+        self.end_blocks.push(action);
     }
 
     pub fn add_rule(&mut self, rule: Rule<'a>) {
@@ -44,11 +44,11 @@ impl<'a> Program<'a> {
         self.function_definitions.push(definition);
     }
 
-    pub fn begin_blocks_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
+    pub fn begin_blocks_iter(&self) -> std::slice::Iter<'_, Action<'a>> {
         self.begin_blocks.iter()
     }
 
-    pub fn end_blocks_iter(&self) -> std::slice::Iter<'_, Rule<'a>> {
+    pub fn end_blocks_iter(&self) -> std::slice::Iter<'_, Action<'a>> {
         self.end_blocks.iter()
     }
 
@@ -57,7 +57,9 @@ impl<'a> Program<'a> {
     }
 
     pub fn function_definition(&self, name: &str) -> Option<&FunctionDefinition<'a>> {
-        self.function_definitions.iter().find(|definition| definition.name == name)
+        self.function_definitions
+            .iter()
+            .find(|definition| definition.name == name)
     }
 }
 
@@ -69,8 +71,8 @@ impl<'a> Default for Program<'a> {
 
 impl<'a> fmt::Display for Program<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for rule in &self.begin_blocks {
-            write!(f, "{rule}")?;
+        for action in &self.begin_blocks {
+            write!(f, "BEGIN {action}")?;
         }
 
         // Add space between begin blocks and rules if both exist
@@ -87,8 +89,8 @@ impl<'a> fmt::Display for Program<'a> {
             write!(f, " ")?;
         }
 
-        for rule in &self.end_blocks {
-            write!(f, "{rule}")?;
+        for action in &self.end_blocks {
+            write!(f, "END {action}")?;
         }
 
         Ok(())
@@ -599,10 +601,10 @@ mod tests {
     fn test_add_block_to_program() {
         let mut program = Program::new();
 
-        let rule = Rule::Action(Action {
+        let action = Action {
             statements: vec![Statement::Print(vec![])],
-        });
-        program.add_begin_block(rule);
+        };
+        program.add_begin_block(action);
 
         assert_eq!(program.begin_blocks.len(), 1);
     }
@@ -643,9 +645,9 @@ mod tests {
     fn test_begin_block_program_creation() {
         let expected_string = "BEGIN { print }";
         let program = Program {
-            begin_blocks: vec![Rule::Begin(Action {
+            begin_blocks: vec![Action {
                 statements: vec![Statement::Print(vec![])],
-            })],
+            }],
             rules: vec![],
             end_blocks: vec![],
             function_definitions: vec![],
@@ -661,9 +663,9 @@ mod tests {
         let program = Program {
             begin_blocks: vec![],
             rules: vec![],
-            end_blocks: vec![Rule::End(Action {
+            end_blocks: vec![Action {
                 statements: vec![Statement::Print(vec![])],
-            })],
+            }],
             function_definitions: vec![],
         };
 
@@ -695,9 +697,9 @@ mod tests {
         let expected_string =
             "BEGIN { print } $1 == 42 { print NF, $2, $3 } END { print \"hello\" }";
         let program = Program {
-            begin_blocks: vec![Rule::Begin(Action {
+            begin_blocks: vec![Action {
                 statements: vec![Statement::Print(vec![])],
-            })],
+            }],
             rules: vec![Rule::PatternAction {
                 pattern: Some(Expression::Infix {
                     left: Box::new(Expression::Field(Box::new(Expression::Number(1.0)))),
@@ -714,9 +716,9 @@ mod tests {
                     ])],
                 }),
             }],
-            end_blocks: vec![Rule::End(Action {
+            end_blocks: vec![Action {
                 statements: vec![Statement::Print(vec![Expression::String("hello".into())])],
-            })],
+            }],
             function_definitions: vec![],
         };
 
@@ -896,7 +898,9 @@ mod tests {
                 right: Box::new(Expression::Identifier("NF")),
             },
             statements: vec![
-                Statement::Print(vec![Expression::Field(Box::new(Expression::Identifier("i")))]),
+                Statement::Print(vec![Expression::Field(Box::new(Expression::Identifier(
+                    "i",
+                )))]),
                 Statement::PostIncrement { identifier: "i" },
             ],
         };
@@ -913,12 +917,17 @@ mod tests {
                 right: Box::new(Expression::Identifier("NF")),
             },
             statements: vec![
-                Statement::Print(vec![Expression::Field(Box::new(Expression::Identifier("i")))]),
+                Statement::Print(vec![Expression::Field(Box::new(Expression::Identifier(
+                    "i",
+                )))]),
                 Statement::PostIncrement { identifier: "i" },
             ],
         };
 
-        assert_eq!("do { print $i; i++ } while (i <= NF)", statement.to_string());
+        assert_eq!(
+            "do { print $i; i++ } while (i <= NF)",
+            statement.to_string()
+        );
     }
 
     #[test]
@@ -939,7 +948,10 @@ mod tests {
             ))])],
         };
 
-        assert_eq!("for (i = 1; i <= NF; i++) { print $i }", statement.to_string());
+        assert_eq!(
+            "for (i = 1; i <= NF; i++) { print $i }",
+            statement.to_string()
+        );
     }
 
     #[test]
@@ -984,7 +996,11 @@ mod tests {
     #[test]
     fn test_print_pipe_statement_display() {
         let statement = Statement::PrintPipe {
-            expressions: vec![Expression::Identifier("c"), Expression::String(":"), Expression::Number(1.0)],
+            expressions: vec![
+                Expression::Identifier("c"),
+                Expression::String(":"),
+                Expression::Number(1.0),
+            ],
             target: Expression::String("sort"),
         };
 
@@ -1005,7 +1021,10 @@ mod tests {
             }])],
         };
 
-        assert_eq!("for (name in area) { print name area[name] }", statement.to_string());
+        assert_eq!(
+            "for (name in area) { print name area[name] }",
+            statement.to_string()
+        );
     }
 
     #[test]

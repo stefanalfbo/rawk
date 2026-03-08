@@ -4,8 +4,8 @@ use crate::{
     token::TokenKind,
 };
 use regex::Regex;
-use std::collections::HashMap;
 use std::cell::Cell;
+use std::collections::HashMap;
 
 struct FunctionCallResult {
     value: String,
@@ -73,9 +73,9 @@ impl<'a> Evaluator<'a> {
     pub fn eval(&mut self) -> Vec<String> {
         let mut output_lines: Vec<String> = Vec::new();
 
-        let begin_rules: Vec<Rule<'a>> = self.program.begin_blocks_iter().cloned().collect();
-        for rule in begin_rules.iter() {
-            output_lines.extend(self.eval_begin_rule(rule));
+        let begin_actions: Vec<Action<'a>> = self.program.begin_blocks_iter().cloned().collect();
+        for action in begin_actions.iter() {
+            output_lines.extend(self.eval_action(action, None));
             if self.exited {
                 break;
             }
@@ -111,10 +111,10 @@ impl<'a> Evaluator<'a> {
         }
         self.current_line = None;
 
-        let end_rules: Vec<Rule<'a>> = self.program.end_blocks_iter().cloned().collect();
+        let end_actions: Vec<Action<'a>> = self.program.end_blocks_iter().cloned().collect();
         self.exited = false;
-        for rule in end_rules.iter() {
-            output_lines.extend(self.eval_end_rule(rule));
+        for action in end_actions.iter() {
+            output_lines.extend(self.eval_action(action, None));
             if self.exited {
                 break;
             }
@@ -201,27 +201,14 @@ impl<'a> Evaluator<'a> {
         self.eval_condition(expression)
     }
 
-    fn eval_begin_rule(&mut self, rule: &Rule) -> Vec<String> {
-        match rule {
-            Rule::Begin(action) => self.eval_action(action, None),
-            _ => Vec::new(),
-        }
-    }
-
-    fn eval_end_rule(&mut self, rule: &Rule) -> Vec<String> {
-        match rule {
-            Rule::End(action) => self.eval_action(action, None),
-            _ => Vec::new(),
-        }
-    }
-
     fn eval_action(&mut self, action: &Action, input_line: Option<&str>) -> Vec<String> {
         let mut output = Vec::new();
 
         for statement in &action.statements {
             let statement_output = self.eval_statement(statement, input_line);
             if statement_output.is_empty() {
-                if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                if self.exited || self.next_record || self.break_loop || self.return_value.is_some()
+                {
                     break;
                 }
                 continue;
@@ -239,7 +226,11 @@ impl<'a> Evaluator<'a> {
         output
     }
 
-    fn eval_statement(&mut self, statement: &Statement<'_>, input_line: Option<&str>) -> Vec<String> {
+    fn eval_statement(
+        &mut self,
+        statement: &Statement<'_>,
+        input_line: Option<&str>,
+    ) -> Vec<String> {
         let output = match statement {
             Statement::Empty => Vec::new(),
             Statement::Expression(expression) => match expression {
@@ -252,7 +243,10 @@ impl<'a> Evaluator<'a> {
                 }
             },
             Statement::Print(expressions) => self.eval_print_statement(expressions, input_line),
-            Statement::PrintPipe { expressions, target } => {
+            Statement::PrintPipe {
+                expressions,
+                target,
+            } => {
                 self.eval_print_pipe(expressions, target, input_line);
                 Vec::new()
             }
@@ -264,9 +258,7 @@ impl<'a> Evaluator<'a> {
                 self.eval_print_redirect(expressions, target, *append, input_line);
                 Vec::new()
             }
-            Statement::Printf(expressions) => {
-                self.eval_printf_statement(expressions)
-            }
+            Statement::Printf(expressions) => self.eval_printf_statement(expressions),
             Statement::System(command) => {
                 self.eval_system(command);
                 Vec::new()
@@ -362,7 +354,11 @@ impl<'a> Evaluator<'a> {
                     let mut output = Vec::new();
                     for statement in then_statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                        if self.exited
+                            || self.next_record
+                            || self.break_loop
+                            || self.return_value.is_some()
+                        {
                             break;
                         }
                     }
@@ -384,7 +380,11 @@ impl<'a> Evaluator<'a> {
                 let mut output = Vec::new();
                 for statement in branch {
                     output.extend(self.eval_statement(statement, input_line));
-                    if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                    if self.exited
+                        || self.next_record
+                        || self.break_loop
+                        || self.return_value.is_some()
+                    {
                         break;
                     }
                 }
@@ -398,11 +398,19 @@ impl<'a> Evaluator<'a> {
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                        if self.exited
+                            || self.next_record
+                            || self.break_loop
+                            || self.return_value.is_some()
+                        {
                             break;
                         }
                     }
-                    if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                    if self.exited
+                        || self.next_record
+                        || self.break_loop
+                        || self.return_value.is_some()
+                    {
                         break;
                     }
                 }
@@ -419,11 +427,20 @@ impl<'a> Evaluator<'a> {
                 loop {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                        if self.exited
+                            || self.next_record
+                            || self.break_loop
+                            || self.return_value.is_some()
+                        {
                             break;
                         }
                     }
-                    if self.exited || self.next_record || self.break_loop || self.return_value.is_some() || !self.eval_condition(condition) {
+                    if self.exited
+                        || self.next_record
+                        || self.break_loop
+                        || self.return_value.is_some()
+                        || !self.eval_condition(condition)
+                    {
                         break;
                     }
                 }
@@ -440,21 +457,34 @@ impl<'a> Evaluator<'a> {
             } => {
                 let mut output = Vec::new();
                 output.extend(self.eval_statement(init, input_line));
-                if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                if self.exited || self.next_record || self.break_loop || self.return_value.is_some()
+                {
                     return output;
                 }
                 while self.eval_condition(condition) {
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                        if self.exited
+                            || self.next_record
+                            || self.break_loop
+                            || self.return_value.is_some()
+                        {
                             break;
                         }
                     }
-                    if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                    if self.exited
+                        || self.next_record
+                        || self.break_loop
+                        || self.return_value.is_some()
+                    {
                         break;
                     }
                     output.extend(self.eval_statement(update, input_line));
-                    if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                    if self.exited
+                        || self.next_record
+                        || self.break_loop
+                        || self.return_value.is_some()
+                    {
                         break;
                     }
                 }
@@ -475,11 +505,19 @@ impl<'a> Evaluator<'a> {
                     self.variables.insert(variable.to_string(), key);
                     for statement in statements {
                         output.extend(self.eval_statement(statement, input_line));
-                        if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                        if self.exited
+                            || self.next_record
+                            || self.break_loop
+                            || self.return_value.is_some()
+                        {
                             break;
                         }
                     }
-                    if self.exited || self.next_record || self.break_loop || self.return_value.is_some() {
+                    if self.exited
+                        || self.next_record
+                        || self.break_loop
+                        || self.return_value.is_some()
+                    {
                         break;
                     }
                 }
@@ -542,12 +580,13 @@ impl<'a> Evaluator<'a> {
         input_line: Option<&str>,
     ) -> Vec<String> {
         if expressions.is_empty() {
-            return vec![self
-                .current_line
-                .as_deref()
-                .or(input_line)
-                .unwrap_or("")
-                .to_string()];
+            return vec![
+                self.current_line
+                    .as_deref()
+                    .or(input_line)
+                    .unwrap_or("")
+                    .to_string(),
+            ];
         }
 
         let mut output = Vec::new();
@@ -648,7 +687,8 @@ impl<'a> Evaluator<'a> {
         };
 
         self.set_special_variable(identifier, &assigned_value);
-        self.variables.insert(identifier.to_string(), assigned_value);
+        self.variables
+            .insert(identifier.to_string(), assigned_value);
     }
 
     fn eval_add_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
@@ -686,14 +726,10 @@ impl<'a> Evaluator<'a> {
             .insert(key, (current + increment).to_string());
     }
 
-    fn eval_split_assignment(
-        &mut self,
-        identifier: &str,
-        string: &Expression<'_>,
-        array: &str,
-    ) {
+    fn eval_split_assignment(&mut self, identifier: &str, string: &Expression<'_>, array: &str) {
         let count = self.eval_split(string, array);
-        self.variables.insert(identifier.to_string(), count.to_string());
+        self.variables
+            .insert(identifier.to_string(), count.to_string());
     }
 
     fn eval_split(&mut self, string: &Expression<'_>, array: &str) -> usize {
@@ -701,7 +737,8 @@ impl<'a> Evaluator<'a> {
         let array = self.resolve_array_identifier(array).to_string();
         let fields = self.split_fields(&source);
         let prefix = format!("{array}\u{1f}");
-        self.array_variables.retain(|key, _| !key.starts_with(&prefix));
+        self.array_variables
+            .retain(|key, _| !key.starts_with(&prefix));
         for (idx, value) in fields.iter().enumerate() {
             let key = format!("{array}\u{1f}{}", idx + 1);
             self.array_variables.insert(key, value.clone());
@@ -729,7 +766,8 @@ impl<'a> Evaluator<'a> {
 
         let identifier = self.resolve_array_identifier(identifier);
         let prefix = format!("{identifier}\u{1f}");
-        self.array_variables.retain(|key, _| !key.starts_with(&prefix));
+        self.array_variables
+            .retain(|key, _| !key.starts_with(&prefix));
     }
 
     fn eval_field_assignment(&mut self, field: &Expression<'_>, value: &Expression<'_>) {
@@ -957,15 +995,9 @@ impl<'a> Evaluator<'a> {
                     "1".to_string()
                 }
             }
-            Expression::PreIncrement(target) => {
-                self.eval_increment_expression(target, 1.0, true)
-            }
-            Expression::PreDecrement(target) => {
-                self.eval_increment_expression(target, -1.0, true)
-            }
-            Expression::PostIncrement(target) => {
-                self.eval_increment_expression(target, 1.0, false)
-            }
+            Expression::PreIncrement(target) => self.eval_increment_expression(target, 1.0, true),
+            Expression::PreDecrement(target) => self.eval_increment_expression(target, -1.0, true),
+            Expression::PostIncrement(target) => self.eval_increment_expression(target, 1.0, false),
             Expression::PostDecrement(target) => {
                 self.eval_increment_expression(target, -1.0, false)
             }
@@ -992,8 +1024,7 @@ impl<'a> Evaluator<'a> {
             } => {
                 if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
                     format_awk_number(if value { 1.0 } else { 0.0 })
-                } else if let Some(value) =
-                    self.eval_membership(left, operator.kind.clone(), right)
+                } else if let Some(value) = self.eval_membership(left, operator.kind.clone(), right)
                 {
                     format_awk_number(if value { 1.0 } else { 0.0 })
                 } else {
@@ -1016,7 +1047,8 @@ impl<'a> Evaluator<'a> {
                 let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
                 let updated = format_awk_number(current + delta);
                 self.set_special_variable(identifier, &updated);
-                self.variables.insert(identifier.to_string(), updated.clone());
+                self.variables
+                    .insert(identifier.to_string(), updated.clone());
                 if return_new {
                     updated
                 } else {
@@ -1068,11 +1100,7 @@ impl<'a> Evaluator<'a> {
                 }
             }
             "ARGC" => self.argv.len().to_string(),
-            _ => self
-                .variables
-                .get(identifier)
-                .cloned()
-                .unwrap_or_default(),
+            _ => self.variables.get(identifier).cloned().unwrap_or_default(),
         }
     }
 
@@ -1181,7 +1209,11 @@ impl<'a> Evaluator<'a> {
         }
 
         let start_index = self.eval_numeric_expression(start).unwrap_or(1.0) as i64;
-        let start_index = if start_index <= 1 { 0 } else { (start_index - 1) as usize };
+        let start_index = if start_index <= 1 {
+            0
+        } else {
+            (start_index - 1) as usize
+        };
         if start_index >= chars.len() {
             return String::new();
         }
@@ -1352,22 +1384,14 @@ impl<'a> Evaluator<'a> {
             };
         };
 
-        let argument_values: Vec<String> = args
-            .iter()
-            .map(|arg| self.eval_expression(arg))
-            .collect();
+        let argument_values: Vec<String> =
+            args.iter().map(|arg| self.eval_expression(arg)).collect();
 
         let mut saved_values = Vec::new();
         let mut saved_array_aliases = Vec::new();
         for parameter in &definition.parameters {
-            saved_values.push((
-                *parameter,
-                self.variables.get(*parameter).cloned(),
-            ));
-            saved_array_aliases.push((
-                *parameter,
-                self.array_aliases.get(*parameter).cloned(),
-            ));
+            saved_values.push((*parameter, self.variables.get(*parameter).cloned()));
+            saved_array_aliases.push((*parameter, self.array_aliases.get(*parameter).cloned()));
         }
 
         for (index, parameter) in definition.parameters.iter().enumerate() {
@@ -1500,20 +1524,26 @@ impl<'a> Evaluator<'a> {
     fn eval_numeric_expression(&mut self, expression: &Expression<'_>) -> Option<f64> {
         match expression {
             Expression::Number(value) => Some(*value),
-            Expression::Identifier(identifier) => {
-                Some(parse_awk_numeric(&self.eval_identifier_expression(identifier)))
-            }
-            Expression::ArrayAccess { identifier, index } => {
-                Some(parse_awk_numeric(&self.eval_array_access(identifier, index)))
-            }
+            Expression::Identifier(identifier) => Some(parse_awk_numeric(
+                &self.eval_identifier_expression(identifier),
+            )),
+            Expression::ArrayAccess { identifier, index } => Some(parse_awk_numeric(
+                &self.eval_array_access(identifier, index),
+            )),
             Expression::Field(inner) => Some(parse_awk_numeric(&self.eval_field_expression(inner))),
             Expression::Length(expression) => self
                 .eval_length_expression(expression.as_deref())
                 .parse::<f64>()
                 .ok(),
             Expression::Rand => Some(self.eval_rand()),
-            Expression::FunctionCall { name, args } => self.eval_function_call(name, args).parse().ok(),
-            Expression::Not(expression) => Some(if self.eval_condition(expression) { 0.0 } else { 1.0 }),
+            Expression::FunctionCall { name, args } => {
+                self.eval_function_call(name, args).parse().ok()
+            }
+            Expression::Not(expression) => Some(if self.eval_condition(expression) {
+                0.0
+            } else {
+                1.0
+            }),
             Expression::PreIncrement(_)
             | Expression::PreDecrement(_)
             | Expression::PostIncrement(_)
@@ -1722,14 +1752,8 @@ fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
     if core == "[0-9]+" {
         return match (anchored_start, anchored_end) {
             (true, true) => !text.is_empty() && text.chars().all(|c| c.is_ascii_digit()),
-            (true, false) => text
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_digit()),
-            (false, true) => text
-                .chars()
-                .last()
-                .is_some_and(|c| c.is_ascii_digit()),
+            (true, false) => text.chars().next().is_some_and(|c| c.is_ascii_digit()),
+            (false, true) => text.chars().last().is_some_and(|c| c.is_ascii_digit()),
             (false, false) => text.chars().any(|c| c.is_ascii_digit()),
         };
     }
@@ -1769,7 +1793,9 @@ fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
         };
 
         return match (anchored_start, anchored_end) {
-            (true, true) => text.chars().count() == 1 && text.chars().next().is_some_and(class_matches),
+            (true, true) => {
+                text.chars().count() == 1 && text.chars().next().is_some_and(class_matches)
+            }
             (true, false) => text.chars().next().is_some_and(class_matches),
             (false, true) => text.chars().last().is_some_and(class_matches),
             (false, false) => text.chars().any(class_matches),
@@ -1777,23 +1803,25 @@ fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
     }
 
     if core.starts_with('(') && core.ends_with(')') && core.contains('|') {
-        return core[1..core.len() - 1]
-            .split('|')
-            .any(|alt| match (anchored_start, anchored_end) {
-            (true, true) => text == alt,
-            (true, false) => text.starts_with(alt),
-            (false, true) => text.ends_with(alt),
-            (false, false) => text.contains(alt),
+        return core[1..core.len() - 1].split('|').any(|alt| {
+            match (anchored_start, anchored_end) {
+                (true, true) => text == alt,
+                (true, false) => text.starts_with(alt),
+                (false, true) => text.ends_with(alt),
+                (false, false) => text.contains(alt),
+            }
         });
     }
 
     if core.contains('|') {
-        return core.split('|').any(|alt| match (anchored_start, anchored_end) {
-            (true, true) => text == alt,
-            (true, false) => text.starts_with(alt),
-            (false, true) => text.ends_with(alt),
-            (false, false) => text.contains(alt),
-        });
+        return core
+            .split('|')
+            .any(|alt| match (anchored_start, anchored_end) {
+                (true, true) => text == alt,
+                (true, false) => text.starts_with(alt),
+                (false, true) => text.ends_with(alt),
+                (false, false) => text.contains(alt),
+            });
     }
 
     if anchored_start && anchored_end {
@@ -2408,7 +2436,8 @@ mod tests {
         let lexer = Lexer::new(r#"{ print NR, $0 }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["one".to_string(), "two".to_string()], "-");
+        let mut evaluator =
+            Evaluator::new(program, vec!["one".to_string(), "two".to_string()], "-");
 
         let output = evaluator.eval();
 
@@ -2432,11 +2461,15 @@ mod tests {
         let lexer = Lexer::new(r#"{ gsub(/USA/, "United States"); print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["USA 3615 237 North America".to_string()], "-");
+        let mut evaluator =
+            Evaluator::new(program, vec!["USA 3615 237 North America".to_string()], "-");
 
         let output = evaluator.eval();
 
-        assert_eq!(output, vec!["United States 3615 237 North America".to_string()]);
+        assert_eq!(
+            output,
+            vec!["United States 3615 237 North America".to_string()]
+        );
     }
 
     #[test]
@@ -2468,7 +2501,11 @@ mod tests {
         let lexer = Lexer::new(r#"{ $1 = substr($1, 1, 3); print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()], "-");
+        let mut evaluator = Evaluator::new(
+            program,
+            vec!["Canada\t3852\t25\tNorth America".to_string()],
+            "-",
+        );
 
         let output = evaluator.eval();
 
@@ -2499,7 +2536,11 @@ mod tests {
         let lexer = Lexer::new(r#"BEGIN { FS = OFS = "\t" } { $4 = "NA"; print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["Canada\t3852\t25\tNorth America".to_string()], "-");
+        let mut evaluator = Evaluator::new(
+            program,
+            vec!["Canada\t3852\t25\tNorth America".to_string()],
+            "-",
+        );
 
         let output = evaluator.eval();
 
@@ -2549,9 +2590,7 @@ mod tests {
 
     #[test]
     fn eval_do_while_with_post_increment() {
-        let lexer = Lexer::new(
-            r#"{ i = 1; s = ""; do { s = s $i } while (i++ < NF) print s }"#,
-        );
+        let lexer = Lexer::new(r#"{ i = 1; s = ""; do { s = s $i } while (i++ < NF) print s }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec!["USSR\t8649\t275\tAsia".to_string()], "-");
@@ -2588,7 +2627,11 @@ mod tests {
         );
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator = Evaluator::new(program, vec!["A".to_string(), "B".to_string(), "C".to_string()], "-");
+        let mut evaluator = Evaluator::new(
+            program,
+            vec!["A".to_string(), "B".to_string(), "C".to_string()],
+            "-",
+        );
 
         let output = evaluator.eval();
 
@@ -2608,15 +2651,17 @@ mod tests {
 
         assert_eq!(
             output,
-            vec!["before".to_string(), "exit 1".to_string(), "end".to_string()]
+            vec![
+                "before".to_string(),
+                "exit 1".to_string(),
+                "end".to_string()
+            ]
         );
     }
 
     #[test]
     fn eval_array_add_assignment_and_access() {
-        let lexer = Lexer::new(
-            r#"/Asia/ { pop["Asia"] += $3 } END { print pop["Asia"] }"#,
-        );
+        let lexer = Lexer::new(r#"/Asia/ { pop["Asia"] += $3 } END { print pop["Asia"] }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(
@@ -2635,7 +2680,8 @@ mod tests {
 
     #[test]
     fn eval_delete_removes_array_entry_from_for_in() {
-        let lexer = Lexer::new(r#"BEGIN { x[1] = "a"; x[2] = "b"; delete x[1]; for (i in x) print i }"#);
+        let lexer =
+            Lexer::new(r#"BEGIN { x[1] = "a"; x[2] = "b"; delete x[1]; for (i in x) print i }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec![], "-");
@@ -2656,10 +2702,7 @@ mod tests {
 
         let output = evaluator.eval();
 
-        assert_eq!(
-            output,
-            vec!["Asia:1".to_string(), "Europe:2".to_string()]
-        );
+        assert_eq!(output, vec!["Asia:1".to_string(), "Europe:2".to_string()]);
     }
 
     #[test]
@@ -2680,7 +2723,11 @@ mod tests {
 
         assert_eq!(
             output,
-            vec!["USSR:8649".to_string(), "".to_string(), "Canada:3852".to_string()]
+            vec![
+                "USSR:8649".to_string(),
+                "".to_string(),
+                "Canada:3852".to_string()
+            ]
         );
     }
 
@@ -2727,9 +2774,7 @@ mod tests {
 
     #[test]
     fn eval_getline_in_begin_consumes_input_records() {
-        let lexer = Lexer::new(
-            r#"BEGIN { while (getline && NR < 3) print } { print }"#,
-        );
+        let lexer = Lexer::new(r#"BEGIN { while (getline && NR < 3) print } { print }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(
@@ -2740,10 +2785,7 @@ mod tests {
 
         let output = evaluator.eval();
 
-        assert_eq!(
-            output,
-            vec!["A".to_string(), "B".to_string()]
-        );
+        assert_eq!(output, vec!["A".to_string(), "B".to_string()]);
     }
 
     #[test]
@@ -2782,4 +2824,3 @@ mod tests {
         assert_eq!(output, "A\tB\nC\\D\"E\\q");
     }
 }
-
