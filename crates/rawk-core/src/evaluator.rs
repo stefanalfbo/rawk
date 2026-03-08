@@ -1928,13 +1928,13 @@ fn format_awk_number(value: f64) -> String {
         return "0".to_string();
     }
 
+    if value.fract() == 0.0 {
+        return format!("{value:.0}");
+    }
+
     let abs = value.abs();
-    let digits_before_decimal = if abs >= 1.0 {
-        abs.log10().floor() as i32 + 1
-    } else {
-        0
-    };
-    let decimals = (6 - digits_before_decimal).max(0) as usize;
+    let exponent = abs.log10().floor() as i32;
+    let decimals = (6 - exponent - 1).max(0) as usize;
     let formatted = format!("{value:.decimals$}");
     formatted
         .trim_end_matches('0')
