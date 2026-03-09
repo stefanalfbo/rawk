@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/stefanalfbo/rawk/compare/v0.2.0...v0.3.0) - 2026-03-08
+
+### Added
+
+- add test for expression display including not, increment, decrement, and ternary operations
+- add tests for Rule display formatting; verify Begin and End rules output
+- handle empty lines in split_fields method; add test for NF with non-space FS counting empty records as zero fields
+- enhance gsub functionality with improved replacement semantics; update tests to reflect changes
+- add Continue statement support in Parser and Evaluator; implement related tests
+- add token_is_immediately_after method to Parser; update assignment and expression parsing to use Token instead of string literals; add test for identifier followed by spaced parentheses
+- add index and membership operators to Evaluator; enhance parsing and testing for new functionality
+- implement getline function in Evaluator; update input handling and add tests for input consumption
+- enhance Evaluator with array aliases and improve print statement handling; update tests for function calls
+- add mathematical built-in functions (log, exp, sin, cos, srand) to evaluator; update parser to recognize new tokens and add tests
+- add support for field separators in eval_identifier_expression; update tests to activate previously ignored cases
+- add support for 'break' statement; update parser, evaluator, and tests
+- add support for logical NOT expression; update parser, evaluator, and tests
+- enhance parser to support comma-separated expressions in parentheses; update related tests
+- add array post-increment, post-decrement, and delete statements; update parser and evaluator
+- add support for user-defined functions and enhance return/exit statements
+- enable test for 'e' by changing from ignored to active
+- add target parameter to gsub statement; update parser, evaluator, and related tests
+- add support for 'do while' statement in parser and evaluator; enable related tests
+- enable test for 'else' by changing from ignored to active
+- enable tests for 'pat', 'pipe', and 'pp' by changing from ignored to active
+- add 'sub' statement support in parser and evaluator; enable related tests
+- enable test for 'vf' by changing from ignored to active
+- enable test for 'format4' by changing from ignored to active
+- enable test for 'for3' by changing from ignored to active; update parser to handle newlines
+- enable test for 'for2' by changing from ignored to active
+- add support for 'Next' statement in parser and evaluator; enable related tests
+- enable tests for 'f', 'f.x', 'f0', 'f1', 'f2', 'f3', 'f4', and 'for'; change from ignored to active
+- add Split statement support in parser and evaluator; enable related test
+- enable test for 'taeiouy' by changing from ignored to active
+- add regex support in evaluator and update related tests; enable previously ignored test for vowel matching
+- add sqrt function support and enable related tests; refactor numeric parsing in evaluator
+- enable test for 'ta' by changing from ignored to active
+- refactor numeric expression evaluation and update test for t6
+- enable tests for t6a and tbx by removing ignore status
+- add Empty statement variant and handle in parser and evaluator; update tests for new behavior
+- update test cases to enable t6x, t8x, and t8y in t_tests
+- update NF variable handling in evaluator and add test case for NF
+- enhance evaluator to support rule evaluation per input line; refactor eval_rule method
+- add support for unary plus and minus operators in primary expression parsing; update test case for substr1
+- implement eval_printf_argument method and update eval_printf to use it; enhance parser for compound assignment; enable t_test for ttime
+- add pre and post increment/decrement expressions and update parser and evaluator
+
+### Fixed
+
+- update FILENAME handling in Evaluator; enable previously ignored test for 'tbe'
+- improve number formatting in format_awk_number function; update tests to activate previously ignored cases
+- enable test case for tvf1 and replace t_test_ignore with t_test
+
+### Other
+
+- update Program structure to use Action instead of Rule for begin and end blocks; simplify related methods in Evaluator and Parser
+- add tests for illegal tokens in Lexer; cover unsupported characters, unterminated regex, and bare dot
+- streamline Lexer and Parser token handling; remove allow_regex flag and simplify token retrieval methods
+- enable previously ignored tests for various functions in t_tests
+- enable previously ignored test for 'tbeginnext'
+- enable previously ignored test for 'tbug1'
+- enable previously ignored test for average calculation
+- Add expected output files for onetrueawk tests with updated data
+- Update test cases to enable t_test for tvf3 and tx, replacing t_test_ignore
+- Update test cases to enable t4x and t5x, replacing t_test_ignore with t_test
+- Enable test case for t4 and update to use t_test macro
+
 ## [0.2.0](https://github.com/stefanalfbo/rawk/compare/v0.1.0...v0.2.0) - 2026-03-02
 
 ### Other
