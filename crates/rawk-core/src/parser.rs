@@ -528,16 +528,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        while self.current_token.kind == TokenKind::NewLine
-            || self.current_token.kind == TokenKind::Semicolon
-        {
-            self.next_token();
-        }
-        let then_statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
-            self.parse_statement_block()
-        } else {
-            vec![self.parse_statement()]
-        };
+        let then_statements = self.parse_control_statement_body();
 
         while self.current_token.kind == TokenKind::NewLine
             || self.current_token.kind == TokenKind::Semicolon
@@ -547,16 +538,7 @@ impl<'a> Parser<'a> {
 
         if self.current_token.kind == TokenKind::Else {
             self.next_token();
-            while self.current_token.kind == TokenKind::NewLine
-                || self.current_token.kind == TokenKind::Semicolon
-            {
-                self.next_token();
-            }
-            let else_statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
-                self.parse_statement_block()
-            } else {
-                vec![self.parse_statement()]
-            };
+            let else_statements = self.parse_control_statement_body();
             return Statement::IfElse {
                 condition,
                 then_statements,
@@ -620,6 +602,23 @@ impl<'a> Parser<'a> {
         statements
     }
 
+    fn parse_control_statement_body(&mut self) -> Vec<Statement<'a>> {
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
+
+        if self.current_token.kind == TokenKind::LeftCurlyBrace {
+            return self.parse_statement_block();
+        }
+
+        if self.current_token.kind == TokenKind::Semicolon {
+            self.next_token();
+            return vec![Statement::Empty];
+        }
+
+        vec![self.parse_statement()]
+    }
+
     fn parse_while_statement(&mut self) -> Statement<'a> {
         self.next_token();
         if self.current_token.kind != TokenKind::LeftParen {
@@ -631,17 +630,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        while self.current_token.kind == TokenKind::NewLine
-            || self.current_token.kind == TokenKind::Semicolon
-        {
-            self.next_token();
-        }
-
-        let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
-            self.parse_statement_block()
-        } else {
-            vec![self.parse_statement()]
-        };
+        let statements = self.parse_control_statement_body();
         Statement::While {
             condition,
             statements,
@@ -650,17 +639,7 @@ impl<'a> Parser<'a> {
 
     fn parse_do_statement(&mut self) -> Statement<'a> {
         self.next_token();
-        while self.current_token.kind == TokenKind::NewLine
-            || self.current_token.kind == TokenKind::Semicolon
-        {
-            self.next_token();
-        }
-
-        let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
-            self.parse_statement_block()
-        } else {
-            vec![self.parse_statement()]
-        };
+        let statements = self.parse_control_statement_body();
 
         while self.current_token.kind == TokenKind::NewLine
             || self.current_token.kind == TokenKind::Semicolon
@@ -713,16 +692,7 @@ impl<'a> Parser<'a> {
                     todo!()
                 }
                 self.next_token();
-                while self.current_token.kind == TokenKind::NewLine
-                    || self.current_token.kind == TokenKind::Semicolon
-                {
-                    self.next_token();
-                }
-                let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
-                    self.parse_statement_block()
-                } else {
-                    vec![self.parse_statement()]
-                };
+                let statements = self.parse_control_statement_body();
                 return Statement::ForIn {
                     variable: variable.literal,
                     array,
@@ -772,18 +742,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-
-        while self.current_token.kind == TokenKind::NewLine
-            || self.current_token.kind == TokenKind::Semicolon
-        {
-            self.next_token();
-        }
-
-        let statements = if self.current_token.kind == TokenKind::LeftCurlyBrace {
-            self.parse_statement_block()
-        } else {
-            vec![self.parse_statement()]
-        };
+        let statements = self.parse_control_statement_body();
 
         Statement::For {
             init: Box::new(init),
@@ -1906,6 +1865,18 @@ mod tests {
 
         assert_eq!(
             r#"{ i = 1; do { print $i; i++ } while (i <= NF) }"#,
+            program.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_for_with_empty_body_statement() {
+        let mut parser = Parser::new(Lexer::new(r#"{ for (i = 1; i <= NF; s += $(i++)) ; print s }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ for (i = 1; i <= NF; s += $i++) {  }; print s }"#,
             program.to_string()
         );
     }

@@ -131,7 +131,7 @@ t_test!(tin2, "in2");
 t_test!(tin3, "in3");
 t_test!(tincr, "incr");
 t_test!(tincr2, "incr2");
-t_test_ignore!(tincr3, "incr3");
+t_test!(tincr3, "incr3");
 t_test_ignore!(tindex, "index");
 t_test_ignore!(tintest, "intest");
 t_test_ignore!(tintest2, "intest2");
