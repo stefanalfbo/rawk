@@ -135,7 +135,7 @@ t_test!(tincr3, "incr3");
 t_test!(tindex, "index");
 t_test!(tintest, "intest");
 t_test_ignore!(tintest2, "intest2");
-t_test_ignore!(tjx, "j.x");
+t_test!(tjx, "j.x");
 t_test!(tlongstr, "longstr");
 t_test!(tmakef, "makef");
 t_test!(tmatch, "match");
