@@ -1711,12 +1711,8 @@ impl<'a> Evaluator<'a> {
             }
         }
 
-        if let Some(value) = self.eval_numeric_expression(expression) {
-            return value != 0.0;
-        }
-
         let value = self.eval_expression(expression);
-        !value.is_empty()
+        awk_truthy(&value)
     }
 
     fn eval_comparison(
@@ -2328,6 +2324,14 @@ fn expression_has_precise_numeric_value(expression: &Expression<'_>) -> bool {
                 | TokenKind::NotEqual
         ),
     }
+}
+
+fn awk_truthy(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+
+    parse_full_awk_numeric(value).map_or(true, |numeric| numeric != 0.0)
 }
 
 fn format_awk_number(value: f64) -> String {
