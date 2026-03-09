@@ -14,7 +14,7 @@ macro_rules! p_test {
     ($name:ident, $num:literal) => {
         #[test]
         fn $name() {
-            let script = include_str!(concat!("onetrueawk-testdata/p.", $num));
+            let script = include_str!(concat!("onetrueawk-testdata/p.", $num, ".awk"));
             let data = include_str!("onetrueawk-testdata/countries");
             let expected_data = include_str!(concat!("onetrueawk-testdata/p.", $num, ".expected"));
 

@@ -14,7 +14,7 @@ macro_rules! t_test {
     ($name:ident, $num:literal) => {
         #[test]
         fn $name() {
-            let script = include_str!(concat!("onetrueawk-testdata/t.", $num));
+            let script = include_str!(concat!("onetrueawk-testdata/t.", $num, ".awk"));
             let data = include_str!("onetrueawk-testdata/data");
             let expected_data = include_str!(concat!("onetrueawk-testdata/t.", $num, ".expected"));
 
@@ -28,7 +28,7 @@ macro_rules! t_test_ignore {
         #[test]
         #[ignore]
         fn $name() {
-            let script = include_str!(concat!("onetrueawk-testdata/t.", $num));
+            let script = include_str!(concat!("onetrueawk-testdata/t.", $num, ".awk"));
             let data = include_str!("onetrueawk-testdata/data");
             let expected_data = include_str!(concat!("onetrueawk-testdata/t.", $num, ".expected"));
 
