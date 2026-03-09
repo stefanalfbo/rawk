@@ -199,6 +199,26 @@ impl<'a> Parser<'a> {
             TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
             TokenKind::Decrement => self.parse_pre_decrement_statement(),
+            TokenKind::Number
+            | TokenKind::String
+            | TokenKind::Regex
+            | TokenKind::LeftParen
+            | TokenKind::Close
+            | TokenKind::Cos
+            | TokenKind::Exp
+            | TokenKind::Index
+            | TokenKind::Int
+            | TokenKind::Length
+            | TokenKind::Log
+            | TokenKind::Match
+            | TokenKind::Rand
+            | TokenKind::Sin
+            | TokenKind::Sprintf
+            | TokenKind::Sqrt
+            | TokenKind::Srand
+            | TokenKind::Substr
+            | TokenKind::ToLower
+            | TokenKind::ToUpper => Statement::Expression(self.parse_expression()),
             _ => todo!(),
         }
     }
@@ -1237,7 +1257,8 @@ impl<'a> Parser<'a> {
                 }
                 Expression::Rand
             }
-            TokenKind::Cos
+            TokenKind::Close
+            | TokenKind::Cos
             | TokenKind::Exp
             | TokenKind::Index
             | TokenKind::Int

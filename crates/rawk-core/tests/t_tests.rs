@@ -125,7 +125,7 @@ t_test!(tgsub3, "gsub3");
 t_test!(tgsub4, "gsub4");
 t_test!(tix, "i.x");
 t_test!(tif, "if");
-t_test_ignore!(tin, "in");
+t_test!(tin, "in");
 t_test!(tin1, "in1");
 t_test!(tin2, "in2");
 t_test!(tin3, "in3");
