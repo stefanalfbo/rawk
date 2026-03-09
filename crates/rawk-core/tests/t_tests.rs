@@ -123,7 +123,7 @@ t_test!(tgsub, "gsub");
 t_test!(tgsub1, "gsub1");
 t_test!(tgsub3, "gsub3");
 t_test!(tgsub4, "gsub4");
-t_test_ignore!(tix, "i.x");
+t_test!(tix, "i.x");
 t_test_ignore!(tif, "if");
 t_test_ignore!(tin, "in");
 t_test!(tin1, "in1");
