@@ -117,7 +117,7 @@ t_test!(tfun2, "fun2");
 t_test!(tfun3, "fun3");
 t_test!(tfun4, "fun4");
 t_test!(tfun5, "fun5");
-t_test_ignore!(tgetline1, "getline1");
+t_test!(tgetline1, "getline1");
 t_test!(tgetval, "getval");
 t_test!(tgsub, "gsub");
 t_test!(tgsub1, "gsub1");
