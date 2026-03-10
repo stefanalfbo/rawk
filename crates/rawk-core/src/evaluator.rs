@@ -130,7 +130,7 @@ impl<'a> Evaluator<'a> {
 
         output_lines.extend(self.flush_pipe_outputs());
 
-        output_lines
+        normalize_output_lines(output_lines)
     }
 
     fn read_next_input_record(&mut self) -> Option<String> {
@@ -991,7 +991,7 @@ impl<'a> Evaluator<'a> {
 
     fn eval_expression(&mut self, expression: &Expression) -> String {
         match expression {
-            Expression::String(value) => value.to_string(),
+            Expression::String(value) => unescape_awk_string(value),
             Expression::Number(value) => format_awk_number(*value),
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
@@ -2140,6 +2140,20 @@ fn unescape_awk_string(input: &str) -> String {
     output
 }
 
+fn normalize_output_lines(lines: Vec<String>) -> Vec<String> {
+    let mut normalized = Vec::new();
+
+    for line in lines {
+        if line.contains('\n') {
+            normalized.extend(line.split('\n').map(str::to_string));
+        } else {
+            normalized.push(line);
+        }
+    }
+
+    normalized
+}
+
 fn format_printf(format: &str, args: &[String]) -> String {
     let mut result = String::new();
     let mut chars = format.chars().peekable();
@@ -3067,5 +3081,17 @@ mod tests {
         let output = unescape_awk_string(input);
 
         assert_eq!(output, "A\tB\nC\\D\"E\\q");
+    }
+
+    #[test]
+    fn eval_print_string_with_embedded_newline_splits_output_lines() {
+        let lexer = Lexer::new(r#"BEGIN { print "\nUSSR" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["".to_string(), "USSR".to_string()]);
     }
 }

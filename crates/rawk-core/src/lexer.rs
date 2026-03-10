@@ -324,8 +324,13 @@ impl<'a> Lexer<'a> {
         // skip opening quote
         self.read_char();
         let position = self.position;
+        let mut escaped = false;
 
-        while self.ch != Some(b'"') && self.ch.is_some() {
+        while let Some(ch) = self.ch {
+            if !escaped && ch == b'"' {
+                break;
+            }
+            escaped = !escaped && ch == b'\\';
             self.read_char();
         }
 
@@ -770,6 +775,18 @@ mod tests {
             let token = lexer.next_token();
             assert_token(token, expected_kind, expected_literal);
         }
+    }
+
+    #[test]
+    fn read_string_token_with_escaped_quote() {
+        let input = r#""\"""#;
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+        assert_token(token, TokenKind::String, r#"\""#);
+
+        let token = lexer.next_token();
+        assert_token(token, TokenKind::Eof, "");
     }
 
     #[test]
