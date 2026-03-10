@@ -125,10 +125,13 @@ impl<'a> Evaluator<'a> {
         }
 
         if !self.printf_buffer.is_empty() {
-            output_lines.push(std::mem::take(&mut self.printf_buffer));
+            let pending_printf = std::mem::take(&mut self.printf_buffer);
+            self.append_generated_output(&mut output_lines, vec![pending_printf]);
         }
 
-        output_lines.extend(self.flush_pipe_outputs());
+        for line in self.flush_pipe_outputs() {
+            self.append_generated_output(&mut output_lines, vec![line]);
+        }
 
         normalize_output_lines(output_lines)
     }
@@ -165,7 +168,7 @@ impl<'a> Evaluator<'a> {
                 } else {
                     let mut output = Vec::new();
                     if self.has_output {
-                        output.extend(self.ors_between_records());
+                        self.append_output_record_separator(&mut output);
                     }
                     output.push(input_line.to_string());
                     self.has_output = true;
@@ -233,17 +236,34 @@ impl<'a> Evaluator<'a> {
                 }
                 continue;
             }
-            if self.has_output {
-                output.extend(self.ors_between_records());
-            }
-            output.extend(statement_output);
-            self.has_output = true;
+            self.append_generated_output(&mut output, statement_output);
             if self.should_break_statement_sequence() {
                 break;
             }
         }
 
         output
+    }
+
+    fn append_generated_output(&mut self, output: &mut Vec<String>, generated: Vec<String>) {
+        if generated.is_empty() {
+            return;
+        }
+        if self.has_output {
+            self.append_output_record_separator(output);
+        }
+        output.extend(generated);
+        self.has_output = true;
+    }
+
+    fn append_local_output(&self, output: &mut Vec<String>, generated: Vec<String>) {
+        if generated.is_empty() {
+            return;
+        }
+        if !output.is_empty() {
+            self.append_output_record_separator(output);
+        }
+        output.extend(generated);
     }
 
     fn eval_statement(
@@ -378,7 +398,8 @@ impl<'a> Evaluator<'a> {
                 if self.eval_condition(condition) {
                     let mut output = Vec::new();
                     for statement in then_statements {
-                        output.extend(self.eval_statement(statement, input_line));
+                        let statement_output = self.eval_statement(statement, input_line);
+                        self.append_local_output(&mut output, statement_output);
                         if self.should_break_statement_sequence() {
                             break;
                         }
@@ -400,7 +421,8 @@ impl<'a> Evaluator<'a> {
                 };
                 let mut output = Vec::new();
                 for statement in branch {
-                    output.extend(self.eval_statement(statement, input_line));
+                    let statement_output = self.eval_statement(statement, input_line);
+                    self.append_local_output(&mut output, statement_output);
                     if self.should_break_statement_sequence() {
                         break;
                     }
@@ -414,7 +436,8 @@ impl<'a> Evaluator<'a> {
                 let mut output = Vec::new();
                 while self.eval_condition(condition) {
                     for statement in statements {
-                        output.extend(self.eval_statement(statement, input_line));
+                        let statement_output = self.eval_statement(statement, input_line);
+                        self.append_local_output(&mut output, statement_output);
                         if self.should_break_statement_sequence() {
                             break;
                         }
@@ -438,7 +461,8 @@ impl<'a> Evaluator<'a> {
                 let mut output = Vec::new();
                 loop {
                     for statement in statements {
-                        output.extend(self.eval_statement(statement, input_line));
+                        let statement_output = self.eval_statement(statement, input_line);
+                        self.append_local_output(&mut output, statement_output);
                         if self.should_break_statement_sequence() {
                             break;
                         }
@@ -462,13 +486,15 @@ impl<'a> Evaluator<'a> {
                 statements,
             } => {
                 let mut output = Vec::new();
-                output.extend(self.eval_statement(init, input_line));
+                let init_output = self.eval_statement(init, input_line);
+                self.append_local_output(&mut output, init_output);
                 if self.should_break_statement_sequence() {
                     return output;
                 }
                 while self.eval_condition(condition) {
                     for statement in statements {
-                        output.extend(self.eval_statement(statement, input_line));
+                        let statement_output = self.eval_statement(statement, input_line);
+                        self.append_local_output(&mut output, statement_output);
                         if self.should_break_statement_sequence() {
                             break;
                         }
@@ -476,7 +502,8 @@ impl<'a> Evaluator<'a> {
                     if self.should_break_loop_iteration() {
                         break;
                     }
-                    output.extend(self.eval_statement(update, input_line));
+                    let update_output = self.eval_statement(update, input_line);
+                    self.append_local_output(&mut output, update_output);
                     if self.continue_loop {
                         self.continue_loop = false;
                     }
@@ -503,7 +530,8 @@ impl<'a> Evaluator<'a> {
                 for key in keys {
                     self.set_variable_text(variable, key);
                     for statement in statements {
-                        output.extend(self.eval_statement(statement, input_line));
+                        let statement_output = self.eval_statement(statement, input_line);
+                        self.append_local_output(&mut output, statement_output);
                         if self.should_break_statement_sequence() {
                             break;
                         }
@@ -598,10 +626,11 @@ impl<'a> Evaluator<'a> {
             parts.push(self.eval_expression(expression));
             output.extend(self.take_expression_output());
         }
-        output.push(format!(
-            "{pending_printf}{}",
-            parts.join(&self.output_field_separator)
-        ));
+        let rendered = format!("{pending_printf}{}", parts.join(&self.output_field_separator));
+        if !output.is_empty() {
+            self.append_output_record_separator(&mut output);
+        }
+        output.push(rendered);
         output
     }
 
@@ -881,12 +910,11 @@ impl<'a> Evaluator<'a> {
             .insert("NF".to_string(), target_nf as f64);
     }
 
-    fn ors_between_records(&self) -> Vec<String> {
-        if self.output_record_separator == "\n\n" {
-            vec![String::new()]
-        } else {
-            Vec::new()
+    fn append_output_record_separator(&self, output: &mut Vec<String>) {
+        if self.output_record_separator.is_empty() {
+            return;
         }
+        output.push(self.output_record_separator.clone());
     }
 
     fn flush_pipe_outputs(&mut self) -> Vec<String> {
@@ -1523,7 +1551,8 @@ impl<'a> Evaluator<'a> {
         let saved_return_value = self.return_value.take();
         let mut output = Vec::new();
         for statement in &definition.statements {
-            output.extend(self.eval_statement(statement, None));
+            let statement_output = self.eval_statement(statement, None);
+            self.append_local_output(&mut output, statement_output);
             if self.should_break_function_body() {
                 break;
             }
@@ -2141,16 +2170,19 @@ fn unescape_awk_string(input: &str) -> String {
 }
 
 fn normalize_output_lines(lines: Vec<String>) -> Vec<String> {
-    let mut normalized = Vec::new();
-
-    for line in lines {
-        if line.contains('\n') {
-            normalized.extend(line.split('\n').map(str::to_string));
+    let output = lines.concat();
+    if output.is_empty() {
+        return if lines.is_empty() {
+            Vec::new()
         } else {
-            normalized.push(line);
-        }
+            vec![String::new()]
+        };
     }
 
+    let mut normalized = output.split('\n').map(str::to_string).collect::<Vec<_>>();
+    if output.ends_with('\n') {
+        normalized.pop();
+    }
     normalized
 }
 
@@ -3093,5 +3125,17 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["".to_string(), "USSR".to_string()]);
+    }
+
+    #[test]
+    fn eval_print_respects_custom_ors_without_newlines() {
+        let lexer = Lexer::new(r###"BEGIN { ORS = "##" } { print $1; print $2 }"###);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["alpha beta".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["alpha##beta".to_string()]);
     }
 }
