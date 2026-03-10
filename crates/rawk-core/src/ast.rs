@@ -116,6 +116,7 @@ pub enum Statement<'a> {
     Split {
         string: Expression<'a>,
         array: &'a str,
+        separator: Option<Expression<'a>>,
     },
     Sub {
         pattern: Expression<'a>,
@@ -134,6 +135,7 @@ pub enum Statement<'a> {
         identifier: &'a str,
         string: Expression<'a>,
         array: &'a str,
+        separator: Option<Expression<'a>>,
     },
     ArrayAssignment {
         identifier: &'a str,
@@ -344,7 +346,17 @@ impl<'a> fmt::Display for Statement<'a> {
                 }
             }
             Statement::System(command) => write!(f, "system({command})"),
-            Statement::Split { string, array } => write!(f, "split({string}, {array})"),
+            Statement::Split {
+                string,
+                array,
+                separator,
+            } => {
+                write!(f, "split({string}, {array}")?;
+                if let Some(separator) = separator {
+                    write!(f, ", {separator}")?;
+                }
+                write!(f, ")")
+            }
             Statement::Sub {
                 pattern,
                 replacement,
@@ -365,7 +377,14 @@ impl<'a> fmt::Display for Statement<'a> {
                 identifier,
                 string,
                 array,
-            } => write!(f, "{identifier} = split({string}, {array})"),
+                separator,
+            } => {
+                write!(f, "{identifier} = split({string}, {array}")?;
+                if let Some(separator) = separator {
+                    write!(f, ", {separator}")?;
+                }
+                write!(f, ")")
+            }
             Statement::ArrayAssignment {
                 identifier,
                 index,

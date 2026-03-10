@@ -463,6 +463,12 @@ impl<'a> Parser<'a> {
         }
         let array = self.current_token.literal;
         self.next_token();
+        let separator = if self.current_token.kind == TokenKind::Comma {
+            self.next_token_in_regex_context();
+            Some(self.parse_expression())
+        } else {
+            None
+        };
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
@@ -471,6 +477,7 @@ impl<'a> Parser<'a> {
             identifier,
             string,
             array,
+            separator,
         }
     }
 
@@ -490,11 +497,21 @@ impl<'a> Parser<'a> {
         }
         let array = self.current_token.literal;
         self.next_token();
+        let separator = if self.current_token.kind == TokenKind::Comma {
+            self.next_token_in_regex_context();
+            Some(self.parse_expression())
+        } else {
+            None
+        };
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
         self.next_token();
-        Statement::Split { string, array }
+        Statement::Split {
+            string,
+            array,
+            separator,
+        }
     }
 
     fn parse_field_assignment_statement(&mut self) -> Statement<'a> {

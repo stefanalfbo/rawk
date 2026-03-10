@@ -283,8 +283,12 @@ impl<'a> Evaluator<'a> {
                 self.eval_system(command);
                 Vec::new()
             }
-            Statement::Split { string, array } => {
-                self.eval_split(string, array);
+            Statement::Split {
+                string,
+                array,
+                separator,
+            } => {
+                self.eval_split(string, array, separator.as_ref());
                 Vec::new()
             }
             Statement::Sub {
@@ -310,8 +314,9 @@ impl<'a> Evaluator<'a> {
                 identifier,
                 string,
                 array,
+                separator,
             } => {
-                self.eval_split_assignment(identifier, string, array);
+                self.eval_split_assignment(identifier, string, array, separator.as_ref());
                 Vec::new()
             }
             Statement::ArrayAssignment {
@@ -721,15 +726,26 @@ impl<'a> Evaluator<'a> {
             .insert(key, (current + increment).to_string());
     }
 
-    fn eval_split_assignment(&mut self, identifier: &str, string: &Expression<'_>, array: &str) {
-        let count = self.eval_split(string, array);
+    fn eval_split_assignment(
+        &mut self,
+        identifier: &str,
+        string: &Expression<'_>,
+        array: &str,
+        separator: Option<&Expression<'_>>,
+    ) {
+        let count = self.eval_split(string, array, separator);
         self.set_variable_numeric(identifier, count as f64);
     }
 
-    fn eval_split(&mut self, string: &Expression<'_>, array: &str) -> usize {
+    fn eval_split(
+        &mut self,
+        string: &Expression<'_>,
+        array: &str,
+        separator: Option<&Expression<'_>>,
+    ) -> usize {
         let source = self.eval_expression(string);
         let array = self.resolve_array_identifier(array).to_string();
-        let fields = self.split_fields(&source);
+        let fields = self.split_source(&source, separator);
         let prefix = format!("{array}\u{1f}");
         self.array_variables
             .retain(|key, _| !key.starts_with(&prefix));
@@ -1284,9 +1300,9 @@ impl<'a> Evaluator<'a> {
                 format_printf(&format, &values)
             }
             "split" => {
-                let count = match (args.first(), args.get(1)) {
-                    (Some(string), Some(Expression::Identifier(array))) => {
-                        self.eval_split(string, array)
+                let count = match (args.first(), args.get(1), args.get(2)) {
+                    (Some(string), Some(Expression::Identifier(array)), separator) => {
+                        self.eval_split(string, array, separator)
                     }
                     _ => 0,
                 };
@@ -1399,9 +1415,9 @@ impl<'a> Evaluator<'a> {
 
     fn eval_numeric_function_call(&mut self, name: &str, args: &[Expression<'_>]) -> Option<f64> {
         match name {
-            "split" => match (args.first(), args.get(1)) {
-                (Some(string), Some(Expression::Identifier(array))) => {
-                    Some(self.eval_split(string, array) as f64)
+            "split" => match (args.first(), args.get(1), args.get(2)) {
+                (Some(string), Some(Expression::Identifier(array)), separator) => {
+                    Some(self.eval_split(string, array, separator) as f64)
                 }
                 _ => Some(0.0),
             },
@@ -1550,6 +1566,21 @@ impl<'a> Evaluator<'a> {
             line.split(&self.field_separator)
                 .map(str::to_string)
                 .collect()
+        }
+    }
+
+    fn split_source(&mut self, source: &str, separator: Option<&Expression<'_>>) -> Vec<String> {
+        match separator {
+            None => self.split_fields(source),
+            Some(Expression::Regex(pattern)) => split_with_regex(source, pattern),
+            Some(expression) => {
+                let separator = self.eval_expression(expression);
+                if separator == " " {
+                    source.split_whitespace().map(str::to_string).collect()
+                } else {
+                    split_with_regex(source, &separator)
+                }
+            }
         }
     }
 
@@ -2332,6 +2363,25 @@ fn awk_truthy(value: &str) -> bool {
     }
 
     parse_full_awk_numeric(value).map_or(true, |numeric| numeric != 0.0)
+}
+
+fn split_with_regex(source: &str, pattern: &str) -> Vec<String> {
+    if source.is_empty() {
+        return Vec::new();
+    }
+
+    let Ok(regex) = Regex::new(pattern) else {
+        return source.split(pattern).map(str::to_string).collect();
+    };
+
+    let mut fields = Vec::new();
+    let mut last_end = 0;
+    for matched in regex.find_iter(source) {
+        fields.push(source[last_end..matched.start()].to_string());
+        last_end = matched.end();
+    }
+    fields.push(source[last_end..].to_string());
+    fields
 }
 
 fn format_awk_number(value: f64) -> String {
