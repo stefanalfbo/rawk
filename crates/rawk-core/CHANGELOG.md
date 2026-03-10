@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/stefanalfbo/rawk/compare/v0.3.0...v0.3.1) - 2026-03-10
+
+### Added
+
+- add support for scientific notation in number tokens and update tests
+- enable test for 'tjx' case in t_tests
+- enable tests for 'index' and 'intest' cases in t_tests
+- enhance parser to handle additional token types and update test for 'in' case
+- update truthy evaluation and enhance test coverage for 'if' case
+- add test for 'i.x' case in t_tests
+- enable test for getline1 function in t_tests
+
+### Other
+
+- simplify control statement parsing and add test for 'incr3' case
+- Rename all test scripts so the are using the .awk as a file extension.
+
 ## [0.3.0](https://github.com/stefanalfbo/rawk/compare/v0.2.0...v0.3.0) - 2026-03-08
 
 ### Added
