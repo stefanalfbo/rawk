@@ -290,6 +290,25 @@ impl<'a> Lexer<'a> {
             self.read_char();
         }
 
+        if matches!(self.ch, Some(b'e') | Some(b'E')) {
+            let exponent_sign = self.peek_char();
+            let exponent_digit = if matches!(exponent_sign, Some(b'+') | Some(b'-')) {
+                self.peek_next_char()
+            } else {
+                exponent_sign
+            };
+
+            if is_digit(exponent_digit) {
+                self.read_char();
+                if matches!(self.ch, Some(b'+') | Some(b'-')) {
+                    self.read_char();
+                }
+                while is_digit(self.ch) {
+                    self.read_char();
+                }
+            }
+        }
+
         if !got_digit {
             return Token::new(TokenKind::Illegal, "<illegal>", position);
         }
@@ -677,6 +696,24 @@ mod tests {
             (TokenKind::Number, "456"),
             (TokenKind::Eof, ""),
         ];
+        for (expected_kind, expected_literal) in expected_tokens {
+            let token = lexer.next_token();
+            assert_token(token, expected_kind, expected_literal);
+        }
+    }
+
+    #[test]
+    fn scientific_number_token() {
+        let input = "1E2 12e-2 .75e+1";
+        let mut lexer = Lexer::new(input);
+
+        let expected_tokens = vec![
+            (TokenKind::Number, "1E2"),
+            (TokenKind::Number, "12e-2"),
+            (TokenKind::Number, ".75e+1"),
+            (TokenKind::Eof, ""),
+        ];
+
         for (expected_kind, expected_literal) in expected_tokens {
             let token = lexer.next_token();
             assert_token(token, expected_kind, expected_literal);
