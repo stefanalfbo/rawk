@@ -581,14 +581,15 @@ impl<'a> Evaluator<'a> {
         expressions: &[Expression<'_>],
         input_line: Option<&str>,
     ) -> Vec<String> {
+        let pending_printf = std::mem::take(&mut self.printf_buffer);
         if expressions.is_empty() {
-            return vec![
-                self.current_line
-                    .as_deref()
-                    .or(input_line)
-                    .unwrap_or("")
-                    .to_string(),
-            ];
+            let line = self
+                .current_line
+                .as_deref()
+                .or(input_line)
+                .unwrap_or("")
+                .to_string();
+            return vec![format!("{pending_printf}{line}")];
         }
 
         let mut output = Vec::new();
@@ -597,7 +598,10 @@ impl<'a> Evaluator<'a> {
             parts.push(self.eval_expression(expression));
             output.extend(self.take_expression_output());
         }
-        output.push(parts.join(&self.output_field_separator));
+        output.push(format!(
+            "{pending_printf}{}",
+            parts.join(&self.output_field_separator)
+        ));
         output
     }
 
@@ -618,7 +622,7 @@ impl<'a> Evaluator<'a> {
             .map(|expr| unescape_awk_string(&self.eval_printf_argument(expr)))
             .collect();
 
-        expand_tabs(&format_printf(&format, &args))
+        format_printf(&format, &args)
     }
 
     fn eval_printf_argument(&mut self, expression: &Expression<'_>) -> String {
@@ -2196,14 +2200,21 @@ fn format_printf(format: &str, args: &[String]) -> String {
         arg_index += 1;
 
         let formatted = match specifier {
-            's' => arg,
-            'd' => arg
-                .parse::<f64>()
-                .map(|value| value.trunc() as i64)
-                .unwrap_or(0)
-                .to_string(),
+            's' => {
+                if let Some(precision) = precision {
+                    arg.chars().take(precision).collect()
+                } else {
+                    arg
+                }
+            }
+            'd' => (parse_awk_numeric(&arg).trunc() as i64).to_string(),
+            'u' => (parse_awk_numeric(&arg).trunc() as i64 as u64).to_string(),
+            'o' => format!("{:o}", parse_awk_numeric(&arg).trunc() as i64 as u64),
+            'x' => format!("{:x}", parse_awk_numeric(&arg).trunc() as i64 as u64),
+            'X' => format!("{:X}", parse_awk_numeric(&arg).trunc() as i64 as u64),
+            'c' => arg.chars().next().unwrap_or('\0').to_string(),
             'f' => {
-                let value = arg.parse::<f64>().unwrap_or(0.0);
+                let value = parse_awk_numeric(&arg);
                 let precision = precision.unwrap_or(6);
                 format!("{value:.precision$}")
             }
@@ -2241,33 +2252,6 @@ fn format_printf(format: &str, args: &[String]) -> String {
     }
 
     result
-}
-
-fn expand_tabs(input: &str) -> String {
-    expand_tabs_with_tabstop(input, 4)
-}
-
-fn expand_tabs_with_tabstop(input: &str, tabstop: usize) -> String {
-    let mut output = String::new();
-    let mut column = 0usize;
-
-    for ch in input.chars() {
-        if ch == '\t' {
-            let spaces = tabstop - (column % tabstop);
-            output.push_str(&" ".repeat(spaces));
-            column += spaces;
-            continue;
-        }
-
-        output.push(ch);
-        if ch == '\n' || ch == '\r' {
-            column = 0;
-        } else {
-            column += 1;
-        }
-    }
-
-    output
 }
 
 fn parse_awk_numeric(input: &str) -> f64 {
