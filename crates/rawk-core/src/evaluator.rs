@@ -12,6 +12,11 @@ struct FunctionCallResult {
     output: Vec<String>,
 }
 
+struct ComparisonOperand {
+    text: String,
+    numeric: Option<f64>,
+}
+
 pub struct Evaluator<'a> {
     program: Program<'a>,
     input_lines: Vec<String>,
@@ -1790,12 +1795,10 @@ impl<'a> Evaluator<'a> {
             return None;
         }
 
-        let left_str = self.eval_expression(left);
-        let right_str = self.eval_expression(right);
-        let left_num = left_str.parse::<f64>().ok();
-        let right_num = right_str.parse::<f64>().ok();
+        let left_value = self.comparison_operand(left);
+        let right_value = self.comparison_operand(right);
 
-        let result = match (left_num, right_num) {
+        let result = match (left_value.numeric, right_value.numeric) {
             (Some(l), Some(r)) => match operator {
                 TokenKind::Equal => l == r,
                 TokenKind::NotEqual => l != r,
@@ -1806,17 +1809,75 @@ impl<'a> Evaluator<'a> {
                 _ => unreachable!(),
             },
             _ => match operator {
-                TokenKind::Equal => left_str == right_str,
-                TokenKind::NotEqual => left_str != right_str,
-                TokenKind::GreaterThan => left_str > right_str,
-                TokenKind::GreaterThanOrEqual => left_str >= right_str,
-                TokenKind::LessThan => left_str < right_str,
-                TokenKind::LessThanOrEqual => left_str <= right_str,
+                TokenKind::Equal => left_value.text == right_value.text,
+                TokenKind::NotEqual => left_value.text != right_value.text,
+                TokenKind::GreaterThan => left_value.text > right_value.text,
+                TokenKind::GreaterThanOrEqual => left_value.text >= right_value.text,
+                TokenKind::LessThan => left_value.text < right_value.text,
+                TokenKind::LessThanOrEqual => left_value.text <= right_value.text,
                 _ => unreachable!(),
             },
         };
 
         Some(result)
+    }
+
+    fn comparison_operand(&mut self, expression: &Expression<'_>) -> ComparisonOperand {
+        match expression {
+            Expression::Identifier(identifier) => {
+                let text = self.eval_identifier_expression(identifier);
+                let numeric = self
+                    .numeric_variables
+                    .get(*identifier)
+                    .copied()
+                    .or_else(|| parse_full_awk_numeric(&text))
+                    .or_else(|| {
+                        if !self.variables.contains_key(*identifier)
+                            && !is_special_identifier(identifier)
+                        {
+                            Some(0.0)
+                        } else {
+                            None
+                        }
+                    });
+                ComparisonOperand { text, numeric }
+            }
+            Expression::Number(_)
+            | Expression::Infix { .. }
+            | Expression::Length(_)
+            | Expression::Rand => {
+                let text = self.eval_expression(expression);
+                let numeric = parse_full_awk_numeric(&text).or_else(|| Some(parse_awk_numeric(&text)));
+                ComparisonOperand { text, numeric }
+            }
+            Expression::String(_) => {
+                let text = self.eval_expression(expression);
+                ComparisonOperand {
+                    text,
+                    numeric: None,
+                }
+            }
+            Expression::Field(_)
+            | Expression::ArrayAccess { .. }
+            | Expression::Substr { .. }
+            | Expression::FunctionCall { .. }
+            | Expression::Regex(_)
+            | Expression::Concatenation { .. }
+            | Expression::Not(_)
+            | Expression::PreIncrement(_)
+            | Expression::PreDecrement(_)
+            | Expression::PostIncrement(_)
+            | Expression::PostDecrement(_)
+            | Expression::Ternary { .. } => {
+                let text = self.eval_expression(expression);
+                let numeric = if text.is_empty() {
+                    None
+                } else {
+                    parse_full_awk_numeric(&text)
+                };
+                ComparisonOperand { text, numeric }
+            }
+        }
     }
 
     fn eval_regex_match(
@@ -2374,6 +2435,13 @@ fn expression_has_precise_numeric_value(expression: &Expression<'_>) -> bool {
                 | TokenKind::NotEqual
         ),
     }
+}
+
+fn is_special_identifier(identifier: &str) -> bool {
+    matches!(
+        identifier,
+        "getline" | "FS" | "OFS" | "ORS" | "NF" | "NR" | "FNR" | "FILENAME" | "ARGC"
+    )
 }
 
 fn awk_truthy(value: &str) -> bool {
@@ -3127,5 +3195,19 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["alpha##beta##".to_string()]);
+    }
+
+    #[test]
+    fn eval_comparison_distinguishes_uninitialized_vars_from_empty_fields() {
+        let lexer = Lexer::new(
+            r#"BEGIN { FS = ":" } { if (b == 0) print "b"; if ($1 == 0) print "$1num"; if ($1 == "") print "$1str" }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![":x".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["b".to_string(), "$1str".to_string()]);
     }
 }
