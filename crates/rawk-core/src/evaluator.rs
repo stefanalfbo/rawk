@@ -167,11 +167,8 @@ impl<'a> Evaluator<'a> {
                     self.eval_action(action, Some(input_line))
                 } else {
                     let mut output = Vec::new();
-                    if self.has_output {
-                        self.append_output_record_separator(&mut output);
-                    }
                     output.push(input_line.to_string());
-                    self.has_output = true;
+                    self.append_output_record_separator(&mut output);
                     output
                 }
             }
@@ -249,9 +246,6 @@ impl<'a> Evaluator<'a> {
         if generated.is_empty() {
             return;
         }
-        if self.has_output {
-            self.append_output_record_separator(output);
-        }
         output.extend(generated);
         self.has_output = true;
     }
@@ -259,9 +253,6 @@ impl<'a> Evaluator<'a> {
     fn append_local_output(&self, output: &mut Vec<String>, generated: Vec<String>) {
         if generated.is_empty() {
             return;
-        }
-        if !output.is_empty() {
-            self.append_output_record_separator(output);
         }
         output.extend(generated);
     }
@@ -617,7 +608,9 @@ impl<'a> Evaluator<'a> {
                 .or(input_line)
                 .unwrap_or("")
                 .to_string();
-            return vec![format!("{pending_printf}{line}")];
+            let mut output = vec![format!("{pending_printf}{line}")];
+            self.append_output_record_separator(&mut output);
+            return output;
         }
 
         let mut output = Vec::new();
@@ -627,10 +620,8 @@ impl<'a> Evaluator<'a> {
             output.extend(self.take_expression_output());
         }
         let rendered = format!("{pending_printf}{}", parts.join(&self.output_field_separator));
-        if !output.is_empty() {
-            self.append_output_record_separator(&mut output);
-        }
         output.push(rendered);
+        self.append_output_record_separator(&mut output);
         output
     }
 
@@ -676,6 +667,7 @@ impl<'a> Evaluator<'a> {
         let mut output = Vec::new();
         while let Some(index) = self.printf_buffer.find('\n') {
             output.push(self.printf_buffer[..index].trim_end().to_string());
+            output.push("\n".to_string());
             self.printf_buffer = self.printf_buffer[index + 1..].to_string();
         }
         output
@@ -698,7 +690,8 @@ impl<'a> Evaluator<'a> {
         target: &Expression<'_>,
         input_line: Option<&str>,
     ) {
-        let rendered = self.eval_print(expressions, input_line);
+        let mut rendered = self.eval_print(expressions, input_line);
+        rendered.push_str(&self.output_record_separator);
         let target = self.eval_expression(target);
         self.pipe_outputs.entry(target).or_default().push(rendered);
     }
@@ -2179,11 +2172,7 @@ fn normalize_output_lines(lines: Vec<String>) -> Vec<String> {
         };
     }
 
-    let mut normalized = output.split('\n').map(str::to_string).collect::<Vec<_>>();
-    if output.ends_with('\n') {
-        normalized.pop();
-    }
-    normalized
+    output.lines().map(str::to_string).collect()
 }
 
 fn format_printf(format: &str, args: &[String]) -> String {
@@ -3017,7 +3006,8 @@ mod tests {
             vec![
                 "USSR:8649".to_string(),
                 "".to_string(),
-                "Canada:3852".to_string()
+                "Canada:3852".to_string(),
+                "".to_string()
             ]
         );
     }
@@ -3136,6 +3126,6 @@ mod tests {
 
         let output = evaluator.eval();
 
-        assert_eq!(output, vec!["alpha##beta".to_string()]);
+        assert_eq!(output, vec!["alpha##beta##".to_string()]);
     }
 }

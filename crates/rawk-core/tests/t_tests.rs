@@ -150,7 +150,7 @@ t_test_ignore!(tnot, "not");
 t_test_ignore!(tnull0, "null0");
 t_test!(tofmt, "ofmt");
 t_test!(tofs, "ofs");
-t_test_ignore!(tors, "ors");
+t_test!(tors, "ors");
 t_test!(tpat, "pat");
 t_test!(tpipe, "pipe");
 t_test!(tpp, "pp");
