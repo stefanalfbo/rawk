@@ -1352,6 +1352,7 @@ impl<'a> Evaluator<'a> {
                     None => "0".to_string(),
                 }
             }
+            "match" => format_awk_number(self.eval_match_function(args)),
             "max" => {
                 let left = args
                     .first()
@@ -1462,6 +1463,7 @@ impl<'a> Evaluator<'a> {
                     .unwrap_or_default();
                 Some(string.find(&search).map(|index| (index + 1) as f64).unwrap_or(0.0))
             }
+            "match" => Some(self.eval_match_function(args)),
             "max" => {
                 let left = args
                     .first()
@@ -1506,6 +1508,31 @@ impl<'a> Evaluator<'a> {
                 Some(seed as f64)
             }
             _ => None,
+        }
+    }
+
+    fn eval_match_function(&mut self, args: &[Expression<'_>]) -> f64 {
+        let text = args
+            .first()
+            .map(|arg| self.eval_expression(arg))
+            .unwrap_or_default();
+        let matched = match args.get(1) {
+            Some(Expression::Regex(pattern)) => find_awk_regex_match(&text, pattern),
+            Some(other) => find_awk_regex_match(&text, &self.eval_expression(other)),
+            None => None,
+        };
+
+        match matched {
+            Some((start, length)) => {
+                self.set_variable_numeric("RSTART", (start + 1) as f64);
+                self.set_variable_numeric("RLENGTH", length as f64);
+                (start + 1) as f64
+            }
+            None => {
+                self.set_variable_numeric("RSTART", 0.0);
+                self.set_variable_numeric("RLENGTH", -1.0);
+                0.0
+            }
         }
     }
 
@@ -1957,6 +1984,18 @@ fn awk_regex_matches(text: &str, pattern: &str) -> bool {
     awk_regex_matches_legacy(text, pattern)
 }
 
+fn find_awk_regex_match(text: &str, pattern: &str) -> Option<(usize, usize)> {
+    if let Ok(re) = Regex::new(pattern) {
+        return re.find(text).map(|matched| {
+            let start = text[..matched.start()].chars().count();
+            let length = text[matched.start()..matched.end()].chars().count();
+            (start, length)
+        });
+    }
+
+    find_awk_regex_match_legacy(text, pattern)
+}
+
 fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
     let anchored_start = pattern.starts_with('^');
     let anchored_end = pattern.ends_with('$');
@@ -2054,6 +2093,129 @@ fn awk_regex_matches_legacy(text: &str, pattern: &str) -> bool {
         return text.ends_with(core);
     }
     text.contains(core)
+}
+
+fn find_awk_regex_match_legacy(text: &str, pattern: &str) -> Option<(usize, usize)> {
+    let anchored_start = pattern.starts_with('^');
+    let anchored_end = pattern.ends_with('$');
+    let mut core = pattern;
+
+    if anchored_start {
+        core = &core[1..];
+    }
+    if anchored_end && !core.is_empty() {
+        core = &core[..core.len() - 1];
+    }
+
+    if core == "[0-9]+" {
+        let chars: Vec<char> = text.chars().collect();
+        for start in 0..chars.len() {
+            if anchored_start && start != 0 {
+                break;
+            }
+            if !chars[start].is_ascii_digit() {
+                continue;
+            }
+            let mut end = start;
+            while end < chars.len() && chars[end].is_ascii_digit() {
+                end += 1;
+            }
+            if anchored_end && end != chars.len() {
+                continue;
+            }
+            return Some((start, end - start));
+        }
+        return None;
+    }
+
+    if core == "." {
+        return if text.is_empty() {
+            None
+        } else if anchored_end {
+            Some((text.chars().count() - 1, 1))
+        } else {
+            Some((0, 1))
+        };
+    }
+
+    if core.starts_with('(') && core.ends_with(')') && core.contains('|') {
+        for alt in core[1..core.len() - 1].split('|') {
+            if let Some(found) = find_awk_regex_match_legacy(text, alt) {
+                return Some(found);
+            }
+        }
+        return None;
+    }
+
+    if core.contains('|') {
+        for alt in core.split('|') {
+            if let Some(found) = find_awk_regex_match_legacy(text, alt) {
+                return Some(found);
+            }
+        }
+        return None;
+    }
+
+    if core.starts_with('[') && core.ends_with(']') && core.len() >= 3 {
+        let class = &core[1..core.len() - 1];
+        let class_matches = |ch: char| -> bool {
+            let mut chars = class.chars().peekable();
+            while let Some(start) = chars.next() {
+                if chars.peek() == Some(&'-') {
+                    chars.next();
+                    if let Some(end) = chars.next() {
+                        if start <= ch && ch <= end {
+                            return true;
+                        }
+                        continue;
+                    }
+                    if start == ch || '-' == ch {
+                        return true;
+                    }
+                    break;
+                }
+                if start == ch {
+                    return true;
+                }
+            }
+            false
+        };
+
+        let chars: Vec<char> = text.chars().collect();
+        for (idx, ch) in chars.iter().enumerate() {
+            if anchored_start && idx != 0 {
+                break;
+            }
+            if !class_matches(*ch) {
+                continue;
+            }
+            if anchored_end && idx + 1 != chars.len() {
+                continue;
+            }
+            return Some((idx, 1));
+        }
+        return None;
+    }
+
+    if core.is_empty() {
+        return Some((0, 0));
+    }
+
+    if anchored_start && anchored_end {
+        return (text == core).then_some((0, core.chars().count()));
+    }
+    if anchored_start {
+        return text.starts_with(core).then_some((0, core.chars().count()));
+    }
+    if anchored_end {
+        return text.ends_with(core).then_some((
+            text.chars().count().saturating_sub(core.chars().count()),
+            core.chars().count(),
+        ));
+    }
+
+    let byte_start = text.find(core)?;
+    Some((text[..byte_start].chars().count(), core.chars().count()))
 }
 
 fn awk_gsub_replace_all(text: &str, pattern: &str, replacement: &str) -> String {
@@ -3195,6 +3357,18 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["alpha##beta##".to_string()]);
+    }
+
+    #[test]
+    fn eval_match_function_sets_rstart_and_rlength() {
+        let lexer = Lexer::new(r#"BEGIN { print match("abc123", "[0-9]+"), RSTART, RLENGTH }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["4 4 3".to_string()]);
     }
 
     #[test]

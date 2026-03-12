@@ -97,6 +97,7 @@ impl<'a> Parser<'a> {
             | TokenKind::Int
             | TokenKind::Length
             | TokenKind::Log
+            | TokenKind::Match
             | TokenKind::Rand
             | TokenKind::Sin
             | TokenKind::Sprintf
@@ -1239,6 +1240,7 @@ impl<'a> Parser<'a> {
             | TokenKind::Index
             | TokenKind::Int
             | TokenKind::Log
+            | TokenKind::Match
             | TokenKind::Sin
             | TokenKind::Sprintf
             | TokenKind::Split
@@ -1345,6 +1347,7 @@ fn is_expression_start(kind: &TokenKind) -> bool {
             | TokenKind::Int
             | TokenKind::Length
             | TokenKind::Log
+            | TokenKind::Match
             | TokenKind::Rand
             | TokenKind::Sin
             | TokenKind::Sprintf
@@ -1937,6 +1940,18 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ print index(1, $1) }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_match_builtin_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"{ print match($NF, $1), RSTART, RLENGTH }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ print match($NF, $1), RSTART, RLENGTH }"#,
+            program.to_string()
+        );
     }
 
     #[test]

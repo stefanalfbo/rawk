@@ -139,7 +139,7 @@ t_test!(tjx, "j.x");
 t_test!(tlongstr, "longstr");
 t_test!(tmakef, "makef");
 t_test!(tmatch, "match");
-t_test_ignore!(tmatch1, "match1");
+t_test!(tmatch1, "match1");
 t_test!(tmax, "max");
 t_test!(tmod, "mod");
 t_test!(tmonotone, "monotone");
