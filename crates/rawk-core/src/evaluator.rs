@@ -3372,6 +3372,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_match_function_falls_back_to_legacy_regex_matching() {
+        let lexer = Lexer::new(r#"BEGIN { print match("daemon", "(foo|dae)") , RSTART, RLENGTH }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1 1 3".to_string()]);
+    }
+
+    #[test]
     fn eval_comparison_distinguishes_uninitialized_vars_from_empty_fields() {
         let lexer = Lexer::new(
             r#"BEGIN { FS = ":" } { if (b == 0) print "b"; if ($1 == 0) print "$1num"; if ($1 == "") print "$1str" }"#,
