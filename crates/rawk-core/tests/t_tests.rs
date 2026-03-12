@@ -159,7 +159,7 @@ t_test!(tpp2, "pp2");
 t_test!(tprintf, "printf");
 t_test!(tprintf2, "printf2");
 t_test!(tquote, "quote");
-t_test_ignore!(trandk, "randk");
+t_test!(trandk, "randk");
 t_test!(tre1, "re1");
 t_test_ignore!(tre1a, "re1a");
 t_test_ignore!(tre2, "re2");
