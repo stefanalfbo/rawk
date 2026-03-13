@@ -176,7 +176,7 @@ t_test!(tsep, "sep");
 t_test!(tseqno, "seqno");
 t_test!(tset0, "set0");
 t_test!(tset0a, "set0a");
-t_test_ignore!(tset0b, "set0b");
+t_test!(tset0b, "set0b");
 t_test!(tset1, "set1");
 t_test!(tset2, "set2");
 t_test!(tset3, "set3");

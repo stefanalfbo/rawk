@@ -841,11 +841,6 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_assignment_infix(&mut self, left: &Expression<'_>, right: &Expression<'_>) -> String {
-        let identifier = match left {
-            Expression::Identifier(identifier) => *identifier,
-            _ => return self.eval_expression(right),
-        };
-
         let assigned_value = if let Expression::String(value) = right {
             unescape_awk_string(value)
         } else if let Expression::Infix {
@@ -863,13 +858,22 @@ impl<'a> Evaluator<'a> {
             self.eval_expression(right)
         };
 
-        if expression_has_precise_numeric_value(right) {
-            let assigned_numeric = self.eval_numeric_expression(right).unwrap_or(0.0);
-            self.set_variable_numeric(identifier, assigned_numeric);
-            format_awk_number(assigned_numeric)
-        } else {
-            self.set_variable_text(identifier, assigned_value.clone());
-            assigned_value
+        match left {
+            Expression::Identifier(identifier) => {
+                if expression_has_precise_numeric_value(right) {
+                    let assigned_numeric = self.eval_numeric_expression(right).unwrap_or(0.0);
+                    self.set_variable_numeric(identifier, assigned_numeric);
+                    format_awk_number(assigned_numeric)
+                } else {
+                    self.set_variable_text(identifier, assigned_value.clone());
+                    assigned_value
+                }
+            }
+            Expression::Field(field) => {
+                self.assign_field(field, assigned_value.clone());
+                assigned_value
+            }
+            _ => assigned_value,
         }
     }
 
@@ -1071,7 +1075,9 @@ impl<'a> Evaluator<'a> {
                 operator,
                 right,
             } => {
-                if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
+                if operator.kind == TokenKind::Assign {
+                    self.eval_assignment_infix(left, right)
+                } else if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
                     format_awk_number(if value { 1.0 } else { 0.0 })
                 } else if let Some(value) = self.eval_membership(left, operator.kind.clone(), right)
                 {
@@ -2901,6 +2907,39 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["three".to_string()]);
+    }
+
+    #[test]
+    fn eval_chained_field_assignment_updates_record_right_to_left() {
+        let lexer = Lexer::new(r#"{ $1 = $0 = $2; print } { $0 = $2 = $1; print } { $(0) = $(2) = $(1); print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(
+            program,
+            vec![
+                "left right".to_string(),
+                "alpha beta".to_string(),
+                "gamma delta".to_string(),
+            ],
+            "-",
+        );
+
+        let output = evaluator.eval();
+
+        assert_eq!(
+            output,
+            vec![
+                "right".to_string(),
+                "right".to_string(),
+                "right".to_string(),
+                "beta".to_string(),
+                "beta".to_string(),
+                "beta".to_string(),
+                "delta".to_string(),
+                "delta".to_string(),
+                "delta".to_string(),
+            ]
+        );
     }
 
     #[test]
