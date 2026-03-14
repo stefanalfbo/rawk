@@ -105,6 +105,7 @@ impl<'a> Parser<'a> {
             | TokenKind::Sqrt
             | TokenKind::Srand
             | TokenKind::Substr
+            | TokenKind::ExclamationMark
             | TokenKind::Increment
             | TokenKind::Decrement => self.parse_pattern_rule(),
             _ => panic!(
@@ -1733,6 +1734,26 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"$4 ~ /Asia/ { print $1 }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_not_pattern_action() {
+        let mut parser = Parser::new(Lexer::new(r#"!($1 < 2000) { print $1 }"#));
+
+        let program = parser.parse_program();
+        let mut rules = program.rules_iter();
+        let rule = rules.next().expect("expected rule");
+
+        match rule {
+            Rule::PatternAction {
+                pattern: Some(Expression::Not(inner)),
+                action: Some(Action { statements }),
+            } => {
+                assert!(matches!(**inner, Expression::Infix { .. }));
+                assert!(matches!(statements[0], Statement::Print(_)));
+            }
+            _ => panic!("expected negated pattern action"),
+        }
     }
 
     #[test]

@@ -146,7 +146,7 @@ t_test!(tmonotone, "monotone");
 t_test!(tnameval, "nameval");
 t_test!(tnext, "next");
 t_test!(tnf, "NF");
-t_test_ignore!(tnot, "not");
+t_test!(tnot, "not");
 t_test!(tnull0, "null0");
 t_test!(tofmt, "ofmt");
 t_test!(tofs, "ofs");
