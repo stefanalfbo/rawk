@@ -1926,10 +1926,7 @@ impl<'a> Evaluator<'a> {
         let haystack = self.eval_expression(left);
         let matches = match right {
             Expression::Regex(pattern) => awk_regex_matches(&haystack, pattern),
-            _ => {
-                let needle = self.eval_expression(right);
-                awk_regex_matches_legacy(&haystack, &needle)
-            }
+            _ => awk_regex_matches(&haystack, &self.eval_expression(right)),
         };
         Some(if operator == TokenKind::NoMatch {
             !matches
@@ -3420,6 +3417,20 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["1 1 3".to_string()]);
+    }
+
+    #[test]
+    fn eval_dynamic_regex_string_uses_full_regex_semantics() {
+        let lexer = Lexer::new(
+            r#"BEGIN { r = "[^aeiou]"; p = "17:"; if ("17abc" ~ r) print "class"; if ("17abc" ~ p) print "prefix"; if ("17:rest" ~ p) print "colon" }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["class".to_string(), "colon".to_string()]);
     }
 
     #[test]
