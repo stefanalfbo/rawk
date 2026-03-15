@@ -23,20 +23,6 @@ macro_rules! t_test {
     };
 }
 
-macro_rules! t_test_ignore {
-    ($name:ident, $num:literal) => {
-        #[test]
-        #[ignore]
-        fn $name() {
-            let script = include_str!(concat!("onetrueawk-testdata/t.", $num, ".awk"));
-            let data = include_str!("onetrueawk-testdata/data");
-            let expected_data = include_str!(concat!("onetrueawk-testdata/t.", $num, ".expected"));
-
-            assert_script_output_matches(script, data, expected_data);
-        }
-    };
-}
-
 t_test!(t0, "0");
 t_test!(t0a, "0a");
 t_test!(t1, "1");
