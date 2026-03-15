@@ -1627,9 +1627,7 @@ impl<'a> Evaluator<'a> {
         if self.field_separator == " " {
             line.split_whitespace().map(str::to_string).collect()
         } else {
-            line.split(&self.field_separator)
-                .map(str::to_string)
-                .collect()
+            split_with_regex(line, &self.field_separator)
         }
     }
 
@@ -3016,6 +3014,18 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["0\t:".to_string(), "2\t:/dev/rrp3:".to_string()]);
+    }
+
+    #[test]
+    fn eval_regex_fs_splits_fields_for_print() {
+        let lexer = Lexer::new("BEGIN { FS = \"\\t+\" } { print $1, $2 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["17379\tmel\t".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["17379 mel".to_string()]);
     }
 
     #[test]

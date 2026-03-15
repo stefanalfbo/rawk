@@ -169,7 +169,7 @@ t_test!(tre5, "re5");
 t_test!(tre7, "re7");
 t_test!(trec, "rec");
 t_test!(tredir1, "redir1");
-t_test_ignore!(trefs, "reFS");
+t_test!(trefs, "reFS");
 t_test_ignore!(treg, "reg");
 t_test!(troff, "roff");
 t_test!(tsep, "sep");
