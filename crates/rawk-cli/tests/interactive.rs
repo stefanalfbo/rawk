@@ -2,7 +2,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 fn run_rawk_interactive(script: &str, input: &[u8]) -> std::process::Output {
-    let rawk = env!("CARGO_BIN_EXE_rawk-cli");
+    let rawk = env!("CARGO_BIN_EXE_rawk");
     let mut child = Command::new(rawk)
         .arg(script)
         .stdin(Stdio::piped())
@@ -20,7 +20,7 @@ fn run_rawk_interactive(script: &str, input: &[u8]) -> std::process::Output {
 }
 
 fn run_rawk_interactive_from_file(input: &[u8]) -> std::process::Output {
-    let rawk = env!("CARGO_BIN_EXE_rawk-cli");
+    let rawk = env!("CARGO_BIN_EXE_rawk");
     let script_path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/print.awk");
     let mut child = Command::new(rawk)
         .arg("-f")
