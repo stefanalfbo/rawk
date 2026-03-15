@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/stefanalfbo/rawk/compare/v0.3.1...v0.3.2) - 2026-03-15
+
+### Added
+
+- update field splitting logic to use regex and add test for regex field separator
+- update regex matching in evaluator and add dynamic regex test; enable additional test cases
+- add support for exclamation mark in parser; implement test for negated pattern action
+- refactor eval_assignment_infix to handle field assignments and improve readability; add test for chained field assignment
+- implement match function in evaluator and update parser to support it; add tests for match functionality
+- update trandk test to include in test suite
+- enhance comparison handling in evaluator; introduce ComparisonOperand struct and update related logic
+- improve output handling in evaluator; ensure consistent record separator usage and update expected test outputs
+- refactor output handling in evaluator; improve output record separator logic and update tests
+- normalize output lines and enhance string handling in evaluator; update tests
+- update printf handling and enable related tests
+- enhance split statement to support optional separator and update related tests
+
+### Other
+
+- add hex digit validation tests for is_hex_digit function
+- remove unused t_test_ignore macro from test suite
+- Fix test status for tintest2 to enable it in the test suite
+- Fix test status for tsub0 in t_tests.rs to enable the test
+- enable previously ignored test for regex matching
+- add fallback test for legacy regex matching in eval_match_function
+
 ## [0.3.1](https://github.com/stefanalfbo/rawk/compare/v0.3.0...v0.3.1) - 2026-03-10
 
 ### Added
