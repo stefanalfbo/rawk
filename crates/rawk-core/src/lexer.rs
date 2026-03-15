@@ -171,8 +171,7 @@ impl<'a> Lexer<'a> {
                 if self.peek_char() == Some(b'\n') {
                     self.read_char();
                     Token::new(TokenKind::NewLine, "<newline>", start)
-                } else if self.peek_char() == Some(b'\r') && self.peek_next_char() == Some(b'\n')
-                {
+                } else if self.peek_char() == Some(b'\r') && self.peek_next_char() == Some(b'\n') {
                     self.read_char();
                     self.read_char();
                     Token::new(TokenKind::NewLine, "<newline>", start)
@@ -981,5 +980,29 @@ mod tests {
     #[test]
     fn is_digit_none() {
         assert!(!is_digit(None));
+    }
+
+    #[test]
+    fn is_hex_digit_valid() {
+        assert!(is_hex_digit(Some(b'0')));
+        assert!(is_hex_digit(Some(b'5')));
+        assert!(is_hex_digit(Some(b'9')));
+        assert!(is_hex_digit(Some(b'a')));
+        assert!(is_hex_digit(Some(b'f')));
+        assert!(is_hex_digit(Some(b'A')));
+        assert!(is_hex_digit(Some(b'F')));
+    }
+
+    #[test]
+    fn is_hex_digit_invalid() {
+        assert!(!is_hex_digit(Some(b'g')));
+        assert!(!is_hex_digit(Some(b'z')));
+        assert!(!is_hex_digit(Some(b'G')));
+        assert!(!is_hex_digit(Some(b'Z')));
+        assert!(!is_hex_digit(Some(b'!')));
+        assert!(!is_hex_digit(Some(b' ')));
+        assert!(!is_hex_digit(Some(b'{')));
+        assert!(!is_hex_digit(Some(b'=')));
+        assert!(!is_hex_digit(None));
     }
 }
