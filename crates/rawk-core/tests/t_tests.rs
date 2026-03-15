@@ -192,7 +192,7 @@ t_test!(tstately, "stately");
 t_test!(tstrcmp, "strcmp");
 t_test!(tstrcmp1, "strcmp1");
 t_test!(tstrnum, "strnum");
-t_test_ignore!(tsub0, "sub0");
+t_test!(tsub0, "sub0");
 t_test!(tsub1, "sub1");
 t_test!(tsub2, "sub2");
 t_test!(tsub3, "sub3");
