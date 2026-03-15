@@ -542,7 +542,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let condition = self.parse_expression();
+        let condition = self.parse_condition_in_parens();
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
@@ -644,7 +644,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let condition = self.parse_expression();
+        let condition = self.parse_condition_in_parens();
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
@@ -674,7 +674,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let condition = self.parse_expression();
+        let condition = self.parse_condition_in_parens();
         if self.current_token.kind != TokenKind::RightParen {
             todo!()
         }
@@ -1005,9 +1005,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression_with_min_precedence(&mut self, min_precedence: u8) -> Expression<'a> {
+        let left = self.parse_primary_expression();
+        self.parse_expression_suffix(left, min_precedence)
+    }
+
+    fn parse_expression_suffix(
+        &mut self,
+        mut left: Expression<'a>,
+        min_precedence: u8,
+    ) -> Expression<'a> {
         const CONCAT_LEFT_PRECEDENCE: u8 = 6;
         const CONCAT_RIGHT_PRECEDENCE: u8 = 7;
-        let mut left = self.parse_primary_expression();
 
         loop {
             if self.current_token.kind == TokenKind::QuestionMark {
@@ -1073,6 +1081,28 @@ impl<'a> Parser<'a> {
         }
 
         left
+    }
+
+    fn parse_condition_in_parens(&mut self) -> Expression<'a> {
+        let mut condition = self.parse_expression();
+        if self.current_token.kind == TokenKind::Comma {
+            while self.current_token.kind == TokenKind::Comma {
+                let operator = self.current_token.clone();
+                self.next_token_in_regex_context();
+                let right = self.parse_expression();
+                condition = Expression::Infix {
+                    left: Box::new(condition),
+                    operator,
+                    right: Box::new(right),
+                };
+            }
+            if self.current_token.kind != TokenKind::RightParen {
+                todo!()
+            }
+            self.next_token();
+            condition = self.parse_expression_suffix(condition, 0);
+        }
+        condition
     }
 
     fn parse_primary_expression(&mut self) -> Expression<'a> {
@@ -1982,6 +2012,15 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ print 1 in x }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_parenthesized_composite_membership_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"{ if (($0, $1) in x) print "yes" }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ if ($0, $1 in x) { print "yes" } }"#, program.to_string());
     }
 
     #[test]

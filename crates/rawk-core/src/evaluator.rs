@@ -3262,6 +3262,18 @@ mod tests {
     }
 
     #[test]
+    fn eval_parenthesized_composite_membership_expression() {
+        let lexer = Lexer::new(r#"{ x[$0, $1] = "hit"; if (($0, $1) in x) print "yes"; else print "no" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["17379\tmel".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["yes".to_string()]);
+    }
+
+    #[test]
     fn eval_print_respects_ors_between_records() {
         let lexer = Lexer::new(r#"BEGIN { OFS = ":"; ORS = "\n\n" } { print $1, $2 }"#);
         let mut parser = Parser::new(lexer);
