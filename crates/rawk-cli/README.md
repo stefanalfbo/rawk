@@ -12,6 +12,32 @@
 
 Command-line interface for the rawk AWK interpreter. This crate wires `rawk-core` into a `rawk` binary and handles argument parsing, script loading, and input file processing.
 
+## Installation
+
+### From crates.io
+
+Install the `rawk` binary using cargo:
+
+```bash
+cargo install rawk-cli
+```
+
+Then use the `rawk` command:
+
+```bash
+rawk --version
+```
+
+### From source
+
+Clone the repository and build from the workspace:
+
+```bash
+git clone https://github.com/stefanalfbo/rawk.git
+cd rawk
+cargo install --path crates/rawk-cli
+```
+
 ## Usage
 
 Provide a program and an input file:
@@ -25,8 +51,3 @@ Read the program from a file and pass the input file:
 ```bash
 rawk -f program.awk input.txt
 ```
-
-## Notes
-
-- `rawk-cli` is not published as a standalone crate; it is intended to be built from the workspace.
-- Core language features and execution live in `rawk-core`.

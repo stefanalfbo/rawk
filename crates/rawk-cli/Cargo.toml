@@ -1,14 +1,16 @@
 [package]
-publish = false
 name = "rawk-cli"
 version = "0.1.0"
-description = "The rawk cli, which is a AWK interpreter"
+description = "The rawk cli, which is an AWK interpreter clone. The goal is to be POSIX compatible."
 edition = { workspace = true }
 rust-version = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
+readme = "README.md"
+keywords = ["awk", "interpreter", "scripting", "text-processing"]
+categories = ["command-line-utilities", "text-processing"]
 
 [[bin]]
 name = "rawk"
