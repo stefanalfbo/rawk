@@ -624,7 +624,10 @@ impl<'a> Evaluator<'a> {
             parts.push(self.eval_expression(expression));
             output.extend(self.take_expression_output());
         }
-        let rendered = format!("{pending_printf}{}", parts.join(&self.output_field_separator));
+        let rendered = format!(
+            "{pending_printf}{}",
+            parts.join(&self.output_field_separator)
+        );
         output.push(rendered);
         self.append_output_record_separator(&mut output);
         output
@@ -704,7 +707,9 @@ impl<'a> Evaluator<'a> {
 
     fn eval_assignment(&mut self, identifier: &str, value: &Expression<'_>) {
         match value {
-            Expression::String(value) => self.set_variable_text(identifier, unescape_awk_string(value)),
+            Expression::String(value) => {
+                self.set_variable_text(identifier, unescape_awk_string(value))
+            }
             Expression::Infix {
                 left,
                 operator,
@@ -1079,7 +1084,9 @@ impl<'a> Evaluator<'a> {
             } => {
                 if operator.kind == TokenKind::Assign {
                     self.eval_assignment_infix(left, right)
-                } else if let Some(value) = self.eval_regex_match(left, operator.kind.clone(), right) {
+                } else if let Some(value) =
+                    self.eval_regex_match(left, operator.kind.clone(), right)
+                {
                     format_awk_number(if value { 1.0 } else { 0.0 })
                 } else if let Some(value) = self.eval_membership(left, operator.kind.clone(), right)
                 {
@@ -1166,7 +1173,8 @@ impl<'a> Evaluator<'a> {
         self.set_special_variable(identifier, &value);
         self.variables.insert(identifier.to_string(), value.clone());
         if let Some(numeric) = parse_full_awk_numeric(&value) {
-            self.numeric_variables.insert(identifier.to_string(), numeric);
+            self.numeric_variables
+                .insert(identifier.to_string(), numeric);
         } else {
             self.numeric_variables.remove(identifier);
         }
@@ -1469,7 +1477,12 @@ impl<'a> Evaluator<'a> {
                     .get(1)
                     .map(|arg| self.eval_expression(arg))
                     .unwrap_or_default();
-                Some(string.find(&search).map(|index| (index + 1) as f64).unwrap_or(0.0))
+                Some(
+                    string
+                        .find(&search)
+                        .map(|index| (index + 1) as f64)
+                        .unwrap_or(0.0),
+                )
             }
             "match" => Some(self.eval_match_function(args)),
             "max" => {
@@ -1598,7 +1611,8 @@ impl<'a> Evaluator<'a> {
             if let Some(value) = prior_value {
                 self.variables.insert(parameter.to_string(), value);
                 if let Some(numeric) = prior_numeric_value {
-                    self.numeric_variables.insert(parameter.to_string(), numeric);
+                    self.numeric_variables
+                        .insert(parameter.to_string(), numeric);
                 } else {
                     self.numeric_variables.remove(parameter);
                 }
@@ -1727,7 +1741,9 @@ impl<'a> Evaluator<'a> {
                 self.numeric_variables
                     .get(*identifier)
                     .copied()
-                    .unwrap_or_else(|| parse_awk_numeric(&self.eval_identifier_expression(identifier))),
+                    .unwrap_or_else(|| {
+                        parse_awk_numeric(&self.eval_identifier_expression(identifier))
+                    }),
             ),
             Expression::ArrayAccess { identifier, index } => Some(parse_awk_numeric(
                 &self.eval_array_access(identifier, index),
@@ -1882,7 +1898,8 @@ impl<'a> Evaluator<'a> {
             | Expression::Length(_)
             | Expression::Rand => {
                 let text = self.eval_expression(expression);
-                let numeric = parse_full_awk_numeric(&text).or_else(|| Some(parse_awk_numeric(&text)));
+                let numeric =
+                    parse_full_awk_numeric(&text).or_else(|| Some(parse_awk_numeric(&text)));
                 ComparisonOperand { text, numeric }
             }
             Expression::String(_) => {
@@ -2563,13 +2580,26 @@ fn parse_full_awk_numeric(input: &str) -> Option<f64> {
 
 fn expression_has_precise_numeric_value(expression: &Expression<'_>) -> bool {
     match expression {
-        Expression::Number(_) | Expression::HexNumber { .. } | Expression::Length(_) | Expression::Rand => true,
+        Expression::Number(_)
+        | Expression::HexNumber { .. }
+        | Expression::Length(_)
+        | Expression::Rand => true,
         Expression::Field(_) => false,
         Expression::Identifier(_) | Expression::ArrayAccess { .. } => false,
         Expression::FunctionCall { name, .. } => matches!(
             *name,
-            "index" | "length" | "split" | "max" | "sqrt" | "log" | "exp" | "sin" | "cos"
-                | "int" | "srand" | "rand"
+            "index"
+                | "length"
+                | "split"
+                | "max"
+                | "sqrt"
+                | "log"
+                | "exp"
+                | "sin"
+                | "cos"
+                | "int"
+                | "srand"
+                | "rand"
         ),
         Expression::Not(_)
         | Expression::PreIncrement(_)
@@ -2616,7 +2646,7 @@ fn awk_truthy(value: &str) -> bool {
         return false;
     }
 
-    parse_full_awk_numeric(value).map_or(true, |numeric| numeric != 0.0)
+    parse_full_awk_numeric(value) != Some(0.0)
 }
 
 fn split_with_regex(source: &str, pattern: &str) -> Vec<String> {
@@ -2910,7 +2940,9 @@ mod tests {
 
     #[test]
     fn eval_chained_field_assignment_updates_record_right_to_left() {
-        let lexer = Lexer::new(r#"{ $1 = $0 = $2; print } { $0 = $2 = $1; print } { $(0) = $(2) = $(1); print }"#);
+        let lexer = Lexer::new(
+            r#"{ $1 = $0 = $2; print } { $0 = $2 = $1; print } { $(0) = $(2) = $(1); print }"#,
+        );
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(
@@ -2996,15 +3028,22 @@ mod tests {
 
     #[test]
     fn eval_gsub_string_pattern_uses_awk_replacement_semantics() {
-        let lexer =
-            Lexer::new(r#"{ gsub("[" $1 "]", "(&)"); print } { gsub("[" $1 "]", "(\\&)"); print }"#);
+        let lexer = Lexer::new(
+            r#"{ gsub("[" $1 "]", "(&)"); print } { gsub("[" $1 "]", "(\\&)"); print }"#,
+        );
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec!["abc\txyz".to_string()], "-");
 
         let output = evaluator.eval();
 
-        assert_eq!(output, vec!["(a)(b)(c)\txyz".to_string(), "(&)(&)(&)(&)(&)(&)(&)(&)(&)\txyz".to_string()]);
+        assert_eq!(
+            output,
+            vec![
+                "(a)(b)(c)\txyz".to_string(),
+                "(&)(&)(&)(&)(&)(&)(&)(&)(&)\txyz".to_string()
+            ]
+        );
     }
 
     #[test]
@@ -3017,7 +3056,10 @@ mod tests {
 
         let output = evaluator.eval();
 
-        assert_eq!(output, vec!["0\t:".to_string(), "2\t:/dev/rrp3:".to_string()]);
+        assert_eq!(
+            output,
+            vec!["0\t:".to_string(), "2\t:/dev/rrp3:".to_string()]
+        );
     }
 
     #[test]
@@ -3170,7 +3212,9 @@ mod tests {
 
     #[test]
     fn eval_continue_skips_to_next_for_iteration() {
-        let lexer = Lexer::new(r#"{ for (i = 1; i <= NF; i++) { if ($i ~ /^[0-9]+$/) continue; print $i } }"#);
+        let lexer = Lexer::new(
+            r#"{ for (i = 1; i <= NF; i++) { if ($i ~ /^[0-9]+$/) continue; print $i } }"#,
+        );
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec!["abc 123 def 456".to_string()], "-");
@@ -3267,7 +3311,8 @@ mod tests {
 
     #[test]
     fn eval_parenthesized_composite_membership_expression() {
-        let lexer = Lexer::new(r#"{ x[$0, $1] = "hit"; if (($0, $1) in x) print "yes"; else print "no" }"#);
+        let lexer =
+            Lexer::new(r#"{ x[$0, $1] = "hit"; if (($0, $1) in x) print "yes"; else print "no" }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec!["17379\tmel".to_string()], "-");
