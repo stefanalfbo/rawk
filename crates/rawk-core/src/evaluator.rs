@@ -653,6 +653,7 @@ impl<'a> Evaluator<'a> {
     fn eval_printf_argument(&mut self, expression: &Expression<'_>) -> String {
         match expression {
             Expression::Number(_)
+            | Expression::HexNumber { .. }
             | Expression::Infix { .. }
             | Expression::Rand
             | Expression::Length(_) => self
@@ -1023,6 +1024,7 @@ impl<'a> Evaluator<'a> {
         match expression {
             Expression::String(value) => unescape_awk_string(value),
             Expression::Number(value) => format_awk_number(*value),
+            Expression::HexNumber { value, .. } => format_awk_number(*value),
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
@@ -1720,6 +1722,7 @@ impl<'a> Evaluator<'a> {
     fn eval_numeric_expression(&mut self, expression: &Expression<'_>) -> Option<f64> {
         match expression {
             Expression::Number(value) => Some(*value),
+            Expression::HexNumber { value, .. } => Some(*value),
             Expression::Identifier(identifier) => Some(
                 self.numeric_variables
                     .get(*identifier)
@@ -1874,6 +1877,7 @@ impl<'a> Evaluator<'a> {
                 ComparisonOperand { text, numeric }
             }
             Expression::Number(_)
+            | Expression::HexNumber { .. }
             | Expression::Infix { .. }
             | Expression::Length(_)
             | Expression::Rand => {
@@ -2559,7 +2563,7 @@ fn parse_full_awk_numeric(input: &str) -> Option<f64> {
 
 fn expression_has_precise_numeric_value(expression: &Expression<'_>) -> bool {
     match expression {
-        Expression::Number(_) | Expression::Length(_) | Expression::Rand => true,
+        Expression::Number(_) | Expression::HexNumber { .. } | Expression::Length(_) | Expression::Rand => true,
         Expression::Field(_) => false,
         Expression::Identifier(_) | Expression::ArrayAccess { .. } => false,
         Expression::FunctionCall { name, .. } => matches!(

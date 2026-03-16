@@ -508,6 +508,10 @@ impl<'a> fmt::Display for Statement<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression<'a> {
     Number(f64),
+    HexNumber {
+        literal: &'a str,
+        value: f64,
+    },
     String(&'a str),
     Regex(&'a str),
     Field(Box<Expression<'a>>),
@@ -553,6 +557,7 @@ impl<'a> fmt::Display for Expression<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Number(n) => write!(f, "{}", n),
+            Expression::HexNumber { literal, .. } => write!(f, "{literal}"),
             Expression::String(value) => write!(f, "\"{}\"", value),
             Expression::Regex(value) => write!(f, "/{}/", value),
             Expression::Field(expr) => write!(f, "${}", expr),

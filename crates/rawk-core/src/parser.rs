@@ -44,6 +44,19 @@ impl<'a> Parser<'a> {
         self.current_token.span.start == previous.span.start + previous.literal.len()
     }
 
+    fn parse_number_expression(&self) -> Option<Expression<'a>> {
+        let literal = self.current_token.literal;
+        if let Some(hex_digits) = literal
+            .strip_prefix("0x")
+            .or_else(|| literal.strip_prefix("0X"))
+        {
+            let value = u64::from_str_radix(hex_digits, 16).ok()? as f64;
+            return Some(Expression::HexNumber { literal, value });
+        }
+
+        literal.parse::<f64>().ok().map(Expression::Number)
+    }
+
     fn parse_array_index_expression(&mut self) -> Expression<'a> {
         let mut index = self.parse_expression();
         while self.current_token.kind == TokenKind::Comma {
@@ -291,7 +304,10 @@ impl<'a> Parser<'a> {
         self.parse_assignment_statement_with_identifier(identifier)
     }
 
-    fn parse_assignment_statement_with_identifier(&mut self, identifier: Token<'a>) -> Statement<'a> {
+    fn parse_assignment_statement_with_identifier(
+        &mut self,
+        identifier: Token<'a>,
+    ) -> Statement<'a> {
         if self.current_token.kind == TokenKind::LeftParen
             && self.token_is_immediately_after(&identifier)
         {
@@ -1160,11 +1176,9 @@ impl<'a> Parser<'a> {
                 expression
             }
             TokenKind::Number => {
-                let expression = if let Ok(value) = self.current_token.literal.parse::<f64>() {
-                    Expression::Number(value)
-                } else {
-                    todo!()
-                };
+                let expression = self
+                    .parse_number_expression()
+                    .unwrap_or_else(|| panic!("failed to parse numeric literal: {}", self.current_token.literal));
                 self.next_token();
                 expression
             }
@@ -1942,7 +1956,9 @@ mod tests {
 
     #[test]
     fn parse_for_with_empty_body_statement() {
-        let mut parser = Parser::new(Lexer::new(r#"{ for (i = 1; i <= NF; s += $(i++)) ; print s }"#));
+        let mut parser = Parser::new(Lexer::new(
+            r#"{ for (i = 1; i <= NF; s += $(i++)) ; print s }"#,
+        ));
 
         let program = parser.parse_program();
 
@@ -2020,7 +2036,10 @@ mod tests {
 
         let program = parser.parse_program();
 
-        assert_eq!(r#"{ if ($0, $1 in x) { print "yes" } }"#, program.to_string());
+        assert_eq!(
+            r#"{ if ($0, $1 in x) { print "yes" } }"#,
+            program.to_string()
+        );
     }
 
     #[test]
@@ -2135,5 +2154,14 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ print c ":" pop[c] | "sort" }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_hexadecimal_number() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { print 0xAA }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"BEGIN { print 0xAA }"#, program.to_string());
     }
 }
