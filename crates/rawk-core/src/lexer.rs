@@ -1,11 +1,29 @@
 use crate::token::{Token, TokenKind, lookup_functions, lookup_keyword};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LexErrorKind {
+    UnsupportedCharacter,
+    LoneAmpersand,
+    InvalidLineContinuation,
+    InvalidNumber,
+    UnterminatedString,
+    UnterminatedRegex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LexError<'a> {
+    pub kind: LexErrorKind,
+    pub literal: &'a str,
+    pub start: usize,
+}
+
 #[derive(Debug)]
 pub struct Lexer<'a> {
     input: &'a str,
     position: usize,
     read_position: usize,
     ch: Option<u8>,
+    errors: Vec<LexError<'a>>,
 }
 
 impl<'a> Lexer<'a> {
@@ -15,6 +33,7 @@ impl<'a> Lexer<'a> {
             position: 0,
             read_position: 0,
             ch: None,
+            errors: Vec::new(),
         };
 
         lexer.read_char();
@@ -27,6 +46,14 @@ impl<'a> Lexer<'a> {
 
     pub fn next_token_regex_aware(&mut self) -> Token<'a> {
         self.next_token_impl(true)
+    }
+
+    pub fn errors(&self) -> &[LexError<'a>] {
+        &self.errors
+    }
+
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
     }
 
     fn next_token_impl(&mut self, allow_regex: bool) -> Token<'a> {
@@ -164,7 +191,12 @@ impl<'a> Lexer<'a> {
                     self.read_char();
                     Token::new(TokenKind::And, "&&", start)
                 } else {
-                    Token::new(TokenKind::Illegal, "<illegal>", start)
+                    self.illegal_token(
+                        LexErrorKind::LoneAmpersand,
+                        start,
+                        "<illegal>",
+                        &self.input[start..self.read_position],
+                    )
                 }
             }
             Some(b'\\') => {
@@ -176,7 +208,12 @@ impl<'a> Lexer<'a> {
                     self.read_char();
                     Token::new(TokenKind::NewLine, "<newline>", start)
                 } else {
-                    Token::new(TokenKind::Illegal, "<illegal>", start)
+                    self.illegal_token(
+                        LexErrorKind::InvalidLineContinuation,
+                        start,
+                        "<illegal>",
+                        &self.input[start..self.read_position],
+                    )
                 }
             }
             Some(b'"') => self.read_string(),
@@ -190,7 +227,12 @@ impl<'a> Lexer<'a> {
                 self.read_number()
             }
             None => return Token::new(TokenKind::Eof, "", start),
-            _ => Token::new(TokenKind::Illegal, "<illegal>", start),
+            _ => self.illegal_token(
+                LexErrorKind::UnsupportedCharacter,
+                start,
+                "<illegal>",
+                &self.input[start..self.read_position],
+            ),
         };
 
         self.read_char();
@@ -266,7 +308,15 @@ impl<'a> Lexer<'a> {
                         return token;
                     }
                     Err(_) => {
-                        return Token::new(TokenKind::Illegal, "<illegal>", position);
+                        if self.ch.is_some() {
+                            self.rewind_one();
+                        }
+                        return self.illegal_token(
+                            LexErrorKind::InvalidNumber,
+                            position,
+                            "<illegal>",
+                            literal,
+                        );
                     }
                 }
             }
@@ -309,7 +359,8 @@ impl<'a> Lexer<'a> {
         }
 
         if !got_digit {
-            return Token::new(TokenKind::Illegal, "<illegal>", position);
+            let literal = &self.input[position..self.position];
+            return self.illegal_token(LexErrorKind::InvalidNumber, position, "<illegal>", literal);
         }
 
         let literal = &self.input[position..self.position];
@@ -336,7 +387,12 @@ impl<'a> Lexer<'a> {
         let literal = &self.input[position..self.position];
 
         if self.ch != Some(b'"') {
-            return Token::new(TokenKind::Illegal, literal, position);
+            return self.illegal_token(
+                LexErrorKind::UnterminatedString,
+                position,
+                literal,
+                literal,
+            );
         };
 
         Token::new(TokenKind::String, literal, position)
@@ -363,7 +419,10 @@ impl<'a> Lexer<'a> {
         let literal = &self.input[position..self.position];
 
         if self.ch != Some(b'/') {
-            return Token::new(TokenKind::Illegal, literal, position);
+            if self.ch == Some(b'\n') {
+                self.rewind_one();
+            }
+            return self.illegal_token(LexErrorKind::UnterminatedRegex, position, literal, literal);
         }
 
         Token::new(TokenKind::Regex, literal, position)
@@ -408,6 +467,21 @@ impl<'a> Lexer<'a> {
         self.position -= 1;
         self.ch = Some(self.input.as_bytes()[self.position]);
     }
+
+    fn illegal_token(
+        &mut self,
+        kind: LexErrorKind,
+        start: usize,
+        token_literal: &'a str,
+        diagnostic_literal: &'a str,
+    ) -> Token<'a> {
+        self.errors.push(LexError {
+            kind,
+            literal: diagnostic_literal,
+            start,
+        });
+        Token::new(TokenKind::Illegal, token_literal, start)
+    }
 }
 
 fn is_ascii_alphabetic(ch: Option<u8>) -> bool {
@@ -445,6 +519,12 @@ mod tests {
     fn assert_token(token: Token<'_>, kind: TokenKind, literal: &str) {
         assert_eq!(kind, token.kind);
         assert_eq!(literal, token.literal);
+    }
+
+    fn assert_lex_error(error: LexError<'_>, kind: LexErrorKind, literal: &str, start: usize) {
+        assert_eq!(kind, error.kind);
+        assert_eq!(literal, error.literal);
+        assert_eq!(start, error.start);
     }
 
     #[test]
@@ -818,6 +898,18 @@ mod tests {
     }
 
     #[test]
+    fn lone_ampersand_is_illegal() {
+        let input = "&";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(lexer.errors()[0], LexErrorKind::LoneAmpersand, "&", 0);
+    }
+
+    #[test]
     fn unsupported_character_is_illegal() {
         let input = "@";
         let mut lexer = Lexer::new(input);
@@ -825,6 +917,13 @@ mod tests {
         let token = lexer.next_token();
 
         assert_token(token, TokenKind::Illegal, "<illegal>");
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(
+            lexer.errors()[0],
+            LexErrorKind::UnsupportedCharacter,
+            "@",
+            0,
+        );
     }
 
     #[test]
@@ -835,6 +934,8 @@ mod tests {
         let token = lexer.next_token_regex_aware();
 
         assert_token(token, TokenKind::Illegal, "foo");
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(lexer.errors()[0], LexErrorKind::UnterminatedRegex, "foo", 1);
     }
 
     #[test]
@@ -845,6 +946,85 @@ mod tests {
         let token = lexer.next_token();
 
         assert_token(token, TokenKind::Illegal, "<illegal>");
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(
+            lexer.errors()[0],
+            LexErrorKind::UnsupportedCharacter,
+            ".",
+            0,
+        );
+    }
+
+    #[test]
+    fn backslash_without_newline_records_diagnostic() {
+        let input = "\\";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(
+            lexer.errors()[0],
+            LexErrorKind::InvalidLineContinuation,
+            "\\",
+            0,
+        );
+    }
+
+    #[test]
+    fn unterminated_string_records_diagnostic() {
+        let input = r#""unterminated"#;
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+
+        assert_token(token, TokenKind::Illegal, "unterminated");
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(
+            lexer.errors()[0],
+            LexErrorKind::UnterminatedString,
+            "unterminated",
+            1,
+        );
+    }
+
+    #[test]
+    fn overflowing_hex_number_records_diagnostic_and_preserves_next_token() {
+        let input = "0x10000000000000000z";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token();
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+
+        let token = lexer.next_token();
+        assert_token(token, TokenKind::Identifier, "z");
+
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(
+            lexer.errors()[0],
+            LexErrorKind::InvalidNumber,
+            "0x10000000000000000",
+            0,
+        );
+    }
+
+    #[test]
+    fn unterminated_regex_before_newline_preserves_newline_token() {
+        let input = "/foo\n123";
+        let mut lexer = Lexer::new(input);
+
+        let token = lexer.next_token_regex_aware();
+        assert_token(token, TokenKind::Illegal, "foo");
+
+        let token = lexer.next_token_regex_aware();
+        assert_token(token, TokenKind::NewLine, "<newline>");
+
+        let token = lexer.next_token();
+        assert_token(token, TokenKind::Number, "123");
+
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(lexer.errors()[0], LexErrorKind::UnterminatedRegex, "foo", 1);
     }
 
     #[test]
