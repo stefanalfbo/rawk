@@ -973,6 +973,23 @@ mod tests {
     }
 
     #[test]
+    fn has_errors_tracks_whether_diagnostics_were_recorded() {
+        let mut clean_lexer = Lexer::new("123");
+        assert!(!clean_lexer.has_errors());
+
+        let token = clean_lexer.next_token();
+        assert_token(token, TokenKind::Number, "123");
+        assert!(!clean_lexer.has_errors());
+
+        let mut error_lexer = Lexer::new("@");
+        assert!(!error_lexer.has_errors());
+
+        let token = error_lexer.next_token();
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+        assert!(error_lexer.has_errors());
+    }
+
+    #[test]
     fn unterminated_string_records_diagnostic() {
         let input = r#""unterminated"#;
         let mut lexer = Lexer::new(input);
