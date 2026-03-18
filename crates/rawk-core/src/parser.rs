@@ -884,6 +884,10 @@ impl<'a> Parser<'a> {
             self.parse_expression_list_until_action_end_from_current()
         };
 
+        if expressions.is_empty() {
+            panic!("printf requires a format string");
+        }
+
         Statement::Printf(expressions)
     }
 
@@ -1760,6 +1764,22 @@ mod tests {
             r#"{ printf "[%10s] [%-16d]\n", $1, $3 }"#,
             program.to_string()
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "printf requires a format string")]
+    fn parse_printf_without_arguments_panics() {
+        let mut parser = Parser::new(Lexer::new(r#"{ printf }"#));
+
+        let _ = parser.parse_program();
+    }
+
+    #[test]
+    #[should_panic(expected = "printf requires a format string")]
+    fn parse_printf_without_arguments_in_parentheses_panics() {
+        let mut parser = Parser::new(Lexer::new(r#"{ printf() }"#));
+
+        let _ = parser.parse_program();
     }
 
     #[test]

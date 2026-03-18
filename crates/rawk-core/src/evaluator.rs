@@ -638,9 +638,10 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_printf(&mut self, expressions: &[Expression<'_>]) -> String {
-        if expressions.is_empty() {
-            return String::new();
-        }
+        assert!(
+            !expressions.is_empty(),
+            "printf requires at least a format string"
+        );
 
         let format = self.eval_expression(&expressions[0]);
         let format = unescape_awk_string(&format);
