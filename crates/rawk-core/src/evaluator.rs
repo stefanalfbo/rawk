@@ -1369,17 +1369,6 @@ impl<'a> Evaluator<'a> {
                 }
             }
             "match" => format_awk_number(self.eval_match_function(args)),
-            "max" => {
-                let left = args
-                    .first()
-                    .and_then(|arg| self.eval_numeric_expression(arg))
-                    .unwrap_or(0.0);
-                let right = args
-                    .get(1)
-                    .and_then(|arg| self.eval_numeric_expression(arg))
-                    .unwrap_or(0.0);
-                format_awk_number(left.max(right))
-            }
             "sqrt" => {
                 let value = args
                     .first()
@@ -1462,17 +1451,6 @@ impl<'a> Evaluator<'a> {
                 )
             }
             "match" => Some(self.eval_match_function(args)),
-            "max" => {
-                let left = args
-                    .first()
-                    .and_then(|arg| self.eval_numeric_expression(arg))
-                    .unwrap_or(0.0);
-                let right = args
-                    .get(1)
-                    .and_then(|arg| self.eval_numeric_expression(arg))
-                    .unwrap_or(0.0);
-                Some(left.max(right))
-            }
             "sqrt" => args
                 .first()
                 .and_then(|arg| self.eval_numeric_expression(arg))
@@ -2568,7 +2546,6 @@ fn expression_has_precise_numeric_value(expression: &Expression<'_>) -> bool {
             "index"
                 | "length"
                 | "split"
-                | "max"
                 | "sqrt"
                 | "log"
                 | "exp"
