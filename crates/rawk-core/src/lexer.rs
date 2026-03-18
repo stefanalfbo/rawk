@@ -990,6 +990,18 @@ mod tests {
     }
 
     #[test]
+    fn read_number_without_any_digits_is_invalid_number() {
+        let mut lexer = Lexer::new(".");
+
+        let token = lexer.read_number();
+
+        assert_token(token, TokenKind::Illegal, "<illegal>");
+        assert!(lexer.has_errors());
+        assert_eq!(1, lexer.errors().len());
+        assert_lex_error(lexer.errors()[0], LexErrorKind::InvalidNumber, ".", 0);
+    }
+
+    #[test]
     fn unterminated_string_records_diagnostic() {
         let input = r#""unterminated"#;
         let mut lexer = Lexer::new(input);
