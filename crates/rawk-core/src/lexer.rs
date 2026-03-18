@@ -1009,6 +1009,17 @@ mod tests {
     }
 
     #[test]
+    fn rewind_one_is_noop_when_position_is_zero() {
+        let mut lexer = Lexer::new("a");
+
+        lexer.rewind_one();
+
+        assert_eq!(0, lexer.position);
+        assert_eq!(1, lexer.read_position);
+        assert_eq!(Some(b'a'), lexer.ch);
+    }
+
+    #[test]
     fn unterminated_string_records_diagnostic() {
         let input = r#""unterminated"#;
         let mut lexer = Lexer::new(input);
