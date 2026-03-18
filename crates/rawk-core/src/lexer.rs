@@ -1002,6 +1002,13 @@ mod tests {
     }
 
     #[test]
+    fn peek_next_char_returns_none_at_end_of_input() {
+        let lexer = Lexer::new("a");
+
+        assert_eq!(None, lexer.peek_next_char());
+    }
+
+    #[test]
     fn unterminated_string_records_diagnostic() {
         let input = r#""unterminated"#;
         let mut lexer = Lexer::new(input);
