@@ -1380,29 +1380,6 @@ impl<'a> Evaluator<'a> {
                     .unwrap_or(0.0);
                 format_awk_number(left.max(right))
             }
-            "numjust" => {
-                let n = args
-                    .first()
-                    .and_then(|arg| self.eval_numeric_expression(arg))
-                    .unwrap_or(0.0) as i64;
-                let s = args
-                    .get(1)
-                    .map(|arg| self.eval_expression(arg))
-                    .unwrap_or_default();
-                let index_expr = Expression::Number(n as f64);
-                let wid = self
-                    .eval_array_access("wid", &index_expr)
-                    .parse::<f64>()
-                    .unwrap_or(0.0);
-                let nwid = self
-                    .eval_array_access("nwid", &index_expr)
-                    .parse::<f64>()
-                    .unwrap_or(0.0);
-                let pad = ((wid - nwid) / 2.0).trunc().max(0.0) as usize;
-                let blanks = self.eval_identifier_expression("blanks");
-                let suffix: String = blanks.chars().take(pad).collect();
-                format!("{s}{suffix}")
-            }
             "sqrt" => {
                 let value = args
                     .first()
