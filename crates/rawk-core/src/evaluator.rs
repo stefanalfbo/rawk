@@ -2822,6 +2822,19 @@ mod tests {
     }
 
     #[test]
+    fn eval_print_ternary_expression_selects_correct_branch() {
+        let lexer = Lexer::new(r#"{ print ($1 > 10) ? "big" : "small" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator =
+            Evaluator::new(program, vec!["12".to_string(), "7".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["big".to_string(), "small".to_string()]);
+    }
+
+    #[test]
     fn eval_print_field_zero_returns_entire_line() {
         let lexer = Lexer::new(r#"{ print $0 }"#);
         let mut parser = Parser::new(lexer);

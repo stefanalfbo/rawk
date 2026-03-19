@@ -1767,6 +1767,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_print_ternary_expression() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { print x ? y : z }"#));
+
+        let program = parser.parse_program();
+        let mut begin_blocks = program.begin_blocks_iter();
+        let Action { statements } = begin_blocks.next().expect("expected begin block");
+
+        let exprs = match &statements[0] {
+            Statement::Print(expressions) => expressions,
+            _ => panic!("expected print statement"),
+        };
+
+        assert_eq!(exprs.len(), 1);
+        match &exprs[0] {
+            Expression::Ternary {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                assert!(matches!(**condition, Expression::Identifier("x")));
+                assert!(matches!(**then_expr, Expression::Identifier("y")));
+                assert!(matches!(**else_expr, Expression::Identifier("z")));
+            }
+            _ => panic!("expected ternary expression"),
+        }
+    }
+
+    #[test]
     #[should_panic(expected = "printf requires a format string")]
     fn parse_printf_without_arguments_panics() {
         let mut parser = Parser::new(Lexer::new(r#"{ printf }"#));
