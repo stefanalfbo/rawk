@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/stefanalfbo/rawk/compare/v0.3.2...v0.4.0) - 2026-03-18
+
+### Added
+
+- implement error handling in lexer with detailed errors
+- add support for hexadecimal number expressions in parser and evaluator
+
+### Fixed
+
+- update description for rawk-core to clarify POSIX compatibility
+
+### Other
+
+- remove max function from Evaluator
+- remove unused numjust function from Evaluator
+- add unit test for rewind_one method when position is zero
+- add unit test for peek_next_char at end of input
+- add unit test for invalid number handling in lexer
+- add unit test for error tracking in lexer
+- format code for improved readability and consistency
+
 ## [0.3.2](https://github.com/stefanalfbo/rawk/compare/v0.3.1...v0.3.2) - 2026-03-15
 
 ### Added
