@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/stefanalfbo/rawk/compare/v0.4.0...v0.4.1) - 2026-03-20
+
+### Fixed
+
+- ensure printf requires at least one format string and add corresponding tests
+
+### Other
+
+- update Awk initialization to handle errors and improve error reporting
+- add unit tests for parsing and evaluating ternary expressions
+
 ## [0.4.0](https://github.com/stefanalfbo/rawk/compare/v0.3.2...v0.4.0) - 2026-03-18
 
 ### Added
