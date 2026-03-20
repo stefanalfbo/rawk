@@ -4,3 +4,7 @@ release = false
 [[package]]
 name = "rawk-core"
 release = true
+
+[[package]]
+name = "rawk-cli"
+release = true
