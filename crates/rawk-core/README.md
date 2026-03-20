@@ -19,14 +19,12 @@ Core implementation of an AWK interpreter, providing token definitions, lexical 
 ## Example
 
 ```rust
-use rawk_core::awk;
+use rawk_core::awk::Awk;
 
 fn main() {
-    // Execute a simple AWK program that prints each input line
-    let output = awk::execute(
-        "{ print }",
-        vec!["foo".into(), "bar".into()],
-    );
+  // Compile a simple AWK program that prints each input line
+  let awk = Awk::new("{ print }").unwrap();
+  let output = awk.run(vec!["foo".into(), "bar".into()], None);
 
     // Each input line is echoed to the output
     assert_eq!(output, vec!["foo".to_string(), "bar".to_string()]);
