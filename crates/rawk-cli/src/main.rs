@@ -46,25 +46,28 @@ fn main() -> io::Result<()> {
         }
     };
 
-    execute(&script, path::Path::new(&input));
+    execute(&script, path::Path::new(&input))?;
 
     Ok(())
 }
 
-fn execute(script: &str, path: &path::Path) {
+fn execute(script: &str, path: &path::Path) -> io::Result<()> {
     let input_lines = std::fs::read_to_string(path)
         .expect("Failed to read input file")
         .lines()
         .map(|line| line.to_string())
         .collect::<Vec<String>>();
 
-    let awk = Awk::new(script);
+    let awk = Awk::new(script)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
     let filename = display_filename(path);
     let output_lines = awk.run(input_lines, Some(filename));
 
     for line in output_lines {
         println!("{}", line);
     }
+
+    Ok(())
 }
 
 fn display_filename(path: &path::Path) -> String {
@@ -79,7 +82,13 @@ fn display_filename(path: &path::Path) -> String {
 fn interactive_mode(script: &str) {
     use std::io::Write;
 
-    let awk = Awk::new(script);
+    let awk = match Awk::new(script) {
+        Ok(awk) => awk,
+        Err(err) => {
+            eprintln!("{err}");
+            return;
+        }
+    };
     let mut input = String::new();
 
     loop {

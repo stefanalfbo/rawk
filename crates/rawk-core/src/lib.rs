@@ -1,7 +1,7 @@
 pub use ast::{Action, Expression, Program, Rule};
 pub use evaluator::Evaluator;
 pub use lexer::Lexer;
-pub use parser::Parser;
+pub use parser::{ParseError, ParseErrorKind, Parser};
 
 mod ast;
 pub mod awk;

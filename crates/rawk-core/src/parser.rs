@@ -4,6 +4,37 @@ use crate::{
     token::{Token, TokenKind},
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseErrorKind {
+    UnexpectedToken { expected: &'static str },
+    MissingPrintfFormatString,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParseError<'a> {
+    pub kind: ParseErrorKind,
+    pub token: Token<'a>,
+}
+
+impl std::fmt::Display for ParseError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            ParseErrorKind::UnexpectedToken { expected } => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected {}",
+                self.token.kind, self.token.literal, self.token.span.start, expected
+            ),
+            ParseErrorKind::MissingPrintfFormatString => write!(
+                f,
+                "printf requires a format string at byte {}",
+                self.token.span.start
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ParseError<'_> {}
+
 #[derive(Debug)]
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -72,31 +103,43 @@ impl<'a> Parser<'a> {
         index
     }
 
-    fn parse_next_rule(&mut self) -> Option<Rule<'a>> {
+    fn unexpected_token(&self, expected: &'static str) -> ParseError<'a> {
+        ParseError {
+            kind: ParseErrorKind::UnexpectedToken { expected },
+            token: self.current_token.clone(),
+        }
+    }
+
+    fn missing_printf_format_string(&self) -> ParseError<'a> {
+        ParseError {
+            kind: ParseErrorKind::MissingPrintfFormatString,
+            token: self.current_token.clone(),
+        }
+    }
+
+    fn parse_next_rule(&mut self) -> Result<Option<Rule<'a>>, ParseError<'a>> {
         match &self.current_token.kind {
             TokenKind::Begin => {
                 self.next_token();
-                match self.parse_action() {
-                    Rule::Action(action) => Some(Rule::Begin(action)),
-                    _ => panic!("Expected action after BEGIN"),
-                }
+                let action = self.parse_action()?;
+                Ok(Some(Rule::Begin(action)))
             }
             TokenKind::NewLine => {
                 self.next_token_in_regex_context();
                 self.parse_next_rule()
             }
-            TokenKind::Eof => None,
-            TokenKind::LeftCurlyBrace => Some(self.parse_action()),
+            TokenKind::Eof => Ok(None),
+            TokenKind::LeftCurlyBrace => {
+                self.parse_action().map(|action| Some(Rule::Action(action)))
+            }
             TokenKind::Function => {
-                self.parse_function_definition();
-                None
+                self.parse_function_definition()?;
+                Ok(None)
             }
             TokenKind::End => {
                 self.next_token();
-                match self.parse_action() {
-                    Rule::Action(action) => Some(Rule::End(action)),
-                    _ => panic!("Expected action after END"),
-                }
+                let action = self.parse_action()?;
+                Ok(Some(Rule::End(action)))
             }
             TokenKind::Regex
             | TokenKind::String
@@ -121,14 +164,11 @@ impl<'a> Parser<'a> {
             | TokenKind::ExclamationMark
             | TokenKind::Increment
             | TokenKind::Decrement => self.parse_pattern_rule(),
-            _ => panic!(
-                "parse_next_rule not yet implemented, found token: {:?}",
-                self.current_token
-            ),
+            _ => Err(self.unexpected_token("rule")),
         }
     }
 
-    fn parse_pattern_rule(&mut self) -> Option<Rule<'a>> {
+    fn parse_pattern_rule(&mut self) -> Result<Option<Rule<'a>>, ParseError<'a>> {
         let mut pattern = self.parse_expression();
         if self.current_token.kind == TokenKind::Comma {
             let operator = self.current_token.clone();
@@ -143,25 +183,21 @@ impl<'a> Parser<'a> {
         let pattern = Some(pattern);
 
         if self.current_token.kind == TokenKind::LeftCurlyBrace {
-            match self.parse_action() {
-                Rule::Action(action) => Some(Rule::PatternAction {
-                    pattern,
-                    action: Some(action),
-                }),
-                _ => panic!("Expected action after pattern"),
-            }
+            let action = self.parse_action()?;
+            Ok(Some(Rule::PatternAction {
+                pattern,
+                action: Some(action),
+            }))
         } else {
-            Some(Rule::PatternAction {
+            Ok(Some(Rule::PatternAction {
                 pattern,
                 action: None,
-            })
+            }))
         }
     }
 
-    fn parse_action(&mut self) -> Rule<'a> {
+    fn parse_action(&mut self) -> Result<Action<'a>, ParseError<'a>> {
         self.next_token(); // consume '{'
-
-        let pattern = None;
 
         let mut statements = Vec::new();
         while self.current_token.kind != TokenKind::RightCurlyBrace
@@ -179,41 +215,34 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            statements.push(self.parse_statement());
+            statements.push(self.parse_statement()?);
         }
 
-        if pattern.is_some() {
-            Rule::PatternAction {
-                pattern,
-                action: Some(Action { statements }),
-            }
-        } else {
-            Rule::Action(Action { statements })
-        }
+        Ok(Action { statements })
     }
 
-    fn parse_statement(&mut self) -> Statement<'a> {
+    fn parse_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         match self.current_token.kind {
-            TokenKind::Print => self.parse_print_function(),
+            TokenKind::Print => Ok(self.parse_print_function()),
             TokenKind::Printf => self.parse_printf_function(),
-            TokenKind::System => self.parse_system_function(),
-            TokenKind::Split => self.parse_split_statement(),
-            TokenKind::Sub => self.parse_sub_function(),
-            TokenKind::Gsub => self.parse_gsub_function(),
-            TokenKind::Break => self.parse_break_statement(),
-            TokenKind::Continue => self.parse_continue_statement(),
-            TokenKind::Delete => self.parse_delete_statement(),
+            TokenKind::System => Ok(self.parse_system_function()),
+            TokenKind::Split => Ok(self.parse_split_statement()),
+            TokenKind::Sub => Ok(self.parse_sub_function()),
+            TokenKind::Gsub => Ok(self.parse_gsub_function()),
+            TokenKind::Break => Ok(self.parse_break_statement()),
+            TokenKind::Continue => Ok(self.parse_continue_statement()),
+            TokenKind::Delete => Ok(self.parse_delete_statement()),
             TokenKind::If => self.parse_if_statement(),
             TokenKind::Do => self.parse_do_statement(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
-            TokenKind::Return => self.parse_return_statement(),
-            TokenKind::Next => self.parse_next_statement(),
-            TokenKind::Exit => self.parse_exit_statement(),
-            TokenKind::Identifier => self.parse_assignment_statement(),
-            TokenKind::DollarSign => self.parse_field_assignment_statement(),
-            TokenKind::Increment => self.parse_pre_increment_statement(),
-            TokenKind::Decrement => self.parse_pre_decrement_statement(),
+            TokenKind::Return => Ok(self.parse_return_statement()),
+            TokenKind::Next => Ok(self.parse_next_statement()),
+            TokenKind::Exit => Ok(self.parse_exit_statement()),
+            TokenKind::Identifier => Ok(self.parse_assignment_statement()),
+            TokenKind::DollarSign => Ok(self.parse_field_assignment_statement()),
+            TokenKind::Increment => Ok(self.parse_pre_increment_statement()),
+            TokenKind::Decrement => Ok(self.parse_pre_decrement_statement()),
             TokenKind::Number
             | TokenKind::String
             | TokenKind::Regex
@@ -233,12 +262,12 @@ impl<'a> Parser<'a> {
             | TokenKind::Srand
             | TokenKind::Substr
             | TokenKind::ToLower
-            | TokenKind::ToUpper => Statement::Expression(self.parse_expression()),
-            _ => todo!(),
+            | TokenKind::ToUpper => Ok(Statement::Expression(self.parse_expression())),
+            _ => Err(self.unexpected_token("statement")),
         }
     }
 
-    fn parse_function_definition(&mut self) {
+    fn parse_function_definition(&mut self) -> Result<(), ParseError<'a>> {
         self.next_token();
         if self.current_token.kind != TokenKind::Identifier {
             todo!()
@@ -289,13 +318,15 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            statements.push(self.parse_statement());
+            statements.push(self.parse_statement()?);
         }
         self.function_definitions.push(FunctionDefinition {
             name,
             parameters,
             statements,
         });
+
+        Ok(())
     }
 
     fn parse_assignment_statement(&mut self) -> Statement<'a> {
@@ -552,7 +583,7 @@ impl<'a> Parser<'a> {
         Statement::FieldAssignment { field, value }
     }
 
-    fn parse_if_statement(&mut self) -> Statement<'a> {
+    fn parse_if_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
         if self.current_token.kind != TokenKind::LeftParen {
             todo!()
@@ -563,7 +594,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        let then_statements = self.parse_control_statement_body();
+        let then_statements = self.parse_control_statement_body()?;
 
         while self.current_token.kind == TokenKind::NewLine
             || self.current_token.kind == TokenKind::Semicolon
@@ -573,18 +604,18 @@ impl<'a> Parser<'a> {
 
         if self.current_token.kind == TokenKind::Else {
             self.next_token();
-            let else_statements = self.parse_control_statement_body();
-            return Statement::IfElse {
+            let else_statements = self.parse_control_statement_body()?;
+            return Ok(Statement::IfElse {
                 condition,
                 then_statements,
                 else_statements,
-            };
+            });
         }
 
-        Statement::If {
+        Ok(Statement::If {
             condition,
             then_statements,
-        }
+        })
     }
 
     fn parse_exit_statement(&mut self) -> Statement<'a> {
@@ -612,7 +643,7 @@ impl<'a> Parser<'a> {
         Statement::Next
     }
 
-    fn parse_statement_block(&mut self) -> Vec<Statement<'a>> {
+    fn parse_statement_block(&mut self) -> Result<Vec<Statement<'a>>, ParseError<'a>> {
         self.next_token(); // consume '{'
         let mut statements = Vec::new();
         while self.current_token.kind != TokenKind::RightCurlyBrace
@@ -629,15 +660,15 @@ impl<'a> Parser<'a> {
             {
                 break;
             }
-            statements.push(self.parse_statement());
+            statements.push(self.parse_statement()?);
         }
         if self.current_token.kind == TokenKind::RightCurlyBrace {
             self.next_token();
         }
-        statements
+        Ok(statements)
     }
 
-    fn parse_control_statement_body(&mut self) -> Vec<Statement<'a>> {
+    fn parse_control_statement_body(&mut self) -> Result<Vec<Statement<'a>>, ParseError<'a>> {
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
         }
@@ -648,13 +679,13 @@ impl<'a> Parser<'a> {
 
         if self.current_token.kind == TokenKind::Semicolon {
             self.next_token();
-            return vec![Statement::Empty];
+            return Ok(vec![Statement::Empty]);
         }
 
-        vec![self.parse_statement()]
+        Ok(vec![self.parse_statement()?])
     }
 
-    fn parse_while_statement(&mut self) -> Statement<'a> {
+    fn parse_while_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
         if self.current_token.kind != TokenKind::LeftParen {
             todo!()
@@ -665,16 +696,16 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        let statements = self.parse_control_statement_body();
-        Statement::While {
+        let statements = self.parse_control_statement_body()?;
+        Ok(Statement::While {
             condition,
             statements,
-        }
+        })
     }
 
-    fn parse_do_statement(&mut self) -> Statement<'a> {
+    fn parse_do_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
-        let statements = self.parse_control_statement_body();
+        let statements = self.parse_control_statement_body()?;
 
         while self.current_token.kind == TokenKind::NewLine
             || self.current_token.kind == TokenKind::Semicolon
@@ -695,13 +726,13 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        Statement::DoWhile {
+        Ok(Statement::DoWhile {
             condition,
             statements,
-        }
+        })
     }
 
-    fn parse_for_statement(&mut self) -> Statement<'a> {
+    fn parse_for_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
         if self.current_token.kind != TokenKind::LeftParen {
             todo!()
@@ -727,16 +758,16 @@ impl<'a> Parser<'a> {
                     todo!()
                 }
                 self.next_token();
-                let statements = self.parse_control_statement_body();
-                return Statement::ForIn {
+                let statements = self.parse_control_statement_body()?;
+                return Ok(Statement::ForIn {
                     variable: variable.literal,
                     array,
                     statements,
-                };
+                });
             }
             self.parse_assignment_statement_with_identifier(variable)
         } else {
-            self.parse_statement()
+            self.parse_statement()?
         };
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
@@ -768,7 +799,7 @@ impl<'a> Parser<'a> {
         let update = if self.current_token.kind == TokenKind::RightParen {
             Statement::Empty
         } else {
-            self.parse_statement()
+            self.parse_statement()?
         };
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
@@ -777,14 +808,14 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        let statements = self.parse_control_statement_body();
+        let statements = self.parse_control_statement_body()?;
 
-        Statement::For {
+        Ok(Statement::For {
             init: Box::new(init),
             condition,
             update: Box::new(update),
             statements,
-        }
+        })
     }
 
     fn parse_print_function(&mut self) -> Statement<'a> {
@@ -862,7 +893,7 @@ impl<'a> Parser<'a> {
         Statement::Print(expressions)
     }
 
-    fn parse_printf_function(&mut self) -> Statement<'a> {
+    fn parse_printf_function(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
         let expressions = if self.current_token.kind == TokenKind::LeftParen {
             self.next_token_in_regex_context();
@@ -885,10 +916,10 @@ impl<'a> Parser<'a> {
         };
 
         if expressions.is_empty() {
-            panic!("printf requires a format string");
+            return Err(self.missing_printf_format_string());
         }
 
-        Statement::Printf(expressions)
+        Ok(Statement::Printf(expressions))
     }
 
     fn parse_gsub_function(&mut self) -> Statement<'a> {
@@ -1180,9 +1211,12 @@ impl<'a> Parser<'a> {
                 expression
             }
             TokenKind::Number => {
-                let expression = self
-                    .parse_number_expression()
-                    .unwrap_or_else(|| panic!("failed to parse numeric literal: {}", self.current_token.literal));
+                let expression = self.parse_number_expression().unwrap_or_else(|| {
+                    panic!(
+                        "failed to parse numeric literal: {}",
+                        self.current_token.literal
+                    )
+                });
                 self.next_token();
                 expression
             }
@@ -1312,11 +1346,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_program(&mut self) -> Program<'_> {
+    pub fn try_parse_program(&mut self) -> Result<Program<'_>, ParseError<'a>> {
         let mut program = Program::new();
 
         while !self.is_eof() {
-            match self.parse_next_rule() {
+            match self.parse_next_rule()? {
                 Some(Rule::Begin(action)) => program.add_begin_block(action),
                 Some(Rule::End(action)) => program.add_end_block(action),
                 Some(rule) => program.add_rule(rule),
@@ -1329,7 +1363,12 @@ impl<'a> Parser<'a> {
             program.add_function_definition(definition);
         }
 
-        program
+        Ok(program)
+    }
+
+    pub fn parse_program(&mut self) -> Program<'_> {
+        self.try_parse_program()
+            .unwrap_or_else(|err| panic!("{err}"))
     }
 
     fn parse_call_arguments(&mut self) -> Vec<Expression<'a>> {
@@ -1443,6 +1482,23 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(program.len(), 0);
+    }
+
+    #[test]
+    fn parse_statement_with_unhandled_token_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { else }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for stray else");
+
+        assert_eq!(
+            err.kind,
+            ParseErrorKind::UnexpectedToken {
+                expected: "statement"
+            }
+        );
+        assert_eq!(err.token.kind, TokenKind::Else);
     }
 
     #[test]
@@ -1795,19 +1851,25 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "printf requires a format string")]
-    fn parse_printf_without_arguments_panics() {
+    fn parse_printf_without_arguments_returns_parse_error() {
         let mut parser = Parser::new(Lexer::new(r#"{ printf }"#));
 
-        let _ = parser.parse_program();
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for printf without arguments");
+
+        assert_eq!(err.kind, ParseErrorKind::MissingPrintfFormatString);
     }
 
     #[test]
-    #[should_panic(expected = "printf requires a format string")]
-    fn parse_printf_without_arguments_in_parentheses_panics() {
+    fn parse_printf_without_arguments_in_parentheses_returns_parse_error() {
         let mut parser = Parser::new(Lexer::new(r#"{ printf() }"#));
 
-        let _ = parser.parse_program();
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for empty printf call");
+
+        assert_eq!(err.kind, ParseErrorKind::MissingPrintfFormatString);
     }
 
     #[test]
