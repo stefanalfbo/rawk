@@ -898,10 +898,6 @@ impl<'a> Parser<'a> {
             }
             expect_more = false;
         }
-        if self.current_token.kind == TokenKind::RightParen {
-            self.next_token();
-        }
-
         if self.current_token.kind == TokenKind::GreaterThan
             || self.current_token.kind == TokenKind::Append
         {
@@ -1077,10 +1073,6 @@ impl<'a> Parser<'a> {
                 self.next_token();
             }
             expect_more = false;
-        }
-
-        if self.current_token.kind == TokenKind::RightParen {
-            self.next_token();
         }
 
         Ok(expressions)
@@ -1591,6 +1583,30 @@ mod tests {
 
         assert_eq!(err.kind, ParseErrorKind::ExpectedRightParen);
         assert_eq!(err.token.kind, TokenKind::RightCurlyBrace);
+    }
+
+    #[test]
+    fn parse_print_with_extra_right_paren_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print 1) }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for stray right paren after print expression");
+
+        assert_eq!(err.kind, ParseErrorKind::ExpectedStatement);
+        assert_eq!(err.token.kind, TokenKind::RightParen);
+    }
+
+    #[test]
+    fn parse_printf_expression_list_with_extra_right_paren_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { printf "%s", 1) }"#));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for stray right paren after printf arguments");
+
+        assert_eq!(err.kind, ParseErrorKind::ExpectedStatement);
+        assert_eq!(err.token.kind, TokenKind::RightParen);
     }
 
     #[test]
