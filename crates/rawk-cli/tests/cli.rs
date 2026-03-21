@@ -136,3 +136,27 @@ fn print_filename() {
     assert_eq!(lines.next(), Some("tests/emp.data"));
     assert!(output.stderr.is_empty());
 }
+
+#[test]
+fn system_statement_in_script_does_not_break_cli_execution() {
+    let script = r#"{ system("echo ignored"); print $1 }"#;
+
+    let output = run_rawk(script);
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("Beth"));
+    assert_eq!(lines.next(), Some("Dan"));
+    assert_eq!(lines.next(), Some("Kathy"));
+    assert_eq!(lines.next(), Some("Mark"));
+    assert_eq!(lines.next(), Some("Mary"));
+    assert_eq!(lines.next(), Some("Susie"));
+    assert!(lines.next().is_none(), "stdout: {stdout}");
+    assert!(output.stderr.is_empty());
+}
