@@ -92,6 +92,14 @@ impl<'a> Parser<'a> {
         self.parse_error(ParseErrorKind::ExpectedIdentifier)
     }
 
+    fn unsupported_statement(&self) -> ParseError<'a> {
+        self.parse_error(ParseErrorKind::UnsupportedStatement)
+    }
+
+    fn unsupported_sub_target(&self) -> ParseError<'a> {
+        self.parse_error(ParseErrorKind::UnsupportedSubTarget)
+    }
+
     fn expected_left_paren(&self) -> ParseError<'a> {
         self.parse_error(ParseErrorKind::ExpectedLeftParen)
     }
@@ -440,7 +448,7 @@ impl<'a> Parser<'a> {
                     index,
                 });
             }
-            todo!()
+            return Err(self.unsupported_statement());
         }
         if self.current_token.kind == TokenKind::Assign {
             self.next_token();
@@ -489,7 +497,7 @@ impl<'a> Parser<'a> {
                 },
             })
         } else {
-            todo!()
+            Err(self.unsupported_statement())
         }
     }
 
@@ -1025,7 +1033,7 @@ impl<'a> Parser<'a> {
         let replacement = self.parse_expression()?;
 
         if self.current_token.kind == TokenKind::Comma {
-            todo!()
+            return Err(self.unsupported_sub_target());
         }
 
         if self.current_token.kind != TokenKind::RightParen {
@@ -1521,7 +1529,10 @@ fn compound_assign_operator(token: &Token<'_>) -> Token<'static> {
         TokenKind::DivideAssign => (TokenKind::Division, "/"),
         TokenKind::ModuloAssign => (TokenKind::Percent, "%"),
         TokenKind::PowerAssign => (TokenKind::Caret, "^"),
-        _ => todo!(),
+        _ => unreachable!(
+            "compound_assign_operator called with non-compound token: {:?}",
+            token.kind
+        ),
     };
 
     Token::new(kind, literal, token.span.start)
@@ -1646,6 +1657,42 @@ mod tests {
     }
 
     #[test]
+    fn parse_identifier_expression_statement_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { x + 1 }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for unsupported identifier expression statement");
+
+        assert_eq!(err.kind, ParseErrorKind::UnsupportedStatement);
+        assert_eq!(err.token.kind, TokenKind::Plus);
+    }
+
+    #[test]
+    fn parse_array_multiply_assignment_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { a[1] *= 2 }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for unsupported array compound assignment");
+
+        assert_eq!(err.kind, ParseErrorKind::UnsupportedStatement);
+        assert_eq!(err.token.kind, TokenKind::MultiplyAssign);
+    }
+
+    #[test]
+    fn parse_sub_with_target_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new(r#"BEGIN { sub(/a/, "b", t) }"#));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for unsupported sub target argument");
+
+        assert_eq!(err.kind, ParseErrorKind::UnsupportedSubTarget);
+        assert_eq!(err.token.kind, TokenKind::Comma);
+    }
+
+    #[test]
     fn parse_ternary_without_colon_returns_parse_error() {
         let mut parser = Parser::new(Lexer::new("BEGIN { print 1 ? 2 }"));
 
@@ -1691,6 +1738,13 @@ mod tests {
 
         assert_eq!(err.kind, ParseErrorKind::ExpectedWhile);
         assert_eq!(err.token.kind, TokenKind::RightCurlyBrace);
+    }
+
+    #[test]
+    #[should_panic(expected = "compound_assign_operator called with non-compound token")]
+    fn compound_assign_operator_panics_for_non_compound_token() {
+        let token = Token::new(TokenKind::Assign, "=", 0);
+        let _ = compound_assign_operator(&token);
     }
 
     #[test]

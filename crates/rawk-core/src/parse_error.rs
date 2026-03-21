@@ -5,6 +5,8 @@ pub enum ParseErrorKind {
     ExpectedRule,
     ExpectedStatement,
     ExpectedIdentifier,
+    UnsupportedStatement,
+    UnsupportedSubTarget,
     ExpectedLeftParen,
     ExpectedLeftBrace,
     ExpectedRightSquareBracket,
@@ -39,6 +41,16 @@ impl std::fmt::Display for ParseError<'_> {
             ParseErrorKind::ExpectedIdentifier => write!(
                 f,
                 "unexpected token {:?} ({:?}) at byte {}: expected identifier",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::UnsupportedStatement => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: unsupported statement syntax",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::UnsupportedSubTarget => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: sub target argument is not supported",
                 self.token.kind, self.token.literal, self.token.span.start
             ),
             ParseErrorKind::ExpectedLeftParen => write!(
@@ -142,6 +154,32 @@ mod tests {
         assert_eq!(
             format!("{err}"),
             "unexpected token Number (\"1\") at byte 8: expected identifier"
+        );
+    }
+
+    #[test]
+    fn display_unsupported_statement_error() {
+        let err = parse_error(
+            ParseErrorKind::UnsupportedStatement,
+            Token::new(TokenKind::Plus, "+", 6),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Plus (\"+\") at byte 6: unsupported statement syntax"
+        );
+    }
+
+    #[test]
+    fn display_unsupported_sub_target_error() {
+        let err = parse_error(
+            ParseErrorKind::UnsupportedSubTarget,
+            Token::new(TokenKind::Comma, ",", 12),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Comma (\",\") at byte 12: sub target argument is not supported"
         );
     }
 
