@@ -58,19 +58,19 @@ impl<'a> Parser<'a> {
         literal.parse::<f64>().ok().map(Expression::Number)
     }
 
-    fn parse_array_index_expression(&mut self) -> Expression<'a> {
-        let mut index = self.parse_expression();
+    fn parse_array_index_expression(&mut self) -> Result<Expression<'a>, ParseError<'a>> {
+        let mut index = self.parse_expression()?;
         while self.current_token.kind == TokenKind::Comma {
             let operator = self.current_token.clone();
             self.next_token_in_regex_context();
-            let right = self.parse_expression();
+            let right = self.parse_expression()?;
             index = Expression::Infix {
                 left: Box::new(index),
                 operator,
                 right: Box::new(right),
             };
         }
-        index
+        Ok(index)
     }
 
     fn parse_error(&self, kind: ParseErrorKind) -> ParseError<'a> {
@@ -96,12 +96,41 @@ impl<'a> Parser<'a> {
         self.parse_error(ParseErrorKind::ExpectedLeftBrace)
     }
 
+    fn expected_right_brace(&self) -> ParseError<'a> {
+        self.parse_error(ParseErrorKind::ExpectedRightBrace)
+    }
+
     fn expected_right_paren(&self) -> ParseError<'a> {
         self.parse_error(ParseErrorKind::ExpectedRightParen)
     }
 
     fn missing_printf_format_string(&self) -> ParseError<'a> {
         self.parse_error(ParseErrorKind::MissingPrintfFormatString)
+    }
+
+    fn split_print_parenthesized_list(expression: Expression<'a>) -> Option<Vec<Expression<'a>>> {
+        fn flatten<'a>(expression: Expression<'a>, expressions: &mut Vec<Expression<'a>>) -> bool {
+            match expression {
+                Expression::Infix {
+                    left,
+                    operator,
+                    right,
+                } if operator.kind == TokenKind::Comma => {
+                    flatten(*left, expressions) && flatten(*right, expressions)
+                }
+                other => {
+                    expressions.push(other);
+                    true
+                }
+            }
+        }
+
+        let mut expressions = Vec::new();
+        if flatten(expression, &mut expressions) && expressions.len() > 1 {
+            Some(expressions)
+        } else {
+            None
+        }
     }
 
     fn parse_next_rule(&mut self) -> Result<Option<Rule<'a>>, ParseError<'a>> {
@@ -162,11 +191,11 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_pattern_rule(&mut self) -> Result<Option<Rule<'a>>, ParseError<'a>> {
-        let mut pattern = self.parse_expression();
+        let mut pattern = self.parse_expression()?;
         if self.current_token.kind == TokenKind::Comma {
             let operator = self.current_token.clone();
             self.next_token_in_regex_context();
-            let right = self.parse_expression();
+            let right = self.parse_expression()?;
             pattern = Expression::Infix {
                 left: Box::new(pattern),
                 operator,
@@ -211,6 +240,10 @@ impl<'a> Parser<'a> {
             statements.push(self.parse_statement()?);
         }
 
+        if self.current_token.kind != TokenKind::RightCurlyBrace {
+            return Err(self.expected_right_brace());
+        }
+
         Ok(Action { statements })
     }
 
@@ -229,11 +262,11 @@ impl<'a> Parser<'a> {
             TokenKind::Do => self.parse_do_statement(),
             TokenKind::While => self.parse_while_statement(),
             TokenKind::For => self.parse_for_statement(),
-            TokenKind::Return => Ok(self.parse_return_statement()),
+            TokenKind::Return => self.parse_return_statement(),
             TokenKind::Next => Ok(self.parse_next_statement()),
-            TokenKind::Exit => Ok(self.parse_exit_statement()),
+            TokenKind::Exit => self.parse_exit_statement(),
             TokenKind::Identifier => self.parse_assignment_statement(),
-            TokenKind::DollarSign => Ok(self.parse_field_assignment_statement()),
+            TokenKind::DollarSign => self.parse_field_assignment_statement(),
             TokenKind::Increment => self.parse_pre_increment_statement(),
             TokenKind::Decrement => self.parse_pre_decrement_statement(),
             TokenKind::Number
@@ -255,7 +288,7 @@ impl<'a> Parser<'a> {
             | TokenKind::Srand
             | TokenKind::Substr
             | TokenKind::ToLower
-            | TokenKind::ToUpper => Ok(Statement::Expression(self.parse_expression())),
+            | TokenKind::ToUpper => Ok(Statement::Expression(self.parse_expression()?)),
             _ => Err(self.expected_statement()),
         }
     }
@@ -313,6 +346,9 @@ impl<'a> Parser<'a> {
 
             statements.push(self.parse_statement()?);
         }
+        if self.current_token.kind != TokenKind::RightCurlyBrace {
+            return Err(self.expected_right_brace());
+        }
         self.function_definitions.push(FunctionDefinition {
             name,
             parameters,
@@ -335,7 +371,7 @@ impl<'a> Parser<'a> {
         if self.current_token.kind == TokenKind::LeftParen
             && self.token_is_immediately_after(&identifier)
         {
-            let args = self.parse_call_arguments();
+            let args = self.parse_call_arguments()?;
             return Ok(Statement::Expression(Expression::FunctionCall {
                 name: identifier.literal,
                 args,
@@ -343,14 +379,14 @@ impl<'a> Parser<'a> {
         }
         if self.current_token.kind == TokenKind::LeftSquareBracket {
             self.next_token_in_regex_context();
-            let index = self.parse_array_index_expression();
+            let index = self.parse_array_index_expression()?;
             if self.current_token.kind != TokenKind::RightSquareBracket {
                 todo!()
             }
             self.next_token();
             if self.current_token.kind == TokenKind::Assign {
                 self.next_token();
-                let value = self.parse_expression();
+                let value = self.parse_expression()?;
                 return Ok(Statement::ArrayAssignment {
                     identifier: identifier.literal,
                     index,
@@ -359,7 +395,7 @@ impl<'a> Parser<'a> {
             }
             if self.current_token.kind == TokenKind::AddAssign {
                 self.next_token();
-                let value = self.parse_expression();
+                let value = self.parse_expression()?;
                 return Ok(Statement::ArrayAddAssignment {
                     identifier: identifier.literal,
                     index,
@@ -387,7 +423,7 @@ impl<'a> Parser<'a> {
             if self.current_token.kind == TokenKind::Split {
                 return self.parse_split_assignment_statement(identifier.literal);
             }
-            let value = self.parse_expression();
+            let value = self.parse_expression()?;
             Ok(Statement::Assignment {
                 identifier: identifier.literal,
                 value,
@@ -404,7 +440,7 @@ impl<'a> Parser<'a> {
             })
         } else if self.current_token.kind == TokenKind::AddAssign {
             self.next_token();
-            let value = self.parse_expression();
+            let value = self.parse_expression()?;
             Ok(Statement::AddAssignment {
                 identifier: identifier.literal,
                 value,
@@ -419,7 +455,7 @@ impl<'a> Parser<'a> {
         ) {
             let assign_token = self.current_token.clone();
             self.next_token();
-            let right_value = self.parse_expression();
+            let right_value = self.parse_expression()?;
             Ok(Statement::Assignment {
                 identifier: identifier.literal,
                 value: Expression::Infix {
@@ -448,7 +484,7 @@ impl<'a> Parser<'a> {
         }
 
         self.next_token_in_regex_context();
-        let index = self.parse_array_index_expression();
+        let index = self.parse_array_index_expression()?;
         if self.current_token.kind != TokenKind::RightSquareBracket {
             todo!()
         }
@@ -498,7 +534,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let string = self.parse_expression();
+        let string = self.parse_expression()?;
         if self.current_token.kind != TokenKind::Comma {
             todo!()
         }
@@ -510,7 +546,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let separator = if self.current_token.kind == TokenKind::Comma {
             self.next_token_in_regex_context();
-            Some(self.parse_expression())
+            Some(self.parse_expression()?)
         } else {
             None
         };
@@ -532,7 +568,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let string = self.parse_expression();
+        let string = self.parse_expression()?;
         if self.current_token.kind != TokenKind::Comma {
             todo!()
         }
@@ -544,7 +580,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let separator = if self.current_token.kind == TokenKind::Comma {
             self.next_token_in_regex_context();
-            Some(self.parse_expression())
+            Some(self.parse_expression()?)
         } else {
             None
         };
@@ -559,12 +595,12 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_field_assignment_statement(&mut self) -> Statement<'a> {
+    fn parse_field_assignment_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
-        let field = self.parse_primary_expression();
+        let field = self.parse_primary_expression()?;
         let assign_token = self.current_token.clone();
         self.next_token();
-        let right_value = self.parse_expression();
+        let right_value = self.parse_expression()?;
 
         let value = if assign_token.kind == TokenKind::Assign {
             right_value
@@ -576,7 +612,7 @@ impl<'a> Parser<'a> {
                 right: Box::new(right_value),
             }
         };
-        Statement::FieldAssignment { field, value }
+        Ok(Statement::FieldAssignment { field, value })
     }
 
     fn parse_if_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
@@ -585,7 +621,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let condition = self.parse_condition_in_parens();
+        let condition = self.parse_condition_in_parens()?;
         if self.current_token.kind != TokenKind::RightParen {
             return Err(self.expected_right_paren());
         }
@@ -614,24 +650,24 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_exit_statement(&mut self) -> Statement<'a> {
+    fn parse_exit_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
         let status = if self.is_statement_terminator() {
             None
         } else {
-            Some(self.parse_expression())
+            Some(self.parse_expression()?)
         };
-        Statement::Exit(status)
+        Ok(Statement::Exit(status))
     }
 
-    fn parse_return_statement(&mut self) -> Statement<'a> {
+    fn parse_return_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         self.next_token();
         let value = if self.is_statement_terminator() {
             None
         } else {
-            Some(self.parse_expression())
+            Some(self.parse_expression()?)
         };
-        Statement::Return(value)
+        Ok(Statement::Return(value))
     }
 
     fn parse_next_statement(&mut self) -> Statement<'a> {
@@ -658,9 +694,10 @@ impl<'a> Parser<'a> {
             }
             statements.push(self.parse_statement()?);
         }
-        if self.current_token.kind == TokenKind::RightCurlyBrace {
-            self.next_token();
+        if self.current_token.kind != TokenKind::RightCurlyBrace {
+            return Err(self.expected_right_brace());
         }
+        self.next_token();
         Ok(statements)
     }
 
@@ -687,7 +724,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let condition = self.parse_condition_in_parens();
+        let condition = self.parse_condition_in_parens()?;
         if self.current_token.kind != TokenKind::RightParen {
             return Err(self.expected_right_paren());
         }
@@ -717,7 +754,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token_in_regex_context();
-        let condition = self.parse_condition_in_parens();
+        let condition = self.parse_condition_in_parens()?;
         if self.current_token.kind != TokenKind::RightParen {
             return Err(self.expected_right_paren());
         }
@@ -779,7 +816,7 @@ impl<'a> Parser<'a> {
         let condition = if self.current_token.kind == TokenKind::Semicolon {
             Expression::Number(1.0)
         } else {
-            self.parse_expression()
+            self.parse_expression()?
         };
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
@@ -847,17 +884,17 @@ impl<'a> Parser<'a> {
             }
 
             let started_with_left_paren = self.current_token.kind == TokenKind::LeftParen;
-            let expression = self.parse_expression();
-            expressions.push(expression);
-            if started_with_left_paren && self.current_token.kind == TokenKind::Comma {
-                while self.current_token.kind == TokenKind::Comma {
-                    self.next_token();
-                    expressions.push(self.parse_expression());
+            let expression = self.parse_expression()?;
+            if started_with_left_paren {
+                if let Some(grouped_expressions) =
+                    Self::split_print_parenthesized_list(expression.clone())
+                {
+                    expressions.extend(grouped_expressions);
+                } else {
+                    expressions.push(expression);
                 }
-                if self.current_token.kind != TokenKind::RightParen {
-                    return Err(self.expected_right_paren());
-                }
-                self.next_token();
+            } else {
+                expressions.push(expression);
             }
             expect_more = false;
         }
@@ -870,7 +907,7 @@ impl<'a> Parser<'a> {
         {
             let append = self.current_token.kind == TokenKind::Append;
             self.next_token();
-            let target = self.parse_expression();
+            let target = self.parse_expression()?;
             return Ok(Statement::PrintRedirect {
                 expressions,
                 target,
@@ -879,7 +916,7 @@ impl<'a> Parser<'a> {
         }
         if self.current_token.kind == TokenKind::Pipe {
             self.next_token();
-            let target = self.parse_expression();
+            let target = self.parse_expression()?;
             return Ok(Statement::PrintPipe {
                 expressions,
                 target,
@@ -901,14 +938,14 @@ impl<'a> Parser<'a> {
                     self.next_token();
                     continue;
                 }
-                expressions.push(self.parse_expression());
+                expressions.push(self.parse_expression()?);
             }
             if self.current_token.kind == TokenKind::RightParen {
                 self.next_token();
             }
             expressions
         } else {
-            self.parse_expression_list_until_action_end_from_current()
+            self.parse_expression_list_until_action_end_from_current()?
         };
 
         if expressions.is_empty() {
@@ -925,17 +962,17 @@ impl<'a> Parser<'a> {
         }
 
         self.next_token_in_regex_context();
-        let pattern = self.parse_expression();
+        let pattern = self.parse_expression()?;
 
         if self.current_token.kind != TokenKind::Comma {
             todo!()
         }
         self.next_token();
-        let replacement = self.parse_expression();
+        let replacement = self.parse_expression()?;
 
         let target = if self.current_token.kind == TokenKind::Comma {
             self.next_token();
-            Some(self.parse_expression())
+            Some(self.parse_expression()?)
         } else {
             None
         };
@@ -959,13 +996,13 @@ impl<'a> Parser<'a> {
         }
 
         self.next_token_in_regex_context();
-        let pattern = self.parse_expression();
+        let pattern = self.parse_expression()?;
 
         if self.current_token.kind != TokenKind::Comma {
             todo!()
         }
         self.next_token();
-        let replacement = self.parse_expression();
+        let replacement = self.parse_expression()?;
 
         if self.current_token.kind == TokenKind::Comma {
             todo!()
@@ -988,7 +1025,7 @@ impl<'a> Parser<'a> {
             todo!()
         }
         self.next_token();
-        let command = self.parse_expression();
+        let command = self.parse_expression()?;
         if self.current_token.kind != TokenKind::RightParen {
             return Err(self.expected_right_paren());
         }
@@ -996,7 +1033,9 @@ impl<'a> Parser<'a> {
         Ok(Statement::System(command))
     }
 
-    fn parse_expression_list_until_action_end_from_current(&mut self) -> Vec<Expression<'a>> {
+    fn parse_expression_list_until_action_end_from_current(
+        &mut self,
+    ) -> Result<Vec<Expression<'a>>, ParseError<'a>> {
         let mut expressions = Vec::new();
         let mut expect_more = false;
 
@@ -1025,12 +1064,12 @@ impl<'a> Parser<'a> {
             }
 
             let started_with_left_paren = self.current_token.kind == TokenKind::LeftParen;
-            let expression = self.parse_expression();
+            let expression = self.parse_expression()?;
             expressions.push(expression);
             if started_with_left_paren && self.current_token.kind == TokenKind::Comma {
                 while self.current_token.kind == TokenKind::Comma {
                     self.next_token();
-                    expressions.push(self.parse_expression());
+                    expressions.push(self.parse_expression()?);
                 }
                 if self.current_token.kind != TokenKind::RightParen {
                     todo!()
@@ -1044,15 +1083,18 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
 
-        expressions
+        Ok(expressions)
     }
 
-    fn parse_expression(&mut self) -> Expression<'a> {
+    fn parse_expression(&mut self) -> Result<Expression<'a>, ParseError<'a>> {
         self.parse_expression_with_min_precedence(0)
     }
 
-    fn parse_expression_with_min_precedence(&mut self, min_precedence: u8) -> Expression<'a> {
-        let left = self.parse_primary_expression();
+    fn parse_expression_with_min_precedence(
+        &mut self,
+        min_precedence: u8,
+    ) -> Result<Expression<'a>, ParseError<'a>> {
+        let left = self.parse_primary_expression()?;
         self.parse_expression_suffix(left, min_precedence)
     }
 
@@ -1060,7 +1102,7 @@ impl<'a> Parser<'a> {
         &mut self,
         mut left: Expression<'a>,
         min_precedence: u8,
-    ) -> Expression<'a> {
+    ) -> Result<Expression<'a>, ParseError<'a>> {
         const CONCAT_LEFT_PRECEDENCE: u8 = 6;
         const CONCAT_RIGHT_PRECEDENCE: u8 = 7;
 
@@ -1070,12 +1112,12 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 self.next_token_in_regex_context();
-                let then_expr = self.parse_expression_with_min_precedence(0);
+                let then_expr = self.parse_expression_with_min_precedence(0)?;
                 if self.current_token.kind != TokenKind::Colon {
                     todo!()
                 }
                 self.next_token_in_regex_context();
-                let else_expr = self.parse_expression_with_min_precedence(0);
+                let else_expr = self.parse_expression_with_min_precedence(0)?;
                 left = Expression::Ternary {
                     condition: Box::new(left),
                     then_expr: Box::new(then_expr),
@@ -1091,7 +1133,7 @@ impl<'a> Parser<'a> {
                     break;
                 }
 
-                let right = self.parse_expression_with_min_precedence(CONCAT_RIGHT_PRECEDENCE);
+                let right = self.parse_expression_with_min_precedence(CONCAT_RIGHT_PRECEDENCE)?;
                 left = Expression::Concatenation {
                     left: Box::new(left),
                     right: Box::new(right),
@@ -1118,7 +1160,7 @@ impl<'a> Parser<'a> {
             } else {
                 self.next_token();
             }
-            let right = self.parse_expression_with_min_precedence(right_precedence);
+            let right = self.parse_expression_with_min_precedence(right_precedence)?;
 
             left = Expression::Infix {
                 left: Box::new(left),
@@ -1127,16 +1169,16 @@ impl<'a> Parser<'a> {
             };
         }
 
-        left
+        Ok(left)
     }
 
-    fn parse_condition_in_parens(&mut self) -> Expression<'a> {
-        let mut condition = self.parse_expression();
+    fn parse_condition_in_parens(&mut self) -> Result<Expression<'a>, ParseError<'a>> {
+        let mut condition = self.parse_expression()?;
         if self.current_token.kind == TokenKind::Comma {
             while self.current_token.kind == TokenKind::Comma {
                 let operator = self.current_token.clone();
                 self.next_token_in_regex_context();
-                let right = self.parse_expression();
+                let right = self.parse_expression()?;
                 condition = Expression::Infix {
                     left: Box::new(condition),
                     operator,
@@ -1147,21 +1189,21 @@ impl<'a> Parser<'a> {
                 todo!()
             }
             self.next_token();
-            condition = self.parse_expression_suffix(condition, 0);
+            condition = self.parse_expression_suffix(condition, 0)?;
         }
-        condition
+        Ok(condition)
     }
 
-    fn parse_primary_expression(&mut self) -> Expression<'a> {
+    fn parse_primary_expression(&mut self) -> Result<Expression<'a>, ParseError<'a>> {
         if self.current_token.kind == TokenKind::Minus {
             let operator = self.current_token.clone();
             self.next_token();
-            let right = self.parse_primary_expression();
-            return Expression::Infix {
+            let right = self.parse_primary_expression()?;
+            return Ok(Expression::Infix {
                 left: Box::new(Expression::Number(0.0)),
                 operator,
                 right: Box::new(right),
-            };
+            });
         }
         if self.current_token.kind == TokenKind::Plus {
             self.next_token();
@@ -1169,21 +1211,21 @@ impl<'a> Parser<'a> {
         }
         if self.current_token.kind == TokenKind::ExclamationMark {
             self.next_token_in_regex_context();
-            let expression = self.parse_primary_expression();
-            return Expression::Not(Box::new(expression));
+            let expression = self.parse_primary_expression()?;
+            return Ok(Expression::Not(Box::new(expression)));
         }
         if self.current_token.kind == TokenKind::Increment {
             self.next_token();
-            let expression = self.parse_primary_expression();
-            return Expression::PreIncrement(Box::new(expression));
+            let expression = self.parse_primary_expression()?;
+            return Ok(Expression::PreIncrement(Box::new(expression)));
         }
         if self.current_token.kind == TokenKind::Decrement {
             self.next_token();
-            let expression = self.parse_primary_expression();
-            return Expression::PreDecrement(Box::new(expression));
+            let expression = self.parse_primary_expression()?;
+            return Ok(Expression::PreDecrement(Box::new(expression)));
         }
 
-        let mut expression = self.parse_primary_atom();
+        let mut expression = self.parse_primary_atom()?;
         if self.current_token.kind == TokenKind::Increment {
             self.next_token();
             expression = Expression::PostIncrement(Box::new(expression));
@@ -1191,20 +1233,20 @@ impl<'a> Parser<'a> {
             self.next_token();
             expression = Expression::PostDecrement(Box::new(expression));
         }
-        expression
+        Ok(expression)
     }
 
-    fn parse_primary_atom(&mut self) -> Expression<'a> {
+    fn parse_primary_atom(&mut self) -> Result<Expression<'a>, ParseError<'a>> {
         match self.current_token.kind {
             TokenKind::String => {
                 let expression = Expression::String(self.current_token.literal);
                 self.next_token();
-                expression
+                Ok(expression)
             }
             TokenKind::Regex => {
                 let expression = Expression::Regex(self.current_token.literal);
                 self.next_token();
-                expression
+                Ok(expression)
             }
             TokenKind::Number => {
                 let expression = self.parse_number_expression().unwrap_or_else(|| {
@@ -1214,20 +1256,31 @@ impl<'a> Parser<'a> {
                     )
                 });
                 self.next_token();
-                expression
+                Ok(expression)
             }
             TokenKind::DollarSign => {
                 self.next_token();
-                let expression = self.parse_primary_atom();
-                Expression::Field(Box::new(expression))
+                let expression = self.parse_primary_atom()?;
+                Ok(Expression::Field(Box::new(expression)))
             }
             TokenKind::LeftParen => {
-                self.next_token();
-                let expression = self.parse_expression();
-                if self.current_token.kind == TokenKind::RightParen {
-                    self.next_token();
+                self.next_token_in_regex_context();
+                let mut expression = self.parse_expression()?;
+                while self.current_token.kind == TokenKind::Comma {
+                    let operator = self.current_token.clone();
+                    self.next_token_in_regex_context();
+                    let right = self.parse_expression()?;
+                    expression = Expression::Infix {
+                        left: Box::new(expression),
+                        operator,
+                        right: Box::new(right),
+                    };
                 }
-                expression
+                if self.current_token.kind != TokenKind::RightParen {
+                    return Err(self.expected_right_paren());
+                }
+                self.next_token();
+                Ok(expression)
             }
             TokenKind::Identifier => {
                 let identifier = self.current_token.clone();
@@ -1235,25 +1288,25 @@ impl<'a> Parser<'a> {
                 if self.current_token.kind == TokenKind::LeftParen
                     && self.token_is_immediately_after(&identifier)
                 {
-                    let args = self.parse_call_arguments();
-                    return Expression::FunctionCall {
+                    let args = self.parse_call_arguments()?;
+                    return Ok(Expression::FunctionCall {
                         name: identifier.literal,
                         args,
-                    };
+                    });
                 }
                 if self.current_token.kind == TokenKind::LeftSquareBracket {
                     self.next_token_in_regex_context();
-                    let index = self.parse_array_index_expression();
+                    let index = self.parse_array_index_expression()?;
                     if self.current_token.kind != TokenKind::RightSquareBracket {
                         todo!()
                     }
                     self.next_token();
-                    Expression::ArrayAccess {
+                    Ok(Expression::ArrayAccess {
                         identifier: identifier.literal,
                         index: Box::new(index),
-                    }
+                    })
                 } else {
-                    Expression::Identifier(identifier.literal)
+                    Ok(Expression::Identifier(identifier.literal))
                 }
             }
             TokenKind::Length => {
@@ -1262,17 +1315,17 @@ impl<'a> Parser<'a> {
                     self.next_token();
                     if self.current_token.kind == TokenKind::RightParen {
                         self.next_token();
-                        Expression::Length(None)
+                        Ok(Expression::Length(None))
                     } else {
-                        let expression = self.parse_expression();
+                        let expression = self.parse_expression()?;
                         if self.current_token.kind != TokenKind::RightParen {
                             todo!()
                         }
                         self.next_token();
-                        Expression::Length(Some(Box::new(expression)))
+                        Ok(Expression::Length(Some(Box::new(expression))))
                     }
                 } else {
-                    Expression::Length(None)
+                    Ok(Expression::Length(None))
                 }
             }
             TokenKind::Substr => {
@@ -1281,26 +1334,26 @@ impl<'a> Parser<'a> {
                     todo!()
                 }
                 self.next_token();
-                let string = self.parse_expression();
+                let string = self.parse_expression()?;
                 if self.current_token.kind != TokenKind::Comma {
                     todo!()
                 }
                 self.next_token();
-                let start = self.parse_expression();
+                let start = self.parse_expression()?;
                 let mut length = None;
                 if self.current_token.kind == TokenKind::Comma {
                     self.next_token();
-                    length = Some(Box::new(self.parse_expression()));
+                    length = Some(Box::new(self.parse_expression()?));
                 }
                 if self.current_token.kind != TokenKind::RightParen {
                     todo!()
                 }
                 self.next_token();
-                Expression::Substr {
+                Ok(Expression::Substr {
                     string: Box::new(string),
                     start: Box::new(start),
                     length,
-                }
+                })
             }
             TokenKind::Rand => {
                 self.next_token();
@@ -1311,7 +1364,7 @@ impl<'a> Parser<'a> {
                     }
                     self.next_token();
                 }
-                Expression::Rand
+                Ok(Expression::Rand)
             }
             TokenKind::Close
             | TokenKind::Cos
@@ -1328,10 +1381,10 @@ impl<'a> Parser<'a> {
                 let name = self.current_token.literal;
                 self.next_token();
                 if self.current_token.kind == TokenKind::LeftParen {
-                    let args = self.parse_call_arguments();
-                    return Expression::FunctionCall { name, args };
+                    let args = self.parse_call_arguments()?;
+                    return Ok(Expression::FunctionCall { name, args });
                 }
-                Expression::Number(0.0)
+                Ok(Expression::Number(0.0))
             }
             _ => {
                 panic!(
@@ -1367,9 +1420,9 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|err| panic!("{err}"))
     }
 
-    fn parse_call_arguments(&mut self) -> Vec<Expression<'a>> {
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression<'a>>, ParseError<'a>> {
         if self.current_token.kind != TokenKind::LeftParen {
-            return vec![];
+            return Ok(vec![]);
         }
         self.next_token_in_regex_context();
         let mut args = Vec::new();
@@ -1380,12 +1433,12 @@ impl<'a> Parser<'a> {
                 self.next_token();
                 continue;
             }
-            args.push(self.parse_expression());
+            args.push(self.parse_expression()?);
         }
         if self.current_token.kind == TokenKind::RightParen {
             self.next_token();
         }
-        args
+        Ok(args)
     }
 }
 
@@ -1526,6 +1579,42 @@ mod tests {
 
         assert_eq!(err.kind, ParseErrorKind::ExpectedRightParen);
         assert_eq!(err.token.kind, TokenKind::Print);
+    }
+
+    #[test]
+    fn parse_grouped_expression_without_right_paren_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print (1 + 2 }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for missing right paren in grouped expression");
+
+        assert_eq!(err.kind, ParseErrorKind::ExpectedRightParen);
+        assert_eq!(err.token.kind, TokenKind::RightCurlyBrace);
+    }
+
+    #[test]
+    fn parse_action_without_right_brace_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("BEGIN { print 1"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for missing right brace in action");
+
+        assert_eq!(err.kind, ParseErrorKind::ExpectedRightBrace);
+        assert_eq!(err.token.kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn parse_nested_block_without_right_brace_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("{ if (1) { print 1 }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for missing right brace in nested block");
+
+        assert_eq!(err.kind, ParseErrorKind::ExpectedRightBrace);
+        assert_eq!(err.token.kind, TokenKind::Eof);
     }
 
     #[test]

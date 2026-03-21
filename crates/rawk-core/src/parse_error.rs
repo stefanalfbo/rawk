@@ -6,6 +6,7 @@ pub enum ParseErrorKind {
     ExpectedStatement,
     ExpectedIdentifier,
     ExpectedLeftBrace,
+    ExpectedRightBrace,
     ExpectedRightParen,
     MissingPrintfFormatString,
 }
@@ -37,6 +38,11 @@ impl std::fmt::Display for ParseError<'_> {
             ParseErrorKind::ExpectedLeftBrace => write!(
                 f,
                 "unexpected token {:?} ({:?}) at byte {}: expected left brace",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::ExpectedRightBrace => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected right brace",
                 self.token.kind, self.token.literal, self.token.span.start
             ),
             ParseErrorKind::ExpectedRightParen => write!(
@@ -126,6 +132,19 @@ mod tests {
         assert_eq!(
             format!("{err}"),
             "unexpected token Print (\"print\") at byte 10: expected right paren"
+        );
+    }
+
+    #[test]
+    fn display_expected_right_brace_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedRightBrace,
+            Token::new(TokenKind::Eof, "", 16),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Eof (\"\") at byte 16: expected right brace"
         );
     }
 
