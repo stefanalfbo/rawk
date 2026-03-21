@@ -103,3 +103,24 @@ fn print_filenames_with_filenames_builtin() {
     assert_eq!(lines.next(), Some("-"));
     assert_eq!(lines.next(), Some("-"));
 }
+
+#[test]
+fn interactive_mode_reports_parse_errors_from_invalid_script() {
+    let script = "{ else }";
+
+    let output = run_rawk_interactive(script, b"");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stdout.is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("expected statement"), "stderr: {stderr}");
+}
