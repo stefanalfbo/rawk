@@ -2653,6 +2653,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn eval_rule_for_line_returns_empty_when_pattern_does_not_match() {
+        let mut evaluator = Evaluator::new(Program::new(), vec![], "-");
+        let rule = Rule::PatternAction {
+            pattern: Some(Expression::Number(0.0)),
+            action: Some(Action {
+                statements: vec![Statement::Print(vec![Expression::String("unexpected")])],
+            }),
+        };
+        let mut range_active = false;
+
+        let output = evaluator.eval_rule_for_line(&rule, "input", &mut range_active);
+
+        assert!(output.is_empty());
+        assert!(!range_active);
+    }
+
+    #[test]
+    fn eval_rule_for_line_ignores_begin_rules_during_record_processing() {
+        let mut evaluator = Evaluator::new(Program::new(), vec![], "-");
+        let rule = Rule::Begin(Action {
+            statements: vec![Statement::Print(vec![Expression::String("unexpected")])],
+        });
+        let mut range_active = false;
+
+        let output = evaluator.eval_rule_for_line(&rule, "input", &mut range_active);
+
+        assert!(output.is_empty());
+        assert!(!range_active);
+    }
+
+    #[test]
     fn eval_print_action_outputs_input_line() {
         let lexer = Lexer::new("{ print }");
         let mut parser = Parser::new(lexer);
@@ -2826,8 +2857,7 @@ mod tests {
         let lexer = Lexer::new(r#"{ print ($1 > 10) ? "big" : "small" }"#);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let mut evaluator =
-            Evaluator::new(program, vec!["12".to_string(), "7".to_string()], "-");
+        let mut evaluator = Evaluator::new(program, vec!["12".to_string(), "7".to_string()], "-");
 
         let output = evaluator.eval();
 
