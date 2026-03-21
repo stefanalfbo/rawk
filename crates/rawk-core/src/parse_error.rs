@@ -5,7 +5,13 @@ pub enum ParseErrorKind {
     ExpectedRule,
     ExpectedStatement,
     ExpectedIdentifier,
+    ExpectedLeftParen,
     ExpectedLeftBrace,
+    ExpectedRightSquareBracket,
+    ExpectedComma,
+    ExpectedColon,
+    ExpectedSemicolon,
+    ExpectedWhile,
     ExpectedRightBrace,
     ExpectedRightParen,
     MissingPrintfFormatString,
@@ -35,9 +41,39 @@ impl std::fmt::Display for ParseError<'_> {
                 "unexpected token {:?} ({:?}) at byte {}: expected identifier",
                 self.token.kind, self.token.literal, self.token.span.start
             ),
+            ParseErrorKind::ExpectedLeftParen => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected left paren",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
             ParseErrorKind::ExpectedLeftBrace => write!(
                 f,
                 "unexpected token {:?} ({:?}) at byte {}: expected left brace",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::ExpectedRightSquareBracket => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected right square bracket",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::ExpectedComma => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected comma",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::ExpectedColon => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected colon",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::ExpectedSemicolon => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected semicolon",
+                self.token.kind, self.token.literal, self.token.span.start
+            ),
+            ParseErrorKind::ExpectedWhile => write!(
+                f,
+                "unexpected token {:?} ({:?}) at byte {}: expected while",
                 self.token.kind, self.token.literal, self.token.span.start
             ),
             ParseErrorKind::ExpectedRightBrace => write!(
@@ -110,6 +146,19 @@ mod tests {
     }
 
     #[test]
+    fn display_expected_left_paren_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedLeftParen,
+            Token::new(TokenKind::Identifier, "x", 5),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Identifier (\"x\") at byte 5: expected left paren"
+        );
+    }
+
+    #[test]
     fn display_expected_left_brace_error() {
         let err = parse_error(
             ParseErrorKind::ExpectedLeftBrace,
@@ -119,6 +168,71 @@ mod tests {
         assert_eq!(
             format!("{err}"),
             "unexpected token Print (\"print\") at byte 6: expected left brace"
+        );
+    }
+
+    #[test]
+    fn display_expected_right_square_bracket_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedRightSquareBracket,
+            Token::new(TokenKind::Assign, "=", 9),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Assign (\"=\") at byte 9: expected right square bracket"
+        );
+    }
+
+    #[test]
+    fn display_expected_comma_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedComma,
+            Token::new(TokenKind::Identifier, "arr", 11),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Identifier (\"arr\") at byte 11: expected comma"
+        );
+    }
+
+    #[test]
+    fn display_expected_colon_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedColon,
+            Token::new(TokenKind::RightCurlyBrace, "}", 13),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token RightCurlyBrace (\"}\") at byte 13: expected colon"
+        );
+    }
+
+    #[test]
+    fn display_expected_semicolon_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedSemicolon,
+            Token::new(TokenKind::Identifier, "i", 15),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token Identifier (\"i\") at byte 15: expected semicolon"
+        );
+    }
+
+    #[test]
+    fn display_expected_while_error() {
+        let err = parse_error(
+            ParseErrorKind::ExpectedWhile,
+            Token::new(TokenKind::RightCurlyBrace, "}", 7),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "unexpected token RightCurlyBrace (\"}\") at byte 7: expected while"
         );
     }
 
