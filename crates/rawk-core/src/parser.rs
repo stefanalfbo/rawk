@@ -1409,7 +1409,7 @@ impl<'a> Parser<'a> {
                     let args = self.parse_call_arguments()?;
                     return Ok(Expression::FunctionCall { name, args });
                 }
-                Ok(Expression::Number(0.0))
+                Err(self.expected_left_paren())
             }
             _ => Err(self.expected_statement()),
         }
@@ -2563,12 +2563,15 @@ mod tests {
     }
 
     #[test]
-    fn parse_builtin_without_parens_returns_zero() {
+    fn parse_builtin_without_parens_returns_parse_error() {
         let mut parser = Parser::new(Lexer::new(r#"{ x = cos }"#));
 
-        let program = parser.parse_program();
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for builtin used without parentheses");
 
-        assert_eq!(r#"{ x = 0 }"#, program.to_string());
+        assert_eq!(err.kind, ParseErrorKind::ExpectedLeftParen);
+        assert_eq!(err.token.kind, TokenKind::RightCurlyBrace);
     }
 
     #[test]
