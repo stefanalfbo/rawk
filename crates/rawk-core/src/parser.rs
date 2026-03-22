@@ -451,7 +451,7 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
             if self.current_token.kind == TokenKind::Assign {
-                self.next_token();
+                self.next_token_in_regex_context();
                 let value = self.parse_expression()?;
                 return Ok(Statement::ArrayAssignment {
                     identifier: identifier.literal,
@@ -460,7 +460,7 @@ impl<'a> Parser<'a> {
                 });
             }
             if self.current_token.kind == TokenKind::AddAssign {
-                self.next_token();
+                self.next_token_in_regex_context();
                 let value = self.parse_expression()?;
                 return Ok(Statement::ArrayAddAssignment {
                     identifier: identifier.literal,
@@ -485,7 +485,7 @@ impl<'a> Parser<'a> {
             return Err(self.unsupported_statement());
         }
         if self.current_token.kind == TokenKind::Assign {
-            self.next_token();
+            self.next_token_in_regex_context();
             if self.current_token.kind == TokenKind::Split {
                 return self.parse_split_assignment_statement(identifier.literal);
             }
@@ -505,7 +505,7 @@ impl<'a> Parser<'a> {
                 identifier: identifier.literal,
             })
         } else if self.current_token.kind == TokenKind::AddAssign {
-            self.next_token();
+            self.next_token_in_regex_context();
             let value = self.parse_expression()?;
             Ok(Statement::AddAssignment {
                 identifier: identifier.literal,
@@ -520,7 +520,7 @@ impl<'a> Parser<'a> {
                 | TokenKind::PowerAssign
         ) {
             let assign_token = self.current_token.clone();
-            self.next_token();
+            self.next_token_in_regex_context();
             let right_value = self.parse_expression()?;
             Ok(Statement::Assignment {
                 identifier: identifier.literal,
@@ -665,7 +665,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let field = self.parse_primary_expression()?;
         let assign_token = self.current_token.clone();
-        self.next_token();
+        self.next_token_in_regex_context();
         let right_value = self.parse_expression()?;
 
         let value = if assign_token.kind == TokenKind::Assign {
@@ -2629,6 +2629,33 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ for (; 1; ) { break } }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_assignment_with_regex_rhs() {
+        let mut parser = Parser::new(Lexer::new(r#"{ x = /foo/ }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ x = /foo/ }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_field_assignment_with_regex_rhs() {
+        let mut parser = Parser::new(Lexer::new(r#"{ $1 = /foo/ }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ $1 = /foo/ }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_array_assignment_with_regex_rhs() {
+        let mut parser = Parser::new(Lexer::new(r#"{ a[i] = /foo/ }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ a[i] = /foo/ }"#, program.to_string());
     }
 
     #[test]
