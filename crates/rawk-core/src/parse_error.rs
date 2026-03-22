@@ -17,6 +17,7 @@ pub enum ParseErrorKind {
     ExpectedRightBrace,
     ExpectedRightParen,
     MissingPrintfFormatString,
+    InvalidNumericLiteral,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -102,6 +103,11 @@ impl std::fmt::Display for ParseError<'_> {
                 f,
                 "printf requires a format string at byte {}",
                 self.token.span.start
+            ),
+            ParseErrorKind::InvalidNumericLiteral => write!(
+                f,
+                "invalid numeric literal {:?} at byte {}",
+                self.token.literal, self.token.span.start
             ),
         }
     }
@@ -310,6 +316,19 @@ mod tests {
         assert_eq!(
             format!("{err}"),
             "printf requires a format string at byte 14"
+        );
+    }
+
+    #[test]
+    fn display_invalid_numeric_literal_error() {
+        let err = parse_error(
+            ParseErrorKind::InvalidNumericLiteral,
+            Token::new(TokenKind::Number, "0xZZ", 3),
+        );
+
+        assert_eq!(
+            format!("{err}"),
+            "invalid numeric literal \"0xZZ\" at byte 3"
         );
     }
 }

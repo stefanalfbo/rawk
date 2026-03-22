@@ -140,6 +140,10 @@ impl<'a> Parser<'a> {
         self.parse_error(ParseErrorKind::MissingPrintfFormatString)
     }
 
+    fn invalid_numeric_literal(&self) -> ParseError<'a> {
+        self.parse_error(ParseErrorKind::InvalidNumericLiteral)
+    }
+
     fn split_print_parenthesized_list(expression: Expression<'a>) -> Option<Vec<Expression<'a>>> {
         fn flatten<'a>(expression: Expression<'a>, expressions: &mut Vec<Expression<'a>>) -> bool {
             match expression {
@@ -1273,12 +1277,9 @@ impl<'a> Parser<'a> {
                 Ok(expression)
             }
             TokenKind::Number => {
-                let expression = self.parse_number_expression().unwrap_or_else(|| {
-                    panic!(
-                        "failed to parse numeric literal: {}",
-                        self.current_token.literal
-                    )
-                });
+                let expression = self
+                    .parse_number_expression()
+                    .ok_or_else(|| self.invalid_numeric_literal())?;
                 self.next_token();
                 Ok(expression)
             }
@@ -2555,5 +2556,22 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"BEGIN { print 0xAA }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_primary_atom_with_invalid_number_literal_returns_parse_error() {
+        // The lexer always emits valid number literals, so this path is
+        // unreachable through normal input. We test it directly by injecting
+        // a synthetic Number token with an invalid literal.
+        let mut parser = Parser::new(Lexer::new(""));
+        parser.current_token = Token::new(TokenKind::Number, "0xZZ", 7);
+
+        let err = parser
+            .parse_primary_atom()
+            .expect_err("expected parse error for invalid numeric literal");
+
+        assert_eq!(err.kind, ParseErrorKind::InvalidNumericLiteral);
+        assert_eq!(err.token.kind, TokenKind::Number);
+        assert_eq!(err.token.literal, "0xZZ");
     }
 }
