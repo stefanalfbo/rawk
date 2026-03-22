@@ -1411,12 +1411,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Expression::Number(0.0))
             }
-            _ => {
-                panic!(
-                    "parse_primary_expression not yet implemented, found token: {:?}",
-                    self.current_token
-                )
-            }
+            _ => Err(self.expected_statement()),
         }
     }
 
@@ -2573,5 +2568,17 @@ mod tests {
         assert_eq!(err.kind, ParseErrorKind::InvalidNumericLiteral);
         assert_eq!(err.token.kind, TokenKind::Number);
         assert_eq!(err.token.literal, "0xZZ");
+    }
+
+    #[test]
+    fn parse_unrecognized_token_in_expression_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new("{ x = else }"));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for unrecognized token in expression");
+
+        assert_eq!(err.kind, ParseErrorKind::ExpectedStatement);
+        assert_eq!(err.token.kind, TokenKind::Else);
     }
 }
