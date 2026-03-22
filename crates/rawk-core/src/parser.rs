@@ -2554,6 +2554,51 @@ mod tests {
     }
 
     #[test]
+    fn parse_field_compound_assignment() {
+        let mut parser = Parser::new(Lexer::new(r#"{ $1 += 2 }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ $1 = $1 + 2 }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_builtin_without_parens_returns_zero() {
+        let mut parser = Parser::new(Lexer::new(r#"{ x = cos }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ x = 0 }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_nested_function_calls() {
+        let mut parser = Parser::new(Lexer::new(r#"{ x = substr(substr(s, 1, 2), 1) }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ x = substr(substr(s, 1, 2), 1) }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_chained_ternary_is_right_associative() {
+        let mut parser = Parser::new(Lexer::new(r#"{ x = a ? b : c ? d : e }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ x = (a) ? b : (c) ? d : e }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_for_loop_with_empty_init_condition_update() {
+        let mut parser = Parser::new(Lexer::new(r#"{ for (;;) break }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(r#"{ for (; 1; ) { break } }"#, program.to_string());
+    }
+
+    #[test]
     fn parse_primary_atom_with_invalid_number_literal_returns_parse_error() {
         // The lexer always emits valid number literals, so this path is
         // unreachable through normal input. We test it directly by injecting
