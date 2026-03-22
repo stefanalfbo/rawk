@@ -394,6 +394,36 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn parse_simple_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
+        match self.current_token.kind {
+            TokenKind::Identifier => self.parse_assignment_statement(),
+            TokenKind::DollarSign => self.parse_field_assignment_statement(),
+            TokenKind::Increment => self.parse_pre_increment_statement(),
+            TokenKind::Decrement => self.parse_pre_decrement_statement(),
+            TokenKind::Number
+            | TokenKind::String
+            | TokenKind::Regex
+            | TokenKind::LeftParen
+            | TokenKind::Close
+            | TokenKind::Cos
+            | TokenKind::Exp
+            | TokenKind::Index
+            | TokenKind::Int
+            | TokenKind::Length
+            | TokenKind::Log
+            | TokenKind::Match
+            | TokenKind::Rand
+            | TokenKind::Sin
+            | TokenKind::Sprintf
+            | TokenKind::Sqrt
+            | TokenKind::Srand
+            | TokenKind::Substr
+            | TokenKind::ToLower
+            | TokenKind::ToUpper => Ok(Statement::Expression(self.parse_expression()?)),
+            _ => Err(self.unsupported_statement()),
+        }
+    }
+
     fn parse_assignment_statement(&mut self) -> Result<Statement<'a>, ParseError<'a>> {
         let identifier = self.current_token.clone();
         self.next_token();
@@ -836,7 +866,7 @@ impl<'a> Parser<'a> {
             }
             self.parse_assignment_statement_with_identifier(variable)?
         } else {
-            self.parse_statement()?
+            self.parse_simple_statement()?
         };
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
@@ -868,7 +898,7 @@ impl<'a> Parser<'a> {
         let update = if self.current_token.kind == TokenKind::RightParen {
             Statement::Empty
         } else {
-            self.parse_statement()?
+            self.parse_simple_statement()?
         };
         while self.current_token.kind == TokenKind::NewLine {
             self.next_token();
@@ -2599,6 +2629,42 @@ mod tests {
         let program = parser.parse_program();
 
         assert_eq!(r#"{ for (; 1; ) { break } }"#, program.to_string());
+    }
+
+    #[test]
+    fn parse_for_loop_with_print_as_init_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new(r#"{ for (print "hi"; i < 10; i++) print i }"#));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for print statement as for-loop initializer");
+
+        assert_eq!(err.kind, ParseErrorKind::UnsupportedStatement);
+        assert_eq!(err.token.kind, TokenKind::Print);
+    }
+
+    #[test]
+    fn parse_for_loop_with_print_as_update_returns_parse_error() {
+        let mut parser = Parser::new(Lexer::new(r#"{ for (i = 0; i < 10; print i) print i }"#));
+
+        let err = parser
+            .try_parse_program()
+            .expect_err("expected parse error for print statement as for-loop update");
+
+        assert_eq!(err.kind, ParseErrorKind::UnsupportedStatement);
+        assert_eq!(err.token.kind, TokenKind::Print);
+    }
+
+    #[test]
+    fn parse_for_loop_with_field_assignment_as_init() {
+        let mut parser = Parser::new(Lexer::new(r#"{ for ($1 = 0; $1 < 10; $1 += 1) print $1 }"#));
+
+        let program = parser.parse_program();
+
+        assert_eq!(
+            r#"{ for ($1 = 0; $1 < 10; $1 = $1 + 1) { print $1 } }"#,
+            program.to_string()
+        );
     }
 
     #[test]
