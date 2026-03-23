@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/stefanalfbo/rawk/compare/rawk-core-v0.4.1...rawk-core-v0.5.0) - 2026-03-22
+
+### Added
+
+- *(parser)* add handling for invalid numeric literal errors and related tests
+- *(parser)* add unsupported statement and sub target error handling
+- *(parser)* add new parse error kinds and corresponding handling functions
+- *(parser)* add handling for expected right brace error and related tests
+
+### Fixed
+
+- *(parser)* replace panic with parse error for unrecognized tokens in expressions
+- *(parser)* remove handling of stray right parenthesis and add related parse error tests
+
+### Other
+
+- *(evaluator)* add tests for eval_rule_for_line behavior with patterns and begin rules
+- *(parser)* add unit tests for displaying parse errors
+- *(parser)* separate ParseError and ParseErrorKind into their own module
+- *(parser)* enhance error handling with specific parse error types
+- update example in README to use Awk struct for execution
+
 ## [0.4.1](https://github.com/stefanalfbo/rawk/compare/v0.4.0...v0.4.1) - 2026-03-20
 
 ### Fixed
