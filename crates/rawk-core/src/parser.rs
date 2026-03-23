@@ -461,88 +461,92 @@ impl<'a> Parser<'a> {
                 return Err(self.expected_right_square_bracket());
             }
             self.next_token();
-            if self.current_token.kind == TokenKind::Assign {
-                self.next_token_in_regex_context();
-                let value = self.parse_expression()?;
-                return Ok(Statement::ArrayAssignment {
-                    identifier: identifier.literal,
-                    index,
-                    value,
-                });
-            }
-            if self.current_token.kind == TokenKind::AddAssign {
-                self.next_token_in_regex_context();
-                let value = self.parse_expression()?;
-                return Ok(Statement::ArrayAddAssignment {
-                    identifier: identifier.literal,
-                    index,
-                    value,
-                });
-            }
-            if self.current_token.kind == TokenKind::Increment {
-                self.next_token();
-                return Ok(Statement::ArrayPostIncrement {
-                    identifier: identifier.literal,
-                    index,
-                });
-            }
-            if self.current_token.kind == TokenKind::Decrement {
-                self.next_token();
-                return Ok(Statement::ArrayPostDecrement {
-                    identifier: identifier.literal,
-                    index,
-                });
-            }
-            return Err(self.unsupported_statement());
+            return match self.current_token.kind {
+                TokenKind::Assign => {
+                    self.next_token_in_regex_context();
+                    let value = self.parse_expression()?;
+                    Ok(Statement::ArrayAssignment {
+                        identifier: identifier.literal,
+                        index,
+                        value,
+                    })
+                }
+                TokenKind::AddAssign => {
+                    self.next_token_in_regex_context();
+                    let value = self.parse_expression()?;
+                    Ok(Statement::ArrayAddAssignment {
+                        identifier: identifier.literal,
+                        index,
+                        value,
+                    })
+                }
+                TokenKind::Increment => {
+                    self.next_token();
+                    Ok(Statement::ArrayPostIncrement {
+                        identifier: identifier.literal,
+                        index,
+                    })
+                }
+                TokenKind::Decrement => {
+                    self.next_token();
+                    Ok(Statement::ArrayPostDecrement {
+                        identifier: identifier.literal,
+                        index,
+                    })
+                }
+                _ => Err(self.unsupported_statement()),
+            };
         }
-        if self.current_token.kind == TokenKind::Assign {
-            self.next_token_in_regex_context();
-            if self.current_token.kind == TokenKind::Split {
-                return self.parse_split_assignment_statement(identifier.literal);
+        match self.current_token.kind {
+            TokenKind::Assign => {
+                self.next_token_in_regex_context();
+                if self.current_token.kind == TokenKind::Split {
+                    return self.parse_split_assignment_statement(identifier.literal);
+                }
+                let value = self.parse_expression()?;
+                Ok(Statement::Assignment {
+                    identifier: identifier.literal,
+                    value,
+                })
             }
-            let value = self.parse_expression()?;
-            Ok(Statement::Assignment {
-                identifier: identifier.literal,
-                value,
-            })
-        } else if self.current_token.kind == TokenKind::Increment {
-            self.next_token();
-            Ok(Statement::PostIncrement {
-                identifier: identifier.literal,
-            })
-        } else if self.current_token.kind == TokenKind::Decrement {
-            self.next_token();
-            Ok(Statement::PostDecrement {
-                identifier: identifier.literal,
-            })
-        } else if self.current_token.kind == TokenKind::AddAssign {
-            self.next_token_in_regex_context();
-            let value = self.parse_expression()?;
-            Ok(Statement::AddAssignment {
-                identifier: identifier.literal,
-                value,
-            })
-        } else if matches!(
-            self.current_token.kind,
+            TokenKind::Increment => {
+                self.next_token();
+                Ok(Statement::PostIncrement {
+                    identifier: identifier.literal,
+                })
+            }
+            TokenKind::Decrement => {
+                self.next_token();
+                Ok(Statement::PostDecrement {
+                    identifier: identifier.literal,
+                })
+            }
+            TokenKind::AddAssign => {
+                self.next_token_in_regex_context();
+                let value = self.parse_expression()?;
+                Ok(Statement::AddAssignment {
+                    identifier: identifier.literal,
+                    value,
+                })
+            }
             TokenKind::SubtractAssign
-                | TokenKind::MultiplyAssign
-                | TokenKind::DivideAssign
-                | TokenKind::ModuloAssign
-                | TokenKind::PowerAssign
-        ) {
-            let assign_token = self.current_token.clone();
-            self.next_token_in_regex_context();
-            let right_value = self.parse_expression()?;
-            Ok(Statement::Assignment {
-                identifier: identifier.literal,
-                value: Expression::Infix {
-                    left: Box::new(Expression::Identifier(identifier.literal)),
-                    operator: compound_assign_operator(&assign_token),
-                    right: Box::new(right_value),
-                },
-            })
-        } else {
-            Err(self.unsupported_statement())
+            | TokenKind::MultiplyAssign
+            | TokenKind::DivideAssign
+            | TokenKind::ModuloAssign
+            | TokenKind::PowerAssign => {
+                let assign_token = self.current_token.clone();
+                self.next_token_in_regex_context();
+                let right_value = self.parse_expression()?;
+                Ok(Statement::Assignment {
+                    identifier: identifier.literal,
+                    value: Expression::Infix {
+                        left: Box::new(Expression::Identifier(identifier.literal)),
+                        operator: compound_assign_operator(&assign_token),
+                        right: Box::new(right_value),
+                    },
+                })
+            }
+            _ => Err(self.unsupported_statement()),
         }
     }
 
@@ -1269,12 +1273,16 @@ impl<'a> Parser<'a> {
         }
 
         let mut expression = self.parse_primary_atom()?;
-        if self.current_token.kind == TokenKind::Increment {
-            self.next_token();
-            expression = Expression::PostIncrement(Box::new(expression));
-        } else if self.current_token.kind == TokenKind::Decrement {
-            self.next_token();
-            expression = Expression::PostDecrement(Box::new(expression));
+        match self.current_token.kind {
+            TokenKind::Increment => {
+                self.next_token();
+                expression = Expression::PostIncrement(Box::new(expression));
+            }
+            TokenKind::Decrement => {
+                self.next_token();
+                expression = Expression::PostDecrement(Box::new(expression));
+            }
+            _ => {}
         }
         Ok(expression)
     }
