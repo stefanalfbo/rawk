@@ -30,6 +30,27 @@ impl<'a> Parser<'a> {
         self.current_token = self.lexer.next_token_regex_aware();
     }
 
+    fn skip_newlines(&mut self) {
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token();
+        }
+    }
+
+    fn skip_newlines_in_regex_context(&mut self) {
+        while self.current_token.kind == TokenKind::NewLine {
+            self.next_token_in_regex_context();
+        }
+    }
+
+    fn skip_terminators(&mut self) {
+        while matches!(
+            self.current_token.kind,
+            TokenKind::NewLine | TokenKind::Semicolon
+        ) {
+            self.next_token();
+        }
+    }
+
     fn is_eof(&self) -> bool {
         self.current_token.kind == TokenKind::Eof
     }
@@ -261,11 +282,7 @@ impl<'a> Parser<'a> {
         while self.current_token.kind != TokenKind::RightCurlyBrace
             && self.current_token.kind != TokenKind::Eof
         {
-            while self.current_token.kind == TokenKind::NewLine
-                || self.current_token.kind == TokenKind::Semicolon
-            {
-                self.next_token();
-            }
+            self.skip_terminators();
 
             if self.current_token.kind == TokenKind::RightCurlyBrace
                 || self.current_token.kind == TokenKind::Eof
@@ -356,9 +373,7 @@ impl<'a> Parser<'a> {
         }
 
         self.next_token();
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
+        self.skip_newlines();
         if self.current_token.kind != TokenKind::LeftCurlyBrace {
             return Err(self.expected_left_brace());
         }
@@ -368,11 +383,7 @@ impl<'a> Parser<'a> {
         while self.current_token.kind != TokenKind::RightCurlyBrace
             && self.current_token.kind != TokenKind::Eof
         {
-            while self.current_token.kind == TokenKind::NewLine
-                || self.current_token.kind == TokenKind::Semicolon
-            {
-                self.next_token();
-            }
+            self.skip_terminators();
 
             if self.current_token.kind == TokenKind::RightCurlyBrace
                 || self.current_token.kind == TokenKind::Eof
@@ -694,11 +705,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let then_statements = self.parse_control_statement_body()?;
 
-        while self.current_token.kind == TokenKind::NewLine
-            || self.current_token.kind == TokenKind::Semicolon
-        {
-            self.next_token();
-        }
+        self.skip_terminators();
 
         if self.current_token.kind == TokenKind::Else {
             self.next_token();
@@ -747,11 +754,7 @@ impl<'a> Parser<'a> {
         while self.current_token.kind != TokenKind::RightCurlyBrace
             && self.current_token.kind != TokenKind::Eof
         {
-            while self.current_token.kind == TokenKind::NewLine
-                || self.current_token.kind == TokenKind::Semicolon
-            {
-                self.next_token();
-            }
+            self.skip_terminators();
 
             if self.current_token.kind == TokenKind::RightCurlyBrace
                 || self.current_token.kind == TokenKind::Eof
@@ -768,9 +771,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_control_statement_body(&mut self) -> Result<Vec<Statement<'a>>, ParseError<'a>> {
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
+        self.skip_newlines();
 
         if self.current_token.kind == TokenKind::LeftCurlyBrace {
             return self.parse_statement_block();
@@ -806,11 +807,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let statements = self.parse_control_statement_body()?;
 
-        while self.current_token.kind == TokenKind::NewLine
-            || self.current_token.kind == TokenKind::Semicolon
-        {
-            self.next_token();
-        }
+        self.skip_terminators();
 
         if self.current_token.kind != TokenKind::While {
             return Err(self.expected_while());
@@ -837,9 +834,7 @@ impl<'a> Parser<'a> {
             return Err(self.expected_left_paren());
         }
         self.next_token();
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
+        self.skip_newlines();
 
         let init = if self.current_token.kind == TokenKind::Semicolon {
             Statement::Empty
@@ -868,41 +863,31 @@ impl<'a> Parser<'a> {
         } else {
             self.parse_simple_statement()?
         };
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
+        self.skip_newlines();
         if self.current_token.kind != TokenKind::Semicolon {
             return Err(self.expected_semicolon());
         }
         self.next_token_in_regex_context();
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token_in_regex_context();
-        }
+        self.skip_newlines_in_regex_context();
 
         let condition = if self.current_token.kind == TokenKind::Semicolon {
             Expression::Number(1.0)
         } else {
             self.parse_expression()?
         };
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
+        self.skip_newlines();
         if self.current_token.kind != TokenKind::Semicolon {
             return Err(self.expected_semicolon());
         }
         self.next_token_in_regex_context();
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token_in_regex_context();
-        }
+        self.skip_newlines_in_regex_context();
 
         let update = if self.current_token.kind == TokenKind::RightParen {
             Statement::Empty
         } else {
             self.parse_simple_statement()?
         };
-        while self.current_token.kind == TokenKind::NewLine {
-            self.next_token();
-        }
+        self.skip_newlines();
         if self.current_token.kind != TokenKind::RightParen {
             return Err(self.expected_right_paren());
         }
