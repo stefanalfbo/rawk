@@ -9,6 +9,10 @@ struct Args {
     #[arg(short = 'f', long = "file", value_name = "program-file")]
     program_file: Option<path::PathBuf>,
 
+    /// Use fs as the input field separator
+    #[arg(short = 'F', long = "field-separator", value_name = "fs")]
+    field_separator: Option<String>,
+
     /// Positional arguments: PROGRAM INPUT or INPUT when using -f
     #[arg(value_name = "ARGS", num_args = 0..=2)]
     args: Vec<String>,
@@ -23,7 +27,7 @@ fn main() -> io::Result<()> {
             [input] => (script, input.clone()),
             _ => {
                 // No input file provided only script, enter interactive mode
-                interactive_mode(&script);
+                interactive_mode(&script, args.field_separator);
 
                 return Ok(());
             }
@@ -33,7 +37,7 @@ fn main() -> io::Result<()> {
             [script, input] => (script.clone(), input.clone()),
             [script] => {
                 // No input file provided only script, enter interactive mode
-                interactive_mode(script);
+                interactive_mode(script, args.field_separator);
 
                 return Ok(());
             }
@@ -46,12 +50,12 @@ fn main() -> io::Result<()> {
         }
     };
 
-    execute(&script, path::Path::new(&input))?;
+    execute(&script, path::Path::new(&input), args.field_separator)?;
 
     Ok(())
 }
 
-fn execute(script: &str, path: &path::Path) -> io::Result<()> {
+fn execute(script: &str, path: &path::Path, field_separator: Option<String>) -> io::Result<()> {
     let input_lines = std::fs::read_to_string(path)
         .expect("Failed to read input file")
         .lines()
@@ -61,7 +65,7 @@ fn execute(script: &str, path: &path::Path) -> io::Result<()> {
     let awk = Awk::new(script)
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
     let filename = display_filename(path);
-    let output_lines = awk.run(input_lines, Some(filename));
+    let output_lines = awk.run(input_lines, Some(filename), field_separator);
 
     for line in output_lines {
         println!("{}", line);
@@ -79,7 +83,7 @@ fn display_filename(path: &path::Path) -> String {
     relative.to_string_lossy().replace('\\', "/")
 }
 
-fn interactive_mode(script: &str) {
+fn interactive_mode(script: &str, field_separator: Option<String>) {
     use std::io::Write;
 
     let awk = match Awk::new(script) {
@@ -99,7 +103,7 @@ fn interactive_mode(script: &str) {
             break;
         }
 
-        let output_lines = awk.run(vec![input.trim().to_string()], None);
+        let output_lines = awk.run(vec![input.trim().to_string()], None, field_separator.clone());
 
         for line in output_lines {
             println!("{}", line);

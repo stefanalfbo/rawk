@@ -11,6 +11,19 @@ fn run_rawk(script: &str) -> std::process::Output {
         .expect("failed to run rawk")
 }
 
+fn run_rawk_with_fs(flag: &str, fs: &str, script: &str) -> std::process::Output {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emp.csv");
+    let rawk = env!("CARGO_BIN_EXE_rawk");
+
+    Command::new(rawk)
+        .arg(flag)
+        .arg(fs)
+        .arg(script)
+        .arg(&path)
+        .output()
+        .expect("failed to run rawk")
+}
+
 fn run_rawk_from_file() -> std::process::Output {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/emp.data");
     let script_path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/print.awk");
@@ -157,6 +170,50 @@ fn system_statement_in_script_does_not_break_cli_execution() {
     assert_eq!(lines.next(), Some("Mark"));
     assert_eq!(lines.next(), Some("Mary"));
     assert_eq!(lines.next(), Some("Susie"));
+    assert!(lines.next().is_none(), "stdout: {stdout}");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn field_separator_short_flag_splits_fields() {
+    let output = run_rawk_with_fs("-F", ",", "{ print $1 }");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("Beth"));
+    assert_eq!(lines.next(), Some("Dan"));
+    assert_eq!(lines.next(), Some("Kathy"));
+    assert_eq!(lines.next(), Some("Mark"));
+    assert_eq!(lines.next(), Some("Mary"));
+    assert_eq!(lines.next(), Some("Susie"));
+    assert!(lines.next().is_none(), "stdout: {stdout}");
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn field_separator_long_flag_splits_fields() {
+    let output = run_rawk_with_fs("--field-separator", ",", "{ print $2 }");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    assert_eq!(lines.next(), Some("4.00"));
+    assert_eq!(lines.next(), Some("3.75"));
+    assert_eq!(lines.next(), Some("4.00"));
+    assert_eq!(lines.next(), Some("5.00"));
+    assert_eq!(lines.next(), Some("5.50"));
+    assert_eq!(lines.next(), Some("4.25"));
     assert!(lines.next().is_none(), "stdout: {stdout}");
     assert!(output.stderr.is_empty());
 }

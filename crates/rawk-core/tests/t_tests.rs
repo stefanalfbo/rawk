@@ -5,7 +5,7 @@ fn assert_script_output_matches(script: &str, data: &str, expected_data: &str) {
     let expected: Vec<String> = expected_data.lines().map(str::to_string).collect();
 
     let awk = Awk::new(script).unwrap_or_else(|err| panic!("failed to parse AWK script: {err}"));
-    let output = awk.run(input, Some("onetrueawk-testdata/data".to_string()));
+    let output = awk.run(input, Some("onetrueawk-testdata/data".to_string()), None);
 
     assert_eq!(output, expected);
 }

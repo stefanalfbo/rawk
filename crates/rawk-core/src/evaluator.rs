@@ -79,6 +79,11 @@ impl<'a> Evaluator<'a> {
         }
     }
 
+    pub fn with_field_separator(mut self, fs: String) -> Self {
+        self.field_separator = fs;
+        self
+    }
+
     pub fn eval(&mut self) -> Vec<String> {
         let mut output_lines: Vec<String> = Vec::new();
 
