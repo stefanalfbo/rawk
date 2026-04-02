@@ -931,7 +931,10 @@ mod tests {
             },
         ]);
 
-        assert_eq!("print !x, ++x, --x, x++, x--, (x) ? y : z", statement.to_string());
+        assert_eq!(
+            "print !x, ++x, --x, x++, x--, (x) ? y : z",
+            statement.to_string()
+        );
     }
 
     #[test]
