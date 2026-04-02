@@ -227,6 +227,29 @@ impl<'a> Evaluator<'a> {
         self.exited || self.next_record || self.return_value.is_some()
     }
 
+    fn clear_loop_control_flags(&mut self) {
+        self.break_loop = false;
+        self.continue_loop = false;
+    }
+
+    fn eval_statement_block(
+        &mut self,
+        statements: &[Statement<'_>],
+        input_line: Option<&str>,
+    ) -> Vec<String> {
+        let mut output = Vec::new();
+
+        for statement in statements {
+            let statement_output = self.eval_statement(statement, input_line);
+            self.append_local_output(&mut output, statement_output);
+            if self.should_break_statement_sequence() {
+                break;
+            }
+        }
+
+        output
+    }
+
     fn eval_action(&mut self, action: &Action, input_line: Option<&str>) -> Vec<String> {
         let mut output = Vec::new();
 
@@ -431,23 +454,16 @@ impl<'a> Evaluator<'a> {
             } => {
                 let mut output = Vec::new();
                 while self.eval_condition(condition) {
-                    for statement in statements {
-                        let statement_output = self.eval_statement(statement, input_line);
-                        self.append_local_output(&mut output, statement_output);
-                        if self.should_break_statement_sequence() {
-                            break;
-                        }
-                    }
-                    if self.should_break_statement_sequence() {
+                    let statement_output = self.eval_statement_block(statements, input_line);
+                    self.append_local_output(&mut output, statement_output);
+                    if self.should_break_loop_iteration() {
                         break;
                     }
+                    if self.continue_loop {
+                        self.continue_loop = false;
+                    }
                 }
-                if self.break_loop {
-                    self.break_loop = false;
-                }
-                if self.continue_loop {
-                    self.continue_loop = false;
-                }
+                self.clear_loop_control_flags();
                 output
             }
             Statement::DoWhile {
@@ -456,23 +472,19 @@ impl<'a> Evaluator<'a> {
             } => {
                 let mut output = Vec::new();
                 loop {
-                    for statement in statements {
-                        let statement_output = self.eval_statement(statement, input_line);
-                        self.append_local_output(&mut output, statement_output);
-                        if self.should_break_statement_sequence() {
-                            break;
-                        }
+                    let statement_output = self.eval_statement_block(statements, input_line);
+                    self.append_local_output(&mut output, statement_output);
+                    if self.should_break_loop_iteration() {
+                        break;
                     }
-                    if self.should_break_statement_sequence() || !self.eval_condition(condition) {
+                    if self.continue_loop {
+                        self.continue_loop = false;
+                    }
+                    if !self.eval_condition(condition) {
                         break;
                     }
                 }
-                if self.break_loop {
-                    self.break_loop = false;
-                }
-                if self.continue_loop {
-                    self.continue_loop = false;
-                }
+                self.clear_loop_control_flags();
                 output
             }
             Statement::For {
@@ -507,12 +519,7 @@ impl<'a> Evaluator<'a> {
                         break;
                     }
                 }
-                if self.break_loop {
-                    self.break_loop = false;
-                }
-                if self.continue_loop {
-                    self.continue_loop = false;
-                }
+                self.clear_loop_control_flags();
                 output
             }
             Statement::ForIn {
@@ -540,12 +547,7 @@ impl<'a> Evaluator<'a> {
                         continue;
                     }
                 }
-                if self.break_loop {
-                    self.break_loop = false;
-                }
-                if self.continue_loop {
-                    self.continue_loop = false;
-                }
+                self.clear_loop_control_flags();
                 output
             }
             Statement::Break => {
@@ -3186,6 +3188,58 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["USSR8649275Asia".to_string()]);
+    }
+
+    #[test]
+    fn eval_while_break_clears_loop_flag_for_following_statements() {
+        let lexer = Lexer::new(r#"BEGIN { while (1) { print "loop"; break } print "after" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, Vec::new(), "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["loop".to_string(), "after".to_string()]);
+    }
+
+    #[test]
+    fn eval_while_continue_advances_and_clears_loop_flag() {
+        let lexer = Lexer::new(
+            r#"BEGIN { i = 0; while (i < 3) { i++; if (i < 3) continue; print i } print "after" }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, Vec::new(), "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3".to_string(), "after".to_string()]);
+    }
+
+    #[test]
+    fn eval_do_while_break_clears_loop_flag_for_following_statements() {
+        let lexer = Lexer::new(r#"BEGIN { do { print "loop"; break } while (1); print "after" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, Vec::new(), "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["loop".to_string(), "after".to_string()]);
+    }
+
+    #[test]
+    fn eval_do_while_continue_advances_and_clears_loop_flag() {
+        let lexer = Lexer::new(
+            r#"BEGIN { i = 0; do { i++; if (i < 3) continue; print i } while (i < 3); print "after" }"#,
+        );
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, Vec::new(), "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3".to_string(), "after".to_string()]);
     }
 
     #[test]
