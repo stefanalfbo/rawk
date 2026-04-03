@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/stefanalfbo/rawk/compare/rawk-core-v0.5.0...rawk-core-v0.6.0) - 2026-04-03
+
+### Added
+
+- *(evaluator)* add runtime error handling for negative field index access
+- *(cli)* add field separator option for input parsing and update related tests
+- *(evaluator)* refactor loop control handling and introduce eval_statement_block method
+- *(parser)* streamline array assignment handling and improve expression parsing logic
+- *(parser)* update assignment parsing to handle regex on the right-hand side and add related tests
+- *(parser)* implement parse_simple_statement for handling various statement types and add related tests
+- *(tests)* add parser tests for field compound assignment, built-in functions, nested calls, chained ternary, and empty for loops
+
+### Fixed
+
+- *(parser)* return parse error for missing left parenthesis in function calls
+
+### Other
+
+- *(evaluator)* add unit tests for sin, cos, and srand functions
+- *(tests)* format assertion for statement.to_string() for better readability
+- *(parser)* consolidate newline and terminator handling into dedicated methods
+
 ## [0.5.0](https://github.com/stefanalfbo/rawk/compare/rawk-core-v0.4.1...rawk-core-v0.5.0) - 2026-03-22
 
 ### Added
