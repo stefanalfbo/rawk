@@ -175,6 +175,18 @@ fn system_statement_in_script_does_not_break_cli_execution() {
 }
 
 #[test]
+fn negative_field_index_prints_error_to_stderr() {
+    let output = run_rawk("{ print $(-1) }");
+
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("attempt to access field -1"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn field_separator_short_flag_splits_fields() {
     let output = run_rawk_with_fs("-F", ",", "{ print $1 }");
 

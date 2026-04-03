@@ -42,6 +42,7 @@ pub struct Evaluator<'a> {
     continue_loop: bool,
     return_value: Option<String>,
     has_output: bool,
+    runtime_error: Option<String>,
 }
 
 impl<'a> Evaluator<'a> {
@@ -76,6 +77,7 @@ impl<'a> Evaluator<'a> {
             continue_loop: false,
             return_value: None,
             has_output: false,
+            runtime_error: None,
         }
     }
 
@@ -84,15 +86,24 @@ impl<'a> Evaluator<'a> {
         self
     }
 
+    pub fn runtime_error(&self) -> Option<&str> {
+        self.runtime_error.as_deref()
+    }
+
     pub fn eval(&mut self) -> Vec<String> {
         let mut output_lines: Vec<String> = Vec::new();
 
         let begin_actions: Vec<Action<'a>> = self.program.begin_blocks_iter().cloned().collect();
         for action in begin_actions.iter() {
             output_lines.extend(self.eval_action(action, None));
-            if self.exited {
+            if self.exited || self.runtime_error.is_some() {
                 break;
             }
+        }
+
+        if let Some(ref err) = self.runtime_error {
+            eprintln!("rawk: {err}");
+            return vec![];
         }
 
         let rules: Vec<Rule<'a>> = self.program.rules_iter().cloned().collect();
@@ -103,7 +114,7 @@ impl<'a> Evaluator<'a> {
             }
 
             for (rule_idx, rule) in rules.iter().enumerate() {
-                if self.exited {
+                if self.exited || self.runtime_error.is_some() {
                     break;
                 }
                 // Rules are evaluated against the original record text for this
@@ -118,6 +129,14 @@ impl<'a> Evaluator<'a> {
                     break;
                 }
             }
+            if self.runtime_error.is_some() {
+                break;
+            }
+        }
+
+        if let Some(ref err) = self.runtime_error {
+            eprintln!("rawk: {err}");
+            return vec![];
         }
 
         if !self.exited {
@@ -1274,6 +1293,7 @@ impl<'a> Evaluator<'a> {
         }
 
         if index < 0 {
+            self.runtime_error = Some(format!("attempt to access field {index}"));
             return String::new();
         }
 
@@ -3573,6 +3593,46 @@ mod tests {
         let output = evaluator.eval();
 
         assert_eq!(output, vec!["b".to_string(), "$1str".to_string()]);
+    }
+
+    #[test]
+    fn eval_field_with_string_literal_index_returns_empty() {
+        // eval_numeric_expression returns None for a bare string literal,
+        // so $"abc" yields "" rather than coercing to $0 as strict AWK would.
+        let lexer = Lexer::new(r#"{ print $"abc" }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["hello world".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn eval_field_in_begin_block_returns_empty() {
+        // No current line exists in a BEGIN block, so all field accesses return "".
+        let lexer = Lexer::new("BEGIN { print $1 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn eval_negative_field_index_sets_runtime_error_and_returns_no_output() {
+        let lexer = Lexer::new("{ print $(-1) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["hello world".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(evaluator.runtime_error(), Some("attempt to access field -1"));
     }
 
     #[test]
