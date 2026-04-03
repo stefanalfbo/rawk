@@ -3574,4 +3574,76 @@ mod tests {
 
         assert_eq!(output, vec!["b".to_string(), "$1str".to_string()]);
     }
+
+    #[test]
+    fn eval_sin_of_zero_returns_zero() {
+        let lexer = Lexer::new("BEGIN { print sin(0) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["0".to_string()]);
+    }
+
+    #[test]
+    fn eval_sin_of_pi_over_two_returns_one() {
+        let lexer = Lexer::new("BEGIN { print sin(3.14159265358979 / 2) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn eval_cos_of_zero_returns_one() {
+        let lexer = Lexer::new("BEGIN { print cos(0) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn eval_cos_of_pi_returns_minus_one() {
+        let lexer = Lexer::new("BEGIN { print cos(3.14159265358979) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["-1".to_string()]);
+    }
+
+    #[test]
+    fn eval_srand_sets_seed_and_returns_it() {
+        let lexer = Lexer::new("BEGIN { print srand(42) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["42".to_string()]);
+    }
+
+    #[test]
+    fn eval_srand_affects_subsequent_rand_output() {
+        let lexer = Lexer::new("BEGIN { srand(1); r1 = rand(); srand(1); r2 = rand(); print (r1 == r2) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1".to_string()]);
+    }
 }
