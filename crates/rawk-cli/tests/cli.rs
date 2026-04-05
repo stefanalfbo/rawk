@@ -247,6 +247,18 @@ fn sub_with_invalid_regex_prints_error_to_stderr() {
 }
 
 #[test]
+fn unhandled_operator_in_expression_prints_error_to_stderr() {
+    let output = run_rawk("BEGIN { print (1 && 0) }");
+
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("cannot be applied to given operands"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn field_separator_short_flag_splits_fields() {
     let output = run_rawk_with_fs("-F", ",", "{ print $1 }");
 

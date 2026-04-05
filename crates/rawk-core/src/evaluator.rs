@@ -1121,9 +1121,17 @@ impl<'a> Evaluator<'a> {
                 {
                     format_awk_number(if value { 1.0 } else { 0.0 })
                 } else {
-                    self.eval_numeric_infix(left, operator, right)
-                        .map(format_awk_number)
-                        .unwrap_or_else(|| "not implemented".to_string())
+                    match self.eval_numeric_infix(left, operator, right) {
+                        Some(value) => format_awk_number(value),
+                        None if self.runtime_error.is_none() => {
+                            self.runtime_error = Some(format!(
+                                "operator '{}' cannot be applied to given operands",
+                                operator.literal
+                            ));
+                            String::new()
+                        }
+                        None => String::new(),
+                    }
                 }
             }
         }
@@ -3766,6 +3774,27 @@ mod tests {
             evaluator
                 .runtime_error()
                 .is_some_and(|e| e.starts_with("invalid regex in sub:")),
+            "unexpected error: {:?}",
+            evaluator.runtime_error()
+        );
+    }
+
+    #[test]
+    fn eval_unhandled_operator_in_expression_sets_runtime_error() {
+        // && in expression context (outside a condition) reaches the _ => None
+        // wildcard in eval_numeric_infix, which previously returned "not implemented".
+        let lexer = Lexer::new("BEGIN { print (1 && 0) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert!(
+            evaluator
+                .runtime_error()
+                .is_some_and(|e| e.contains("cannot be applied to given operands")),
             "unexpected error: {:?}",
             evaluator.runtime_error()
         );
