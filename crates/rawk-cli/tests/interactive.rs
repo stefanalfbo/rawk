@@ -105,6 +105,25 @@ fn print_filenames_with_filenames_builtin() {
 }
 
 #[test]
+fn interactive_mode_prints_runtime_error_to_stderr() {
+    let script = "{ print $1 / 0 }";
+    let input = b"42\n\xff";
+
+    let output = run_rawk_interactive(script, input);
+
+    assert!(
+        output.stdout.is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("division by zero"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn interactive_mode_reports_parse_errors_from_invalid_script() {
     let script = "{ else }";
 
