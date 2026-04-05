@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/stefanalfbo/rawk/compare/rawk-cli-v0.1.1...rawk-cli-v0.1.2) - 2026-04-05
+
+### Added
+
+- *(evaluator)* add error handling for unhandled operators in expressions
+- *(evaluator)* enhance runtime error handling for regex operations and update related tests
+- *(evaluator)* add runtime error handling for sqrt and log functions with invalid arguments
+- *(evaluator)* add runtime error handling for division by zero in arithmetic operations
+- *(evaluator)* add runtime error handling for negative field index access
+- *(cli)* add field separator option for input parsing and update related tests
+
 ## [0.1.1](https://github.com/stefanalfbo/rawk/compare/rawk-cli-v0.1.0...rawk-cli-v0.1.1) - 2026-03-22
 
 ### Added

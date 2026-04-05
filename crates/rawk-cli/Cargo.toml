@@ -1,6 +1,6 @@
 [package]
 name = "rawk-cli"
-version = "0.1.1"
+version = "0.1.2"
 description = "The rawk cli, which is an AWK interpreter clone. The goal is to be POSIX compatible."
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -18,4 +18,4 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }
-rawk-core = { version = "0.5.0", path = "../rawk-core" }
+rawk-core = { version = "0.6.0", path = "../rawk-core" }
