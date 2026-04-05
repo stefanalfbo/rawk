@@ -1680,6 +1680,12 @@ impl<'a> Evaluator<'a> {
             };
             let right_value = self.eval_numeric_expression(right).unwrap_or(0.0);
             let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
+            if matches!(operator.kind, TokenKind::DivideAssign | TokenKind::ModuloAssign)
+                && right_value == 0.0
+            {
+                self.runtime_error = Some("division by zero".to_string());
+                return None;
+            }
             let updated = match operator.kind {
                 TokenKind::Assign => right_value,
                 TokenKind::AddAssign => current + right_value,
@@ -1701,8 +1707,20 @@ impl<'a> Evaluator<'a> {
             TokenKind::Plus => Some(left_value + right_value),
             TokenKind::Minus => Some(left_value - right_value),
             TokenKind::Asterisk => Some(left_value * right_value),
-            TokenKind::Division => Some(left_value / right_value),
-            TokenKind::Percent => Some(left_value % right_value),
+            TokenKind::Division => {
+                if right_value == 0.0 {
+                    self.runtime_error = Some("division by zero".to_string());
+                    return None;
+                }
+                Some(left_value / right_value)
+            }
+            TokenKind::Percent => {
+                if right_value == 0.0 {
+                    self.runtime_error = Some("division by zero".to_string());
+                    return None;
+                }
+                Some(left_value % right_value)
+            }
             TokenKind::Caret => Some(left_value.powf(right_value)),
             TokenKind::GreaterThan => Some(if left_value > right_value { 1.0 } else { 0.0 }),
             TokenKind::GreaterThanOrEqual => {
@@ -3633,6 +3651,58 @@ mod tests {
 
         assert!(output.is_empty());
         assert_eq!(evaluator.runtime_error(), Some("attempt to access field -1"));
+    }
+
+    #[test]
+    fn eval_division_by_zero_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { print 1 / 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(evaluator.runtime_error(), Some("division by zero"));
+    }
+
+    #[test]
+    fn eval_modulo_by_zero_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { print 5 % 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(evaluator.runtime_error(), Some("division by zero"));
+    }
+
+    #[test]
+    fn eval_divide_assign_by_zero_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { x = 4; x /= 0; print x }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(evaluator.runtime_error(), Some("division by zero"));
+    }
+
+    #[test]
+    fn eval_modulo_assign_by_zero_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { x = 4; x %= 0; print x }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(evaluator.runtime_error(), Some("division by zero"));
     }
 
     #[test]
