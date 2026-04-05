@@ -1402,6 +1402,11 @@ impl<'a> Evaluator<'a> {
                     .first()
                     .and_then(|arg| self.eval_numeric_expression(arg))
                     .unwrap_or(0.0);
+                if value < 0.0 {
+                    self.runtime_error =
+                        Some(format!("sqrt called with negative argument {value}"));
+                    return String::new();
+                }
                 format_awk_number(value.sqrt())
             }
             "log" => {
@@ -1409,6 +1414,11 @@ impl<'a> Evaluator<'a> {
                     .first()
                     .and_then(|arg| self.eval_numeric_expression(arg))
                     .unwrap_or(0.0);
+                if value <= 0.0 {
+                    self.runtime_error =
+                        Some(format!("log called with non-positive argument {value}"));
+                    return String::new();
+                }
                 format_awk_number(value.ln())
             }
             "exp" => {
@@ -1479,14 +1489,30 @@ impl<'a> Evaluator<'a> {
                 )
             }
             "match" => Some(self.eval_match_function(args)),
-            "sqrt" => args
-                .first()
-                .and_then(|arg| self.eval_numeric_expression(arg))
-                .map(f64::sqrt),
-            "log" => args
-                .first()
-                .and_then(|arg| self.eval_numeric_expression(arg))
-                .map(f64::ln),
+            "sqrt" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                if value < 0.0 {
+                    self.runtime_error =
+                        Some(format!("sqrt called with negative argument {value}"));
+                    return None;
+                }
+                Some(value.sqrt())
+            }
+            "log" => {
+                let value = args
+                    .first()
+                    .and_then(|arg| self.eval_numeric_expression(arg))
+                    .unwrap_or(0.0);
+                if value <= 0.0 {
+                    self.runtime_error =
+                        Some(format!("log called with non-positive argument {value}"));
+                    return None;
+                }
+                Some(value.ln())
+            }
             "exp" => args
                 .first()
                 .and_then(|arg| self.eval_numeric_expression(arg))
@@ -3703,6 +3729,54 @@ mod tests {
 
         assert!(output.is_empty());
         assert_eq!(evaluator.runtime_error(), Some("division by zero"));
+    }
+
+    #[test]
+    fn eval_sqrt_of_negative_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { print sqrt(-1) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(
+            evaluator.runtime_error(),
+            Some("sqrt called with negative argument -1")
+        );
+    }
+
+    #[test]
+    fn eval_log_of_zero_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { print log(0) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(
+            evaluator.runtime_error(),
+            Some("log called with non-positive argument 0")
+        );
+    }
+
+    #[test]
+    fn eval_log_of_negative_sets_runtime_error() {
+        let lexer = Lexer::new("BEGIN { print log(-5) }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert_eq!(
+            evaluator.runtime_error(),
+            Some("log called with non-positive argument -5")
+        );
     }
 
     #[test]

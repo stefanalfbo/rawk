@@ -199,6 +199,30 @@ fn division_by_zero_prints_error_to_stderr() {
 }
 
 #[test]
+fn sqrt_of_negative_prints_error_to_stderr() {
+    let output = run_rawk("BEGIN { print sqrt(-1) }");
+
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("sqrt called with negative argument"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn log_of_non_positive_prints_error_to_stderr() {
+    let output = run_rawk("BEGIN { print log(0) }");
+
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("log called with non-positive argument"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn field_separator_short_flag_splits_fields() {
     let output = run_rawk_with_fs("-F", ",", "{ print $1 }");
 
