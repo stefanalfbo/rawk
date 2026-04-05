@@ -65,10 +65,14 @@ fn execute(script: &str, path: &path::Path, field_separator: Option<String>) -> 
     let awk = Awk::new(script)
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
     let filename = display_filename(path);
-    let output_lines = awk.run(input_lines, Some(filename), field_separator);
+    let (output_lines, runtime_error) = awk.run(input_lines, Some(filename), field_separator);
 
     for line in output_lines {
         println!("{}", line);
+    }
+
+    if let Some(err) = runtime_error {
+        eprintln!("rawk: {err}");
     }
 
     Ok(())
@@ -103,10 +107,15 @@ fn interactive_mode(script: &str, field_separator: Option<String>) {
             break;
         }
 
-        let output_lines = awk.run(vec![input.trim().to_string()], None, field_separator.clone());
+        let (output_lines, runtime_error) =
+            awk.run(vec![input.trim().to_string()], None, field_separator.clone());
 
         for line in output_lines {
             println!("{}", line);
+        }
+
+        if let Some(err) = runtime_error {
+            eprintln!("rawk: {err}");
         }
     }
 }

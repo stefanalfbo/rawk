@@ -223,6 +223,30 @@ fn log_of_non_positive_prints_error_to_stderr() {
 }
 
 #[test]
+fn gsub_with_invalid_regex_prints_error_to_stderr() {
+    let output = run_rawk(r#"{ gsub("[invalid", "x"); print }"#);
+
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("invalid regex in gsub:"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn sub_with_invalid_regex_prints_error_to_stderr() {
+    let output = run_rawk(r#"{ sub("[invalid", "x"); print }"#);
+
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("invalid regex in sub:"),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn field_separator_short_flag_splits_fields() {
     let output = run_rawk_with_fs("-F", ",", "{ print $1 }");
 

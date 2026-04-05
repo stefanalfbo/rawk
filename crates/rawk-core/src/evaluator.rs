@@ -101,9 +101,8 @@ impl<'a> Evaluator<'a> {
             }
         }
 
-        if let Some(ref err) = self.runtime_error {
-            eprintln!("rawk: {err}");
-            return vec![];
+        if self.runtime_error.is_some() {
+            return normalize_output_lines(output_lines);
         }
 
         let rules: Vec<Rule<'a>> = self.program.rules_iter().cloned().collect();
@@ -134,9 +133,8 @@ impl<'a> Evaluator<'a> {
             }
         }
 
-        if let Some(ref err) = self.runtime_error {
-            eprintln!("rawk: {err}");
-            return vec![];
+        if self.runtime_error.is_some() {
+            return normalize_output_lines(output_lines);
         }
 
         if !self.exited {
@@ -241,6 +239,7 @@ impl<'a> Evaluator<'a> {
             || self.break_loop
             || self.continue_loop
             || self.return_value.is_some()
+            || self.runtime_error.is_some()
     }
 
     fn should_break_loop_iteration(&self) -> bool {
@@ -649,6 +648,9 @@ impl<'a> Evaluator<'a> {
         for expression in expressions {
             parts.push(self.eval_expression(expression));
             output.extend(self.take_expression_output());
+            if self.runtime_error.is_some() {
+                return Vec::new();
+            }
         }
         let rendered = format!(
             "{pending_printf}{}",
@@ -998,8 +1000,8 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             _ => self.eval_expression(pattern),
         };
-        if Regex::new(&pattern).is_err() {
-            self.exited = true;
+        if let Err(err) = Regex::new(&pattern) {
+            self.runtime_error = Some(format!("invalid regex in gsub: {err}"));
             return;
         }
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
@@ -1039,8 +1041,8 @@ impl<'a> Evaluator<'a> {
             Expression::Regex(value) => value.to_string(),
             _ => self.eval_expression(pattern),
         };
-        if Regex::new(&pattern).is_err() {
-            self.exited = true;
+        if let Err(err) = Regex::new(&pattern) {
+            self.runtime_error = Some(format!("invalid regex in sub: {err}"));
             return;
         }
         let replacement = unescape_awk_string(&self.eval_expression(replacement));
@@ -3729,6 +3731,44 @@ mod tests {
 
         assert!(output.is_empty());
         assert_eq!(evaluator.runtime_error(), Some("division by zero"));
+    }
+
+    #[test]
+    fn eval_gsub_with_invalid_regex_sets_runtime_error() {
+        let lexer = Lexer::new(r#"{ gsub("[invalid", "x"); print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["hello".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert!(
+            evaluator
+                .runtime_error()
+                .is_some_and(|e| e.starts_with("invalid regex in gsub:")),
+            "unexpected error: {:?}",
+            evaluator.runtime_error()
+        );
+    }
+
+    #[test]
+    fn eval_sub_with_invalid_regex_sets_runtime_error() {
+        let lexer = Lexer::new(r#"{ sub("[invalid", "x"); print }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec!["hello".to_string()], "-");
+
+        let output = evaluator.eval();
+
+        assert!(output.is_empty());
+        assert!(
+            evaluator
+                .runtime_error()
+                .is_some_and(|e| e.starts_with("invalid regex in sub:")),
+            "unexpected error: {:?}",
+            evaluator.runtime_error()
+        );
     }
 
     #[test]
