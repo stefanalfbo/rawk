@@ -666,10 +666,10 @@ impl<'a> Evaluator<'a> {
     }
 
     fn eval_printf(&mut self, expressions: &[Expression<'_>]) -> String {
-        assert!(
-            !expressions.is_empty(),
-            "printf requires at least a format string"
-        );
+        if expressions.is_empty() {
+            self.runtime_error = Some("printf requires at least a format string".to_string());
+            return String::new();
+        }
 
         let format = self.eval_expression(&expressions[0]);
         let format = unescape_awk_string(&format);
@@ -3845,6 +3845,20 @@ mod tests {
         assert_eq!(
             evaluator.runtime_error(),
             Some("log called with non-positive argument -5")
+        );
+    }
+
+    #[test]
+    fn eval_printf_with_no_arguments_sets_runtime_error() {
+        let mut evaluator = Evaluator::new(Program::new(), vec![], "-");
+        let statement = Statement::Printf(vec![]);
+
+        let output = evaluator.eval_statement(&statement, None);
+
+        assert!(output.is_empty());
+        assert_eq!(
+            evaluator.runtime_error(),
+            Some("printf requires at least a format string")
         );
     }
 
