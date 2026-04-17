@@ -3919,4 +3919,28 @@ mod tests {
 
         assert_eq!(output, vec!["1".to_string()]);
     }
+
+    #[test]
+    fn eval_array_post_decrement_decreases_existing_value() {
+        let lexer = Lexer::new("BEGIN { a[1] = 5; a[1]--; print a[1] }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["4".to_string()]);
+    }
+
+    #[test]
+    fn eval_array_post_decrement_initializes_from_zero() {
+        let lexer = Lexer::new("BEGIN { a[\"x\"]--; print a[\"x\"] }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["-1".to_string()]);
+    }
 }
