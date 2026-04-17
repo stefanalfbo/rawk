@@ -3921,6 +3921,102 @@ mod tests {
     }
 
     #[test]
+    fn eval_numeric_function_call_int_truncates_positive_float() {
+        let lexer = Lexer::new("BEGIN { print int(3.9) + 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_int_truncates_negative_float() {
+        let lexer = Lexer::new("BEGIN { print int(-2.9) + 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["-2".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_exp_of_zero_returns_one() {
+        let lexer = Lexer::new("BEGIN { print exp(0) + 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["1".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_sqrt_of_perfect_square() {
+        let lexer = Lexer::new("BEGIN { print sqrt(9) + 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_log_of_one_returns_zero() {
+        let lexer = Lexer::new("BEGIN { print log(1) + 0 }");
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["0".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_index_returns_one_based_position() {
+        let lexer = Lexer::new(r#"BEGIN { print index("foobar", "bar") + 0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["4".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_index_returns_zero_when_not_found() {
+        let lexer = Lexer::new(r#"BEGIN { print index("foobar", "xyz") + 0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["0".to_string()]);
+    }
+
+    #[test]
+    fn eval_numeric_function_call_split_returns_field_count_in_arithmetic() {
+        let lexer = Lexer::new(r#"BEGIN { n = split("a:b:c", arr, ":"); print n + 0 }"#);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new(program, vec![], "-");
+
+        let output = evaluator.eval();
+
+        assert_eq!(output, vec!["3".to_string()]);
+    }
+
+    #[test]
     fn eval_array_post_decrement_decreases_existing_value() {
         let lexer = Lexer::new("BEGIN { a[1] = 5; a[1]--; print a[1] }");
         let mut parser = Parser::new(lexer);
