@@ -117,6 +117,7 @@ pub enum Statement<'a> {
     Sub {
         pattern: Expression<'a>,
         replacement: Expression<'a>,
+        target: Option<Expression<'a>>,
     },
     Gsub {
         pattern: Expression<'a>,
@@ -356,7 +357,14 @@ impl<'a> fmt::Display for Statement<'a> {
             Statement::Sub {
                 pattern,
                 replacement,
-            } => write!(f, "sub({}, {})", pattern, replacement),
+                target,
+            } => {
+                write!(f, "sub({}, {}", pattern, replacement)?;
+                if let Some(target) = target {
+                    write!(f, ", {target}")?;
+                }
+                write!(f, ")")
+            }
             Statement::Gsub {
                 pattern,
                 replacement,
