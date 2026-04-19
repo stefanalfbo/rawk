@@ -107,7 +107,7 @@ pub enum Statement<'a> {
     System(Expression<'a>),
     Split {
         string: Expression<'a>,
-        array: &'a str,
+        identifier: &'a str,
         separator: Option<Expression<'a>>,
     },
     Sub {
@@ -337,10 +337,10 @@ impl<'a> fmt::Display for Statement<'a> {
             Statement::System(command) => write!(f, "system({command})"),
             Statement::Split {
                 string,
-                array,
+                identifier,
                 separator,
             } => {
-                write!(f, "split({string}, {array}")?;
+                write!(f, "split({string}, {identifier}")?;
                 if let Some(separator) = separator {
                     write!(f, ", {separator}")?;
                 }

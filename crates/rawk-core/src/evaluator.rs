@@ -346,10 +346,10 @@ impl<'a> Evaluator<'a> {
             }
             Statement::Split {
                 string,
-                array,
+                identifier,
                 separator,
             } => {
-                self.eval_split(string, array, separator.as_ref());
+                self.eval_split(string, identifier, separator.as_ref());
                 Vec::new()
             }
             Statement::Sub {
@@ -1738,8 +1738,10 @@ impl<'a> Evaluator<'a> {
             };
             let right_value = self.eval_numeric_expression(right).unwrap_or(0.0);
             let current = parse_awk_numeric(&self.eval_identifier_expression(identifier));
-            if matches!(operator.kind, TokenKind::DivideAssign | TokenKind::ModuloAssign)
-                && right_value == 0.0
+            if matches!(
+                operator.kind,
+                TokenKind::DivideAssign | TokenKind::ModuloAssign
+            ) && right_value == 0.0
             {
                 self.runtime_error = Some("division by zero".to_string());
                 return None;
@@ -3694,7 +3696,10 @@ mod tests {
         let output = evaluator.eval();
 
         assert!(output.is_empty());
-        assert_eq!(evaluator.runtime_error(), Some("attempt to access field -1"));
+        assert_eq!(
+            evaluator.runtime_error(),
+            Some("attempt to access field -1")
+        );
     }
 
     #[test]
@@ -3932,7 +3937,8 @@ mod tests {
 
     #[test]
     fn eval_srand_affects_subsequent_rand_output() {
-        let lexer = Lexer::new("BEGIN { srand(1); r1 = rand(); srand(1); r2 = rand(); print (r1 == r2) }");
+        let lexer =
+            Lexer::new("BEGIN { srand(1); r1 = rand(); srand(1); r2 = rand(); print (r1 == r2) }");
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let mut evaluator = Evaluator::new(program, vec![], "-");

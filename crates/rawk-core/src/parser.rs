@@ -659,7 +659,7 @@ impl<'a> Parser<'a> {
         if self.current_token.kind != TokenKind::Identifier {
             return Err(self.expected_identifier());
         }
-        let array = self.current_token.literal;
+        let identifier = self.current_token.literal;
         self.next_token();
         let separator = if self.current_token.kind == TokenKind::Comma {
             self.next_token_in_regex_context();
@@ -673,7 +673,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         Ok(Statement::Split {
             string,
-            array,
+            identifier,
             separator,
         })
     }
