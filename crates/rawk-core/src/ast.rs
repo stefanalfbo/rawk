@@ -63,24 +63,24 @@ impl<'a> Default for Program<'a> {
 
 impl<'a> fmt::Display for Program<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut written = false;
+
         for action in &self.begin_blocks {
             write!(f, "BEGIN {action}")?;
+            written = true;
         }
 
-        // Add space between begin blocks and rules if both exist
-        if !self.begin_blocks.is_empty() && !self.rules.is_empty() {
+        if written && !self.rules.is_empty() {
             write!(f, " ")?;
         }
-
         for rule in &self.rules {
             write!(f, "{rule}")?;
+            written = true;
         }
 
-        // Add space between rules and end blocks if both exist
-        if !self.rules.is_empty() && !self.end_blocks.is_empty() {
+        if written && !self.end_blocks.is_empty() {
             write!(f, " ")?;
         }
-
         for action in &self.end_blocks {
             write!(f, "END {action}")?;
         }
@@ -689,6 +689,23 @@ mod tests {
         };
 
         assert!(program.end_blocks.len() == 1);
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_begin_and_end_block_without_rules() {
+        let expected_string = "BEGIN { print } END { print }";
+        let program = Program {
+            begin_blocks: vec![Action {
+                statements: vec![Statement::Print(vec![])],
+            }],
+            rules: vec![],
+            end_blocks: vec![Action {
+                statements: vec![Statement::Print(vec![])],
+            }],
+            function_definitions: vec![],
+        };
+
         assert_eq!(expected_string, program.to_string());
     }
 
