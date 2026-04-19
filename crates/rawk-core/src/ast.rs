@@ -221,19 +221,16 @@ pub struct FunctionDefinition<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rule<'a> {
-    Begin(Action<'a>),
     Action(Action<'a>),
     PatternAction {
         pattern: Option<Expression<'a>>,
         action: Option<Action<'a>>,
     },
-    End(Action<'a>),
 }
 
 impl<'a> fmt::Display for Rule<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Rule::Begin(action) => write!(f, "BEGIN {}", action),
             Rule::Action(action) => write!(f, "{}", action),
             Rule::PatternAction { pattern, action } => match (pattern, action) {
                 (Some(expr), Some(action)) => write!(f, "{} {}", expr, action),
@@ -241,7 +238,6 @@ impl<'a> fmt::Display for Rule<'a> {
                 (None, Some(action)) => write!(f, "{}", action),
                 (None, None) => write!(f, ""),
             },
-            Rule::End(action) => write!(f, "END {}", action),
         }
     }
 }
@@ -707,24 +703,6 @@ mod tests {
         };
 
         assert_eq!(expected_string, program.to_string());
-    }
-
-    #[test]
-    fn test_begin_rule_display() {
-        let rule = Rule::Begin(Action {
-            statements: vec![Statement::Print(vec![])],
-        });
-
-        assert_eq!("BEGIN { print }", rule.to_string());
-    }
-
-    #[test]
-    fn test_end_rule_display() {
-        let rule = Rule::End(Action {
-            statements: vec![Statement::Print(vec![])],
-        });
-
-        assert_eq!("END { print }", rule.to_string());
     }
 
     #[test]

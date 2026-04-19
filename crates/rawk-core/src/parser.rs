@@ -5,6 +5,12 @@ use crate::{
     token::{Token, TokenKind},
 };
 
+enum ParsedItem<'a> {
+    BeginBlock(Action<'a>),
+    EndBlock(Action<'a>),
+    Rule(Rule<'a>),
+}
+
 #[derive(Debug)]
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -186,7 +192,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_next_rule(&mut self) -> Result<Option<Rule<'a>>, ParseError<'a>> {
+    fn parse_next_rule(&mut self) -> Result<Option<ParsedItem<'a>>, ParseError<'a>> {
         match &self.current_token.kind {
             TokenKind::Begin => {
                 self.next_token();
@@ -194,16 +200,16 @@ impl<'a> Parser<'a> {
                     return Err(self.expected_left_brace());
                 }
                 let action = self.parse_action()?;
-                Ok(Some(Rule::Begin(action)))
+                Ok(Some(ParsedItem::BeginBlock(action)))
             }
             TokenKind::NewLine => {
                 self.next_token_in_regex_context();
                 self.parse_next_rule()
             }
             TokenKind::Eof => Ok(None),
-            TokenKind::LeftCurlyBrace => {
-                self.parse_action().map(|action| Some(Rule::Action(action)))
-            }
+            TokenKind::LeftCurlyBrace => self
+                .parse_action()
+                .map(|action| Some(ParsedItem::Rule(Rule::Action(action)))),
             TokenKind::Function => {
                 self.parse_function_definition()?;
                 Ok(None)
@@ -214,7 +220,7 @@ impl<'a> Parser<'a> {
                     return Err(self.expected_left_brace());
                 }
                 let action = self.parse_action()?;
-                Ok(Some(Rule::End(action)))
+                Ok(Some(ParsedItem::EndBlock(action)))
             }
             TokenKind::Regex
             | TokenKind::String
@@ -243,7 +249,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_pattern_rule(&mut self) -> Result<Option<Rule<'a>>, ParseError<'a>> {
+    fn parse_pattern_rule(&mut self) -> Result<Option<ParsedItem<'a>>, ParseError<'a>> {
         let mut pattern = self.parse_expression()?;
         if self.current_token.kind == TokenKind::Comma {
             let operator = self.current_token.clone();
@@ -259,15 +265,15 @@ impl<'a> Parser<'a> {
 
         if self.current_token.kind == TokenKind::LeftCurlyBrace {
             let action = self.parse_action()?;
-            Ok(Some(Rule::PatternAction {
+            Ok(Some(ParsedItem::Rule(Rule::PatternAction {
                 pattern,
                 action: Some(action),
-            }))
+            })))
         } else {
-            Ok(Some(Rule::PatternAction {
+            Ok(Some(ParsedItem::Rule(Rule::PatternAction {
                 pattern,
                 action: None,
-            }))
+            })))
         }
     }
 
@@ -1443,9 +1449,9 @@ impl<'a> Parser<'a> {
 
         while !self.is_eof() {
             match self.parse_next_rule()? {
-                Some(Rule::Begin(action)) => program.add_begin_block(action),
-                Some(Rule::End(action)) => program.add_end_block(action),
-                Some(rule) => program.add_rule(rule),
+                Some(ParsedItem::BeginBlock(action)) => program.add_begin_block(action),
+                Some(ParsedItem::EndBlock(action)) => program.add_end_block(action),
+                Some(ParsedItem::Rule(rule)) => program.add_rule(rule),
                 None => {}
             }
             self.next_token_in_regex_context();

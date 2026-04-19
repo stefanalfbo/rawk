@@ -199,7 +199,6 @@ impl<'a> Evaluator<'a> {
                     output
                 }
             }
-            _ => Vec::new(),
         }
     }
 
@@ -2765,20 +2764,6 @@ mod tests {
                 statements: vec![Statement::Print(vec![Expression::String("unexpected")])],
             }),
         };
-        let mut range_active = false;
-
-        let output = evaluator.eval_rule_for_line(&rule, "input", &mut range_active);
-
-        assert!(output.is_empty());
-        assert!(!range_active);
-    }
-
-    #[test]
-    fn eval_rule_for_line_ignores_begin_rules_during_record_processing() {
-        let mut evaluator = Evaluator::new(Program::new(), vec![], "-");
-        let rule = Rule::Begin(Action {
-            statements: vec![Statement::Print(vec![Expression::String("unexpected")])],
-        });
         let mut range_active = false;
 
         let output = evaluator.eval_rule_for_line(&rule, "input", &mut range_active);
