@@ -24,10 +24,6 @@ impl<'a> Program<'a> {
         self.rules.len() + self.begin_blocks.len() + self.end_blocks.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.rules.is_empty()
-    }
-
     pub fn add_begin_block(&mut self, action: Action<'a>) {
         self.begin_blocks.push(action);
     }
@@ -615,13 +611,6 @@ impl<'a> fmt::Display for Expression<'a> {
 mod tests {
     use super::*;
     use crate::token::TokenKind;
-
-    #[test]
-    fn test_empty_program_creation() {
-        let program = Program::default();
-
-        assert!(program.is_empty());
-    }
 
     #[test]
     fn test_add_block_to_program() {
