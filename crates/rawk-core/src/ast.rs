@@ -20,10 +20,6 @@ impl<'a> Program<'a> {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.rules.len() + self.begin_blocks.len() + self.end_blocks.len()
-    }
-
     pub fn add_begin_block(&mut self, action: Action<'a>) {
         self.begin_blocks.push(action);
     }
@@ -641,7 +637,7 @@ mod tests {
         });
         program.add_rule(rule);
 
-        assert_eq!(program.len(), 1);
+        assert_eq!(program.rules.len(), 1);
     }
 
     #[test]
@@ -676,7 +672,7 @@ mod tests {
             function_definitions: vec![],
         };
 
-        assert!(program.len() == 1);
+        assert!(program.begin_blocks.len() == 1);
         assert_eq!(expected_string, program.to_string());
     }
 
@@ -692,7 +688,7 @@ mod tests {
             function_definitions: vec![],
         };
 
-        assert!(program.len() == 1);
+        assert!(program.end_blocks.len() == 1);
         assert_eq!(expected_string, program.to_string());
     }
 
@@ -729,7 +725,6 @@ mod tests {
             function_definitions: vec![],
         };
 
-        assert!(program.len() == 1);
         assert_eq!(expected_string, program.to_string());
     }
 

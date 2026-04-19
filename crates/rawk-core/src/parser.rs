@@ -1571,15 +1571,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_empty_program() {
-        let mut parser = Parser::new(Lexer::new(""));
-
-        let program = parser.parse_program();
-
-        assert_eq!(program.len(), 0);
-    }
-
-    #[test]
     fn parse_statement_with_unhandled_token_returns_parse_error() {
         let mut parser = Parser::new(Lexer::new("BEGIN { else }"));
 
@@ -1805,7 +1796,6 @@ mod tests {
 
         let program = parser.parse_program();
 
-        assert_eq!(program.len(), 1);
         assert_eq!("{ print }", program.to_string());
     }
 
@@ -1815,7 +1805,6 @@ mod tests {
 
         let program = parser.parse_program();
 
-        assert_eq!(program.len(), 1);
         assert_eq!("{ print }", program.to_string());
     }
 
@@ -1825,7 +1814,6 @@ mod tests {
 
         let program = parser.parse_program();
 
-        assert_eq!(program.len(), 1);
         assert_eq!("BEGIN { print }", program.to_string());
     }
 
@@ -1835,7 +1823,6 @@ mod tests {
 
         let program = parser.parse_program();
 
-        assert_eq!(program.len(), 1);
         assert_eq!("END { print 42 }", program.to_string());
     }
 
@@ -1845,7 +1832,6 @@ mod tests {
 
         let program = parser.parse_program();
 
-        assert_eq!(program.len(), 1);
         assert_eq!("/foo/ { print }", program.to_string());
     }
 
