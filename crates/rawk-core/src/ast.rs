@@ -274,7 +274,6 @@ impl<'a> fmt::Display for Statement<'a> {
                         "print {}",
                         expressions
                             .iter()
-                            .filter(|expr| *expr != &Expression::String(" "))
                             .map(|expr| expr.to_string())
                             .collect::<Vec<String>>()
                             .join(", ")
@@ -737,9 +736,7 @@ mod tests {
                 action: Some(Action {
                     statements: vec![Statement::Print(vec![
                         Expression::Identifier("NF"),
-                        Expression::String(" "),
                         Expression::Field(Box::new(Expression::Number(2.0))),
-                        Expression::String(" "),
                         Expression::Field(Box::new(Expression::Number(3.0))),
                     ])],
                 }),
@@ -854,7 +851,6 @@ mod tests {
     fn test_print_statement_with_length_expression_display() {
         let statement = Statement::Print(vec![
             Expression::Length(None),
-            Expression::String(" "),
             Expression::Field(Box::new(Expression::Number(0.0))),
         ]);
 
