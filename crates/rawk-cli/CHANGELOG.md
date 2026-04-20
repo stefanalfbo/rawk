@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/stefanalfbo/rawk/compare/rawk-cli-v0.1.2...rawk-cli-v0.1.3) - 2026-04-20
+
+### Added
+
+- *(evaluator)* add target argument to sub and gsub statements
+- *(tests)* add test for runtime error handling on division by zero in interactive mode
+
 ## [0.1.2](https://github.com/stefanalfbo/rawk/compare/rawk-cli-v0.1.1...rawk-cli-v0.1.2) - 2026-04-05
 
 ### Added

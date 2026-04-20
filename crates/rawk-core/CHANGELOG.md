@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/stefanalfbo/rawk/compare/rawk-core-v0.6.0...rawk-core-v0.7.0) - 2026-04-20
+
+### Added
+
+- *(ast)* improve display formatting for Program and add test for begin/end blocks without rules
+- *(evaluator)* add target argument to sub and gsub statements
+- *(tests)* add runtime error handling for printf with no arguments
+- *(tests)* add tests for numeric function calls in evaluator
+- *(tests)* add tests for array post-decrement behavior in evaluator
+
+### Other
+
+- *(ast)* implement fmt::Display for FunctionDefinition and add related tests
+- *(ast, parser, evaluator)* replace Rule::Action with Rule::PatternAction for improved structure
+- *(ast)* optimize fmt::Display implementation for Program and add test for multiple begin blocks
+- *(tests, display)* remove unnecessary String expressions from Print statements
+- *(ast, evaluator, parser)* simplify HexNumber representation and update related expressions
+- *(parser, evaluator)* rename 'array' to 'identifier' in Split statement for clarity
+- *(parser)* replace Rule enum with ParsedItem for better structure and clarity
+- *(tests)* replace len() checks with specific field length assertions
+- *(program)* remove is_empty method and associated test
+
 ## [0.6.0](https://github.com/stefanalfbo/rawk/compare/rawk-core-v0.5.0...rawk-core-v0.6.0) - 2026-04-05
 
 ### Added
