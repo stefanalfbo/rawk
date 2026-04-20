@@ -218,7 +218,6 @@ pub struct FunctionDefinition<'a> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rule<'a> {
-    Action(Action<'a>),
     PatternAction {
         pattern: Option<Expression<'a>>,
         action: Option<Action<'a>>,
@@ -228,7 +227,6 @@ pub enum Rule<'a> {
 impl<'a> fmt::Display for Rule<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Rule::Action(action) => write!(f, "{}", action),
             Rule::PatternAction { pattern, action } => match (pattern, action) {
                 (Some(expr), Some(action)) => write!(f, "{} {}", expr, action),
                 (Some(expr), None) => write!(f, "{}", expr),
@@ -621,9 +619,12 @@ mod tests {
     fn test_add_rule_to_program() {
         let mut program = Program::new();
 
-        let rule = Rule::Action(Action {
-            statements: vec![Statement::Print(vec![])],
-        });
+        let rule = Rule::PatternAction {
+            pattern: None,
+            action: Some(Action {
+                statements: vec![Statement::Print(vec![])],
+            }),
+        };
         program.add_rule(rule);
 
         assert_eq!(program.rules.len(), 1);

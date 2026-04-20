@@ -207,9 +207,12 @@ impl<'a> Parser<'a> {
                 self.parse_next_rule()
             }
             TokenKind::Eof => Ok(None),
-            TokenKind::LeftCurlyBrace => self
-                .parse_action()
-                .map(|action| Some(ParsedItem::Rule(Rule::Action(action)))),
+            TokenKind::LeftCurlyBrace => self.parse_action().map(|action| {
+                Some(ParsedItem::Rule(Rule::PatternAction {
+                    pattern: None,
+                    action: Some(action),
+                }))
+            }),
             TokenKind::Function => {
                 self.parse_function_definition()?;
                 Ok(None)
@@ -2023,7 +2026,10 @@ mod tests {
         let rule = rules.next().expect("expected rule");
 
         let statements = match rule {
-            Rule::Action(Action { statements }) => statements,
+            Rule::PatternAction {
+                pattern: None,
+                action: Some(Action { statements }),
+            } => statements,
             _ => panic!("expected action rule"),
         };
 
@@ -2039,7 +2045,10 @@ mod tests {
         let rule = rules.next().expect("expected rule");
 
         let statements = match rule {
-            Rule::Action(Action { statements }) => statements,
+            Rule::PatternAction {
+                pattern: None,
+                action: Some(Action { statements }),
+            } => statements,
             _ => panic!("expected action rule"),
         };
 
@@ -2067,7 +2076,10 @@ mod tests {
         let rule = rules.next().expect("expected rule");
 
         let statements = match rule {
-            Rule::Action(Action { statements }) => statements,
+            Rule::PatternAction {
+                pattern: None,
+                action: Some(Action { statements }),
+            } => statements,
             _ => panic!("expected action rule"),
         };
 

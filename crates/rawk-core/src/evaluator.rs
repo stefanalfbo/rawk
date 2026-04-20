@@ -180,7 +180,6 @@ impl<'a> Evaluator<'a> {
         range_active: &mut bool,
     ) -> Vec<String> {
         match rule {
-            Rule::Action(action) => self.eval_action(action, Some(input_line)),
             Rule::PatternAction { pattern, action } => {
                 let matches = match pattern.as_ref() {
                     Some(expr) => self.eval_pattern_condition(expr, range_active),
