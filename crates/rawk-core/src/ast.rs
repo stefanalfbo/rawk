@@ -216,6 +216,20 @@ pub struct FunctionDefinition<'a> {
     pub statements: Vec<Statement<'a>>,
 }
 
+impl<'a> fmt::Display for FunctionDefinition<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "function {}({}) {}",
+            self.name,
+            self.parameters.join(", "),
+            Action {
+                statements: self.statements.clone()
+            }
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rule<'a> {
     PatternAction {
@@ -1109,5 +1123,71 @@ mod tests {
         };
 
         assert_eq!(r#"pop["Asia"] += $3"#, statement.to_string());
+    }
+
+    #[test]
+    fn test_multiple_end_blocks() {
+        let expected_string = "END { print } END { print }";
+        let program = Program {
+            begin_blocks: vec![],
+            rules: vec![],
+            end_blocks: vec![
+                Action {
+                    statements: vec![Statement::Print(vec![])],
+                },
+                Action {
+                    statements: vec![Statement::Print(vec![])],
+                },
+            ],
+            function_definitions: vec![],
+        };
+
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_split_assignment_statement_display() {
+        let statement = Statement::SplitAssignment {
+            identifier: "n",
+            string: Expression::Field(Box::new(Expression::Number(0.0))),
+            array: "a",
+            separator: None,
+        };
+
+        assert_eq!("n = split($0, a)", statement.to_string());
+    }
+
+    #[test]
+    fn test_split_assignment_with_separator_statement_display() {
+        let statement = Statement::SplitAssignment {
+            identifier: "n",
+            string: Expression::Field(Box::new(Expression::Number(0.0))),
+            array: "a",
+            separator: Some(Expression::String(":")),
+        };
+
+        assert_eq!(r#"n = split($0, a, ":")"#, statement.to_string());
+    }
+
+    #[test]
+    fn test_function_definition_display() {
+        let definition = FunctionDefinition {
+            name: "max",
+            parameters: vec!["a", "b"],
+            statements: vec![Statement::Return(Some(Expression::Ternary {
+                condition: Box::new(Expression::Infix {
+                    left: Box::new(Expression::Identifier("a")),
+                    operator: Token::new(TokenKind::GreaterThan, ">", 0),
+                    right: Box::new(Expression::Identifier("b")),
+                }),
+                then_expr: Box::new(Expression::Identifier("a")),
+                else_expr: Box::new(Expression::Identifier("b")),
+            }))],
+        };
+
+        assert_eq!(
+            "function max(a, b) { return (a > b) ? a : b }",
+            definition.to_string()
+        );
     }
 }
