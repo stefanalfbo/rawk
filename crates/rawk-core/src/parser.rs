@@ -78,8 +78,8 @@ impl<'a> Parser<'a> {
             .strip_prefix("0x")
             .or_else(|| literal.strip_prefix("0X"))
         {
-            let value = u64::from_str_radix(hex_digits, 16).ok()? as f64;
-            return Some(Expression::HexNumber { literal, value });
+            u64::from_str_radix(hex_digits, 16).ok()?;
+            return Some(Expression::HexNumber(literal));
         }
 
         literal.parse::<f64>().ok().map(Expression::Number)

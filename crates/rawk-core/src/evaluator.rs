@@ -685,7 +685,7 @@ impl<'a> Evaluator<'a> {
     fn eval_printf_argument(&mut self, expression: &Expression<'_>) -> String {
         match expression {
             Expression::Number(_)
-            | Expression::HexNumber { .. }
+            | Expression::HexNumber(_)
             | Expression::Infix { .. }
             | Expression::Rand
             | Expression::Length(_) => self
@@ -1080,7 +1080,7 @@ impl<'a> Evaluator<'a> {
         match expression {
             Expression::String(value) => unescape_awk_string(value),
             Expression::Number(value) => format_awk_number(*value),
-            Expression::HexNumber { value, .. } => format_awk_number(*value),
+            Expression::HexNumber(literal) => format_awk_number(parse_hex_literal(literal)),
             Expression::Regex(value) => value.to_string(),
             Expression::Field(inner) => self.eval_field_expression(inner),
             Expression::Identifier(identifier) => self.eval_identifier_expression(identifier),
@@ -1797,7 +1797,7 @@ impl<'a> Evaluator<'a> {
     fn eval_numeric_expression(&mut self, expression: &Expression<'_>) -> Option<f64> {
         match expression {
             Expression::Number(value) => Some(*value),
-            Expression::HexNumber { value, .. } => Some(*value),
+            Expression::HexNumber(literal) => Some(parse_hex_literal(literal)),
             Expression::Identifier(identifier) => Some(
                 self.numeric_variables
                     .get(*identifier)
@@ -1954,7 +1954,7 @@ impl<'a> Evaluator<'a> {
                 ComparisonOperand { text, numeric }
             }
             Expression::Number(_)
-            | Expression::HexNumber { .. }
+            | Expression::HexNumber(_)
             | Expression::Infix { .. }
             | Expression::Length(_)
             | Expression::Rand => {
@@ -2726,6 +2726,14 @@ fn split_with_regex(source: &str, pattern: &str) -> Vec<String> {
     }
     fields.push(source[last_end..].to_string());
     fields
+}
+
+fn parse_hex_literal(literal: &str) -> f64 {
+    let hex_digits = literal
+        .strip_prefix("0x")
+        .or_else(|| literal.strip_prefix("0X"))
+        .unwrap_or(literal);
+    u64::from_str_radix(hex_digits, 16).unwrap_or(0) as f64
 }
 
 fn format_awk_number(value: f64) -> String {
