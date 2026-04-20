@@ -63,29 +63,26 @@ impl<'a> Default for Program<'a> {
 
 impl<'a> fmt::Display for Program<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut written = false;
+        let begin: Vec<String> = self
+            .begin_blocks
+            .iter()
+            .map(|a| format!("BEGIN {a}"))
+            .collect();
+        let rules: Vec<String> = self.rules.iter().map(|r| r.to_string()).collect();
+        let end: Vec<String> = self
+            .end_blocks
+            .iter()
+            .map(|a| format!("END {a}"))
+            .collect();
 
-        for action in &self.begin_blocks {
-            write!(f, "BEGIN {action}")?;
-            written = true;
-        }
+        let parts: Vec<&str> = begin
+            .iter()
+            .chain(rules.iter())
+            .chain(end.iter())
+            .map(|s| s.as_str())
+            .collect();
 
-        if written && !self.rules.is_empty() {
-            write!(f, " ")?;
-        }
-        for rule in &self.rules {
-            write!(f, "{rule}")?;
-            written = true;
-        }
-
-        if written && !self.end_blocks.is_empty() {
-            write!(f, " ")?;
-        }
-        for action in &self.end_blocks {
-            write!(f, "END {action}")?;
-        }
-
-        Ok(())
+        write!(f, "{}", parts.join(" "))
     }
 }
 
@@ -681,6 +678,26 @@ mod tests {
         };
 
         assert!(program.end_blocks.len() == 1);
+        assert_eq!(expected_string, program.to_string());
+    }
+
+    #[test]
+    fn test_multiple_begin_blocks() {
+        let expected_string = "BEGIN { print } BEGIN { print }";
+        let program = Program {
+            begin_blocks: vec![
+                Action {
+                    statements: vec![Statement::Print(vec![])],
+                },
+                Action {
+                    statements: vec![Statement::Print(vec![])],
+                },
+            ],
+            rules: vec![],
+            end_blocks: vec![],
+            function_definitions: vec![],
+        };
+
         assert_eq!(expected_string, program.to_string());
     }
 
